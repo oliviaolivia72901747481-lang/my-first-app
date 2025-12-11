@@ -28,25 +28,28 @@
         }
         button:active { transform: scale(0.95); }
         
-        .btn-a { background-color: #FF6384; } /* 红 */
-        .btn-b { background-color: #36A2EB; } /* 蓝 */
-        .btn-c { background-color: #FFCE56; } /* 黄 */
-        .btn-d { background-color: #4BC0C0; } /* 绿 */
+        .btn-a { background-color: #FF6384; }
+        .btn-b { background-color: #36A2EB; }
+        .btn-c { background-color: #FFCE56; }
+        .btn-d { background-color: #4BC0C0; }
 
         /* 图表区域 */
         .chart-container {
             position: relative;
-            height: 300px;
+            height: 400px; /* 增加高度确保可见 */
             width: 100%;
             margin-top: 30px;
         }
         
-        /* 重置按钮 */
         .reset-btn {
             margin-top: 30px;
             background-color: #666;
+            color: white;
             padding: 10px 20px;
             font-size: 1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -69,83 +72,91 @@
 
     <script>
         // ================= 配置区域 =================
+        // ⚠️ 请务必确认这里填入的是正确的 URL 和 Key
         const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co' 
         const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h'
         // ===========================================
 
-        const supabase = supabase.createClient(supabaseUrl, supabaseKey)
+        // 1. 【修复点】改名为 supabaseClient，避免冲突
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey)
         
-        // 1. 初始化图表
+        // 2. 初始化图表
+        // 我们把图表初始化放在最前面，确保无论数据库连没连上，空图表都要先显示出来
         const ctx = document.getElementById('myChart').getContext('2d');
         const myChart = new Chart(ctx, {
-            type: 'bar', // 柱状图
+            type: 'bar',
             data: {
                 labels: ['选项 A', '选项 B', '选项 C', '选项 D'],
                 datasets: [{
                     label: '得票数',
-                    data: [0, 0, 0, 0], // 初始数据
-                    backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0']
+                    data: [0, 0, 0, 0], 
+                    backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0'],
+                    borderWidth: 1
                 }]
             },
             options: {
-                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                responsive: true,
+                maintainAspectRatio: false, // 让图表自适应容器高度
+                scales: {
+                    y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                }
             }
         });
 
-        // 本地保存当前数据，方便计算
         let currentData = { count_a: 0, count_b: 0, count_c: 0, count_d: 0 };
 
-        // 2. 获取初始数据
+        // 3. 获取初始数据
         async function fetchInitialData() {
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
                 .from('counter')
-                .select('*') // 查所有列
+                .select('*')
                 .eq('id', 1)
                 .single()
 
             if (data) {
                 updateLocalData(data)
+            } else {
+                console.error("获取数据失败:", error)
             }
         }
 
-        // 3. 实时监听数据库变化
-        supabase
+        // 4. 实时监听
+        supabaseClient
             .channel('vote-channel')
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'counter' }, payload => {
-                console.log('数据变了:', payload.new)
+                console.log('收到新票数:', payload.new)
                 updateLocalData(payload.new)
             })
             .subscribe()
 
-        // 更新图表和本地变量的辅助函数
         function updateLocalData(data) {
             currentData = data;
-            // 更新图表数据
             myChart.data.datasets[0].data = [data.count_a, data.count_b, data.count_c, data.count_d];
-            myChart.update(); // 让图表重绘
+            myChart.update();
         }
 
-        // 4. 投票功能
         async function vote(columnName) {
-            // 乐观更新：先假装加了1，让用户觉得快
-            // (注意：高并发下最好用 Supabase 的 RPC 函数，但教学演示这样写最简单)
             const newValue = currentData[columnName] + 1
-            
-            // 构造一个动态对象，比如 { count_a: 5 }
             const updateObj = {}
             updateObj[columnName] = newValue
 
-            const { error } = await supabase
+            // 乐观更新（让按钮反应快一点）
+            currentData[columnName] = newValue;
+            myChart.data.datasets[0].data = [currentData.count_a, currentData.count_b, currentData.count_c, currentData.count_d];
+            myChart.update();
+
+            const { error } = await supabaseClient
                 .from('counter')
                 .update(updateObj)
                 .eq('id', 1)
+            
+            if (error) console.error("投票失败:", error)
         }
 
-        // 5. 管理员重置功能
         async function resetVotes() {
             if(!confirm("确定要清空所有投票吗？")) return;
             
-            await supabase
+            await supabaseClient
                 .from('counter')
                 .update({ count_a: 0, count_b: 0, count_c: 0, count_d: 0 })
                 .eq('id', 1)
