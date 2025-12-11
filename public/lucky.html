@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ 随机点名神器 (音效增强版)</title>
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            overflow: hidden;
+        }
+
+        /* 顶部功能栏 */
+        .top-bar {
+            position: absolute;
+            top: 20px;
+            display: flex;
+            gap: 15px;
+            z-index: 10;
+            align-items: center;
+        }
+
+        select {
+            padding: 10px 20px;
+            font-size: 1.2rem;
+            border-radius: 25px;
+            border: none;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            -webkit-backdrop-filter: blur(5px);
+            backdrop-filter: blur(5px);
+            cursor: pointer;
+            outline: none;
+            font-weight: bold;
+        }
+        select option { background: #333; color: white; }
+
+        /* 顶部按钮通用样式 */
+        .icon-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        .icon-btn:hover { background: rgba(255,255,255,0.4); }
+
+        /* 核心显示区 */
+        #display-area {
+            font-size: 8rem;
+            font-weight: bold;
+            text-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            margin-bottom: 50px;
+            min-height: 160px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .highlight {
+            color: #FFD700;
+            transform: scale(1.2);
+            transition: all 0.2s;
+            text-shadow: 0 0 20px #FFD700;
+        }
+
+        /* 开始按钮 */
+        #action-btn {
+            padding: 20px 60px;
+            font-size: 2rem;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            background: white;
+            color: #333;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+            font-weight: bold;
+        }
+        #action-btn:active { transform: scale(0.95); }
+        #action-btn.stop { background: #ff4757; color: white; }
+
+        /* 设置面板 */
+        #settings-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            color: #333;
+            display: none;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            z-index: 100;
+            width: 350px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; box-shadow: none; }
+        
+        .class-manager { display: flex; gap: 5px; margin-bottom: 15px; }
+        .class-manager input { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 5px; }
+        .btn-small { padding: 8px 12px; font-size: 14px; border: none; border-radius: 5px; cursor: pointer; background: #2563eb; color: white; }
+        .btn-danger { background: #ff4757; margin-top: 10px; width: 100%; }
+
+        textarea { width: 100%; height: 200px; margin-bottom: 10px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; box-sizing: border-box; }
+        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; z-index: 99; }
+    </style>
+</head>
+<body>
+
+    <div class="top-bar">
+        <select id="class-select" onchange="switchClass()" aria-label="选择班级" title="选择班级"></select>
+        
+        <button id="mute-btn" class="icon-btn" onclick="toggleMute()" title="开关声音">🔊</button>
+        
+        <button class="icon-btn" onclick="toggleSettings()" title="班级管理">⚙️</button>
+    </div>
+
+    <div id="display-area">准备点名</div>
+
+    <button id="action-btn" onclick="toggleRoll()">开始</button>
+
+    <div id="overlay" onclick="toggleSettings()"></div>
+    <div id="settings-panel">
+        <div class="panel-header">
+            <h3>🏫 班级名单管理</h3>
+            <button class="close-btn" onclick="toggleSettings()">×</button>
+        </div>
+        <div class="class-manager">
+            <input type="text" id="new-class-name" placeholder="新班级名称 (如: 环工2301)">
+            <button class="btn-small" onclick="addNewClass()">新建</button>
+        </div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+        <p style="font-size:14px; color:#666; margin-bottom: 5px;">
+            正在编辑：<strong id="editing-class-name" style="color:#2563eb;">--</strong>
+        </p>
+        <textarea id="name-input" placeholder="请在此处粘贴名单，一行一个名字"></textarea>
+        <button class="btn-small" onclick="saveCurrentList()" style="width:100%; font-size:16px; padding:12px;">💾 保存名单</button>
+        <button class="btn-small btn-danger" onclick="deleteCurrentClass()">🗑️ 删除此班级</button>
+    </div>
+
+    <script>
+        // ================= 音效配置区域 =================
+        // 🥁 滚动时的声音 (鼓点) - 在线地址
+        const soundRoll = new Audio("https://cdn.pixabay.com/audio/2022/03/10/audio_510344b080.mp3");
+        soundRoll.loop = true; // 让鼓点循环播放
+        soundRoll.volume = 0.8; // 音量 80%
+
+        // 🎉 选中时的声音 (成功) - 在线地址
+        const soundWin = new Audio("https://cdn.pixabay.com/audio/2021/08/04/audio_0625c1539c.mp3");
+        soundWin.volume = 1.0; 
+        // ===============================================
+
+        let allData = {}; 
+        let currentClassKey = ""; 
+        let currentNames = [];    
+        let timer = null;
+        let isRunning = false;
+        let isMuted = false; // 是否静音
+
+        // DOM 元素
+        const classSelect = document.getElementById('class-select');
+        const display = document.getElementById('display-area');
+        const btn = document.getElementById('action-btn');
+        const panel = document.getElementById('settings-panel');
+        const overlay = document.getElementById('overlay');
+        const nameInput = document.getElementById('name-input');
+        const editingNameLabel = document.getElementById('editing-class-name');
+        const muteBtn = document.getElementById('mute-btn');
+
+        // 音效控制函数
+        function toggleMute() {
+            isMuted = !isMuted;
+            muteBtn.innerText = isMuted ? "🔇" : "🔊";
+            // 如果正在播放，立即静音
+            soundRoll.muted = isMuted;
+            soundWin.muted = isMuted;
+        }
+
+        function playSound(type) {
+            if (isMuted) return;
+            // 用户由于浏览器策略，必须先交互才能播放，点击"开始"按钮正好满足交互要求
+            if (type === 'roll') {
+                soundRoll.currentTime = 0; // 从头开始
+                soundRoll.play().catch(e => console.log("等待用户交互后播放"));
+            } else if (type === 'win') {
+                soundRoll.pause(); // 停止鼓点
+                soundWin.currentTime = 0;
+                soundWin.play();
+            }
+        }
+
+        function stopSound() {
+            soundRoll.pause();
+        }
+
+        // 初始化
+        function init() {
+            const saved = localStorage.getItem('lucky_classes_v2');
+            if (saved) {
+                allData = JSON.parse(saved);
+            } else {
+                allData = { "演示班级": ["张三", "李四", "王五", "赵六", "孙七"] };
+            }
+            renderSelect();
+        }
+
+        function renderSelect() {
+            classSelect.innerHTML = "";
+            const keys = Object.keys(allData);
+            if (keys.length === 0) {
+                allData["默认班级"] = [];
+                keys.push("默认班级");
+            }
+            keys.forEach(key => {
+                const opt = document.createElement('option');
+                opt.value = key;
+                opt.innerText = key;
+                classSelect.appendChild(opt);
+            });
+            if (currentClassKey && allData[currentClassKey]) {
+                classSelect.value = currentClassKey;
+            } else {
+                classSelect.value = keys[0];
+                currentClassKey = keys[0];
+            }
+            switchClass();
+        }
+
+        function switchClass() {
+            currentClassKey = classSelect.value;
+            currentNames = allData[currentClassKey] || [];
+            display.innerText = "准备点名";
+            display.classList.remove("highlight");
+            editingNameLabel.innerText = currentClassKey;
+            nameInput.value = currentNames.join('\n');
+        }
+
+        function addNewClass() {
+            const newName = document.getElementById('new-class-name').value.trim();
+            if (!newName) return alert("请输入班级名称！");
+            if (allData[newName]) return alert("这个班级已经存在了！");
+            allData[newName] = [];
+            currentClassKey = newName;
+            saveToDisk();
+            renderSelect();
+            document.getElementById('new-class-name').value = "";
+            nameInput.focus();
+            alert(`✅ 已创建 "${newName}"，请在下方粘贴名单`);
+        }
+
+        function saveCurrentList() {
+            const rawText = nameInput.value;
+            const namesArr = rawText.split('\n').filter(n => n.trim() !== '');
+            if (namesArr.length === 0) return alert("名单不能为空！");
+            allData[currentClassKey] = namesArr;
+            currentNames = namesArr;
+            saveToDisk();
+            alert(`✅ 已更新，共 ${namesArr.length} 人`);
+            toggleSettings();
+        }
+
+        function deleteCurrentClass() {
+            if (!confirm(`⚠️ 确定要删除班级 "${currentClassKey}" 吗？`)) return;
+            delete allData[currentClassKey];
+            currentClassKey = ""; 
+            saveToDisk();
+            renderSelect();
+            toggleSettings();
+        }
+
+        function saveToDisk() {
+            localStorage.setItem('lucky_classes_v2', JSON.stringify(allData));
+        }
+
+        // 核心点名逻辑 (带音效)
+        function toggleRoll() {
+            if (!currentNames || currentNames.length === 0) {
+                alert(`班级 "${currentClassKey}" 是空的！请点击⚙️管理添加名单。`);
+                return;
+            }
+
+            if (isRunning) {
+                // 👉 停止
+                clearInterval(timer);
+                isRunning = false;
+                btn.innerText = "开始";
+                btn.classList.remove("stop");
+                display.classList.add("highlight");
+                
+                // 🎵 播放成功音效
+                playSound('win');
+                
+            } else {
+                // 👉 开始
+                display.classList.remove("highlight");
+                isRunning = true;
+                btn.innerText = "停止";
+                btn.classList.add("stop");
+                
+                // 🎵 播放鼓点音效
+                playSound('roll');
+
+                timer = setInterval(() => {
+                    const randomIndex = Math.floor(Math.random() * currentNames.length);
+                    display.innerText = currentNames[randomIndex];
+                }, 50);
+            }
+        }
+
+        function toggleSettings() {
+            const isOpen = panel.style.display === 'block';
+            panel.style.display = isOpen ? 'none' : 'block';
+            overlay.style.display = isOpen ? 'none' : 'block';
+            if (!isOpen) {
+                nameInput.value = currentNames.join('\n');
+                document.getElementById('new-class-name').value = "";
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
