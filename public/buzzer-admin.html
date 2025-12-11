@@ -16,25 +16,48 @@
             align-items: center;
             justify-content: center;
             text-align: center;
+            overflow: hidden;
         }
 
         h1 { color: #333; margin-bottom: 10px; }
         
-        /* 获胜者显示 */
+        /* 获胜者/倒计时显示区 */
         #winner-display {
             font-size: 6rem;
             font-weight: bold;
             color: #2563eb;
-            min-height: 140px;
+            min-height: 180px; /* 加高一点，防止动画溢出 */
             margin: 20px 0;
             text-shadow: 0 5px 10px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 💥 倒计时动画特效 */
+        .pop-in {
+            animation: popIn 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.5); opacity: 1; }
+            100% { transform: scale(1); opacity: 0; } /*最后淡出，为下一个数字腾地*/
+        }
+
+        /* GO的特效 */
+        .go-anim {
+            animation: goAnim 0.5s ease-out forwards;
+            color: #e74c3c !important;
+        }
+        @keyframes goAnim {
+            0% { transform: scale(0.5); opacity: 0; }
+            80% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
         }
 
         /* 控制按钮 */
-        .controls {
-            display: flex;
-            gap: 20px;
-        }
+        .controls { display: flex; gap: 20px; }
         
         button {
             padding: 20px 50px;
@@ -65,16 +88,15 @@
     <h1>🚀 课堂抢答系统</h1>
     <div id="status-label"><span class="status-dot" id="dot"></span> <span id="text-status">准备中</span></div>
 
-    <div id="winner-display">...</div>
+    <div id="winner-display">Ready?</div>
 
     <div class="controls">
         <button id="btn-reset" onclick="resetGame()">🔄 重置 (归零)</button>
-        <button id="btn-start" onclick="startGame()">▶️ 开始抢答</button>
+        <button id="btn-start" onclick="startCountdown()">▶️ 开始抢答</button>
     </div>
 
     <script>
         // ================= 配置区域 =================
-        // ⚠️ 务必替换为你自己的 URL 和 Key
         const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co' 
         const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h'
         // ===========================================
@@ -84,58 +106,118 @@
         const winnerDisplay = document.getElementById('winner-display');
         const dot = document.getElementById('dot');
         const textStatus = document.getElementById('text-status');
+        const btnStart = document.getElementById('btn-start');
         
-        // 🛠️ 修复点：使用 Base64 音频，彻底解决 403 跨域报错问题
-        // 🎵 开始音效 (清脆的叮一声)
-        const audioStartSrc = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWgAAAA0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAAAAAAA0gAAABBAAAACQAAAAA";
-        // 🎵 胜利音效 (简单的成功提示音)
-        const audioWinSrc = "data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWgAAAA0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAAAAAAA0gAAABBAAAACQAAAAA";
-
-        const soundStart = new Audio(audioStartSrc); 
+        // 🎵 胜利音效 (Base64)
+        const audioWinSrc = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWgAAAA0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAAAAAAA0gAAABBAAAACQAAAAA";
         const soundWin = new Audio(audioWinSrc);
+
+        // 🎹 Web Audio API 生成倒计时音效 (不需要外部文件，不依赖网速)
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playTone(frequency, duration, type = 'sine') {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.value = frequency;
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            // 声音渐隐，防止爆音
+            gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+            osc.stop(audioCtx.currentTime + duration);
+        }
 
         // 监听状态
         supabaseClient
             .channel('admin-room')
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'buzzer' }, payload => {
-                const data = payload.new;
-                updateUI(data);
+                updateUI(payload.new);
             })
             .subscribe();
 
-        // 刷新UI
         function updateUI(data) {
             if (data.winner) {
+                // 🏆 抢答结束
+                winnerDisplay.className = ""; // 移除动画
                 winnerDisplay.innerText = data.winner + " 🏆";
+                winnerDisplay.style.color = "#2563eb";
+                
                 dot.className = "status-dot";
                 textStatus.innerText = "抢答结束";
-                soundWin.play().catch(e => console.log("等待交互"));
-            } else if (data.is_active) {
-                winnerDisplay.innerText = "抢答中!!!";
-                winnerDisplay.style.color = "#e74c3c";
+                soundWin.play().catch(()=>{});
+                btnStart.disabled = false;
+            } 
+            else if (data.is_active) {
+                // 🟢 正在进行
                 dot.className = "status-dot active";
                 textStatus.innerText = "正在进行";
-            } else {
-                winnerDisplay.innerText = "准备...";
-                winnerDisplay.style.color = "#ccc";
+            } 
+            else {
+                // ⚪ 重置状态
+                // 如果不是正在倒计时（通过文字判断），就显示Ready
+                if(!winnerDisplay.innerText.includes("!")) {
+                    winnerDisplay.innerText = "Ready?";
+                    winnerDisplay.style.color = "#2563eb";
+                }
                 dot.className = "status-dot";
                 textStatus.innerText = "等待开始";
+                btnStart.disabled = false;
             }
         }
 
+        // 1. 重置
         async function resetGame() {
-            winnerDisplay.innerText = "...";
+            winnerDisplay.className = "";
+            winnerDisplay.innerText = "Ready?";
+            winnerDisplay.style.color = "#2563eb";
             await supabaseClient.from('buzzer').update({ is_active: false, winner: null }).eq('id', 1);
         }
 
-        async function startGame() {
-            // 播放 Base64 音效
-            soundStart.currentTime = 0;
-            soundStart.play().catch(e => console.log("浏览器限制：请先点击页面"));
+        // 2. 核心：带动画的倒计时
+        async function startCountdown() {
+            // 激活音频上下文 (解决浏览器自动播放限制)
+            if (audioCtx.state === 'suspended') audioCtx.resume();
             
-            winnerDisplay.innerText = "3...2...1...";
+            btnStart.disabled = true; // 防止重复点击
             
+            // 倒计时 3
+            playTone(600, 0.1); // 频率600Hz，短促
+            showAnimText("3");
+            await sleep(800);
+
+            // 倒计时 2
+            playTone(600, 0.1);
+            showAnimText("2");
+            await sleep(800);
+
+            // 倒计时 1
+            playTone(600, 0.1);
+            showAnimText("1");
+            await sleep(800);
+
+            // GO!!!
+            playTone(1200, 0.4, 'square'); // 频率1200Hz，响亮
+            winnerDisplay.className = "go-anim"; // 切换到GO的动画
+            winnerDisplay.innerText = "GO!!!";
+            
+            // 🚀 发送指令给数据库
             await supabaseClient.from('buzzer').update({ is_active: true, winner: null }).eq('id', 1);
+        }
+
+        // 辅助：显示动画文字
+        function showAnimText(text) {
+            // 这里用了一个小技巧：先移除class再添加，触发重绘，从而重播动画
+            winnerDisplay.className = ""; 
+            void winnerDisplay.offsetWidth; // 触发重绘
+            winnerDisplay.className = "pop-in";
+            winnerDisplay.innerText = text;
+            winnerDisplay.style.color = "#e74c3c";
+        }
+
+        // 辅助：睡眠函数
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
         }
         
         // 初始化读取
