@@ -53,21 +53,14 @@
             transition: all 0.1s;
             display: none; /* 登陆后显示 */
             
-            /* 🛠️ 修复点 2：增加 Safari 兼容性前缀，防止狂按时选中文本 */
-            -webkit-user-select: none; /* Safari / Chrome */
-            -moz-user-select: none;    /* Firefox */
-            -ms-user-select: none;     /* IE */
-            user-select: none;         /* 标准 */
-
-            /* 消除点击高亮颜色 */
+            /* Safari 兼容性 */
+            -webkit-user-select: none;
+            user-select: none;
             -webkit-tap-highlight-color: transparent;
-
-            /* 🛠️ 修复点 3：关键！告诉浏览器这个按钮只处理点击，禁止双击缩放。
-               这样既去掉了 viewport 警告，又保留了原生 App 般的极速响应 */
             touch-action: manipulation; 
         }
 
-        /* 激活状态（老师点了开始） */
+        /* 激活状态 */
         #btn-buzz.active {
             background: #e74c3c; /* 红色 */
             box-shadow: 0 15px 0 #c0392b;
@@ -95,8 +88,6 @@
             border-radius: 10px;
             font-size: 1.2rem;
             cursor: pointer;
-            
-            /* 按钮也加上这个，防止误触缩放 */
             touch-action: manipulation;
         }
     </style>
@@ -116,20 +107,23 @@
 
     <script>
         // ================= 配置区域 =================
-        // ⚠️ 请务必确认这里填入的是正确的 URL 和 Key
+        // ⚠️ 务必替换为你自己的 URL 和 Key
         const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co' 
         const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h'
         // ===========================================
 
-        const supabase = supabase.createClient(supabaseUrl, supabaseKey)
+        // 🛠️ 修复 1：变量名改为 supabaseClient
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey)
         
         let myName = "";
         const btn = document.getElementById('btn-buzz');
         const status = document.getElementById('status-text');
         const loginBox = document.getElementById('login-box');
 
-        // 音效
-        const soundClick = new Audio("https://cdn.pixabay.com/audio/2022/03/15/audio_736886e06b.mp3");
+        // 🛠️ 修复 2：使用 Base64 音效，避免学生端也出现 403 错误
+        // 短促的点击声
+        const audioClickSrc = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWgAAAA0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAAAAAAA0gAAABBAAAACQAAAAA";
+        const soundClick = new Audio(audioClickSrc);
 
         // 1. 进入游戏
         function enterGame() {
@@ -154,7 +148,8 @@
         function initSupabase() {
             checkStatus();
 
-            supabase
+            // 🛠️ 修复 3：使用 supabaseClient
+            supabaseClient
                 .channel('buzzer-room')
                 .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'buzzer' }, payload => {
                     handleStateChange(payload.new);
@@ -163,12 +158,14 @@
         }
 
         async function checkStatus() {
-            const { data } = await supabase.from('buzzer').select('*').eq('id', 1).single();
+            // 🛠️ 修复 4：使用 supabaseClient
+            const { data } = await supabaseClient.from('buzzer').select('*').eq('id', 1).single();
             if(data) handleStateChange(data);
         }
 
         function handleStateChange(data) {
             if (data.winner) {
+                // 🏆 有人抢到了
                 btn.className = ''; 
                 if (data.winner === myName) {
                     document.body.style.background = "#27ae60"; 
@@ -179,11 +176,13 @@
                     status.innerText = `慢了！被 ${data.winner} 抢走了`;
                 }
             } else if (data.is_active) {
+                // 🟢 老师开始了
                 btn.className = 'active'; 
                 document.body.style.background = "#2c3e50"; 
                 status.innerText = "快抢！！！";
                 btn.disabled = false;
             } else {
+                // ⏸️ 老师重置了
                 btn.className = ''; 
                 document.body.style.background = "#2c3e50";
                 status.innerText = "等待下一轮...";
@@ -195,17 +194,19 @@
         async function doBuzz() {
             if (!btn.classList.contains('active')) return;
 
-            soundClick.currentTime = 0; // 让音效可以连发（虽然抢答只点一次）
-            soundClick.play(); 
+            soundClick.currentTime = 0; 
+            soundClick.play().catch(e => console.log("交互限制"));
 
+            // 乐观更新
             btn.className = '';
             status.innerText = "抢答中...";
 
-            const { data, error } = await supabase
+            // 🛠️ 修复 5：使用 supabaseClient
+            const { data, error } = await supabaseClient
                 .from('buzzer')
                 .update({ winner: myName, is_active: false }) 
                 .eq('id', 1)
-                .is('winner', null) 
+                .is('winner', null) // 原子锁
                 .select();
         }
     </script>
