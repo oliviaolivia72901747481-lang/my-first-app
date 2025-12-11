@@ -6,27 +6,31 @@
     <title>课堂实时答题</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
     <style>
-        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; text-align: center; }
-        h1 { color: #333; }
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; text-align: center; background-color: #f9f9f9; }
+        h1 { color: #333; margin-bottom: 30px; }
         
         /* 投票按钮区域 */
         .options-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin: 20px 0;
+            gap: 20px;
+            margin-bottom: 40px;
         }
         button {
-            padding: 20px;
-            font-size: 1.5rem;
+            padding: 25px;
+            font-size: 2rem;
+            font-weight: bold;
             border: none;
-            border-radius: 10px;
+            border-radius: 15px;
             color: white;
             cursor: pointer;
-            transition: transform 0.1s;
+            transition: transform 0.1s, box-shadow 0.1s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-        button:active { transform: scale(0.95); }
+        button:active { transform: scale(0.96); box-shadow: 0 2px 3px rgba(0,0,0,0.1); }
         
         .btn-a { background-color: #FF6384; }
         .btn-b { background-color: #36A2EB; }
@@ -36,26 +40,30 @@
         /* 图表区域 */
         .chart-container {
             position: relative;
-            height: 400px; /* 增加高度确保可见 */
+            height: 400px;
             width: 100%;
-            margin-top: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
         }
         
         .reset-btn {
-            margin-top: 30px;
+            margin-top: 40px;
             background-color: #666;
             color: white;
-            padding: 10px 20px;
+            padding: 12px 24px;
             font-size: 1rem;
             border: none;
-            border-radius: 5px;
+            border-radius: 8px;
             cursor: pointer;
         }
+        .reset-btn:hover { background-color: #444; }
     </style>
 </head>
 <body>
 
-    <h1>课堂互动：请选择正确答案</h1>
+    <h1>📊 课堂互动：请选择正确答案</h1>
 
     <div class="options-grid">
         <button class="btn-a" onclick="vote('count_a')">A</button>
@@ -68,44 +76,71 @@
         <canvas id="myChart"></canvas>
     </div>
 
-    <button class="reset-btn" onclick="resetVotes()">管理员重置 (归零)</button>
+    <button class="reset-btn" onclick="resetVotes()">🔄 管理员归零</button>
 
     <script>
         // ================= 配置区域 =================
-        // ⚠️ 请务必确认这里填入的是正确的 URL 和 Key
+        // ⚠️ 请务必确认这里填入的是正确的 URL 和 Key (和 clicker.html 里的一样)
         const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co' 
         const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h'
         // ===========================================
 
-        // 1. 【修复点】改名为 supabaseClient，避免冲突
         const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey)
         
-        // 2. 初始化图表
-        // 我们把图表初始化放在最前面，确保无论数据库连没连上，空图表都要先显示出来
+        // 注册插件
+        Chart.register(ChartDataLabels);
+
+        // 初始化图表
         const ctx = document.getElementById('myChart').getContext('2d');
         const myChart = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: ['选项 A', '选项 B', '选项 C', '选项 D'],
+                labels: ['A', 'B', 'C', 'D'],
                 datasets: [{
                     label: '得票数',
                     data: [0, 0, 0, 0], 
                     backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0'],
-                    borderWidth: 1
+                    borderRadius: 8, // 柱子圆角
+                    borderWidth: 0
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false, // 让图表自适应容器高度
+                maintainAspectRatio: false,
                 scales: {
-                    y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                    y: { 
+                        beginAtZero: true, 
+                        grid: { display: false }, // 隐藏横向网格线，更清爽
+                        ticks: { display: false } // 隐藏Y轴刻度，因为柱子上有数字了
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 16, weight: 'bold' } }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }, // 隐藏图例，没必要
+                    // 🆕 配置数字显示
+                    datalabels: {
+                        color: 'white', // 字体颜色
+                        font: {
+                            weight: 'bold',
+                            size: 24 // 字号加大
+                        },
+                        anchor: 'center', // 数字显示在柱子中间
+                        align: 'center',
+                        // 如果数字是0，就不显示，避免难看
+                        formatter: (value) => {
+                            return value > 0 ? value : ''; 
+                        }
+                    }
                 }
             }
         });
 
         let currentData = { count_a: 0, count_b: 0, count_c: 0, count_d: 0 };
 
-        // 3. 获取初始数据
+        // 获取初始数据
         async function fetchInitialData() {
             const { data, error } = await supabaseClient
                 .from('counter')
@@ -113,18 +148,13 @@
                 .eq('id', 1)
                 .single()
 
-            if (data) {
-                updateLocalData(data)
-            } else {
-                console.error("获取数据失败:", error)
-            }
+            if (data) updateLocalData(data)
         }
 
-        // 4. 实时监听
+        // 实时监听
         supabaseClient
             .channel('vote-channel')
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'counter' }, payload => {
-                console.log('收到新票数:', payload.new)
                 updateLocalData(payload.new)
             })
             .subscribe()
@@ -136,30 +166,41 @@
         }
 
         async function vote(columnName) {
+            // 乐观更新：本地先加
             const newValue = currentData[columnName] + 1
-            const updateObj = {}
-            updateObj[columnName] = newValue
-
-            // 乐观更新（让按钮反应快一点）
-            currentData[columnName] = newValue;
+            currentData[columnName] = newValue; // 更新本地变量
+            
+            // 手动触发图表更新（为了快）
             myChart.data.datasets[0].data = [currentData.count_a, currentData.count_b, currentData.count_c, currentData.count_d];
             myChart.update();
+
+            const updateObj = {}
+            updateObj[columnName] = newValue
 
             const { error } = await supabaseClient
                 .from('counter')
                 .update(updateObj)
                 .eq('id', 1)
-            
-            if (error) console.error("投票失败:", error)
         }
 
+        // 🔧 修复后的重置功能
         async function resetVotes() {
             if(!confirm("确定要清空所有投票吗？")) return;
             
-            await supabaseClient
+            // 1. 立即本地归零（不用等数据库返回）
+            const zeroData = { count_a: 0, count_b: 0, count_c: 0, count_d: 0 };
+            updateLocalData(zeroData);
+
+            // 2. 发送请求给数据库
+            const { error } = await supabaseClient
                 .from('counter')
-                .update({ count_a: 0, count_b: 0, count_c: 0, count_d: 0 })
+                .update(zeroData)
                 .eq('id', 1)
+            
+            if (error) {
+                alert("重置失败，请检查网络！");
+                console.error(error);
+            }
         }
 
         fetchInitialData()
