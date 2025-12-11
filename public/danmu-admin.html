@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🕵️ 弹幕监控后台</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 900px; margin: 0 auto; background: #f8f9fa; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #eef2ff; color: #4338ca; }
+        .time { color: #888; font-size: 0.9em; }
+        .btn { padding: 8px 15px; cursor: pointer; border: none; border-radius: 5px; color: white; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🕵️ 弹幕实名监控</h1>
+        <div>
+            <button class="btn" onclick="exportExcel()">📥 导出记录</button>
+            <button class="btn btn-danger" onclick="clearAll()">🗑️ 清空弹幕</button>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>弹幕内容</th>
+                <th>发送者 (实名)</th>
+                <th>学号</th>
+                <th>时间</th>
+            </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+    </table>
+
+    <script>
+        // ================= 配置区域 =================
+        const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co' 
+        const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h'
+        // ===========================================
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey)
+        let allData = [];
+
+        async function loadData() {
+            const { data } = await supabaseClient
+                .from('messages')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (data) {
+                allData = data;
+                const tbody = document.getElementById('tbody');
+                tbody.innerHTML = data.map(row => `
+                    <tr>
+                        <td style="font-weight:bold; color:#333;">${row.content}</td>
+                        <td style="color:#2563eb;">${row.student_name || '未知'}</td>
+                        <td>${row.student_id || '-'}</td>
+                        <td class="time">${new Date(row.created_at).toLocaleString()}</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        // 实时监控：有新弹幕立刻刷新列表
+        supabaseClient
+            .channel('admin-danmu')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, loadData)
+            .subscribe();
+
+        function exportExcel() {
+            if(!allData.length) return alert("无数据");
+            let pwd = prompt("请输入密码导出：");
+            if(pwd !== "888888") return alert("密码错误");
+
+            const ws = XLSX.utils.json_to_sheet(allData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "弹幕记录");
+            XLSX.writeFile(wb, `弹幕记录_${new Date().toISOString().split('T')[0]}.xlsx`);
+        }
+
+        async function clearAll() {
+            if(!confirm("确定清空所有弹幕历史吗？")) return;
+            const { error } = await supabaseClient.from('messages').delete().neq('id', 0);
+            if(!error) loadData();
+        }
+
+        loadData();
+    </script>
+</body>
+</html>
