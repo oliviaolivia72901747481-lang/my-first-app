@@ -7,7 +7,7 @@ export default function Home() {
         你好，世界！
       </h1>
       <p className="text-xl text-gray-300">
-        这是我的第一个全栈网页，现已部署到全球！
+        这是我的第一个全栈网页，现已部署到全球！!!
       </p>
       
       <button className="mt-8 px-6 py-3 bg-white text-black rounded-full font-bold hover:bg-gray-200 transition">
