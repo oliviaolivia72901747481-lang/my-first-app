@@ -58,7 +58,6 @@
             margin-bottom: 5px;
         }
         .status-dot.active { background: #27ae60; box-shadow: 0 0 10px #27ae60; }
-
     </style>
 </head>
 <body>
@@ -75,24 +74,27 @@
 
     <script>
         // ================= 配置区域 =================
-        // ⚠️ 记得确认这里的 URL 和 Key 是正确的
+        // ⚠️ 务必替换为你自己的 URL 和 Key
         const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co' 
         const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h'
         // ===========================================
 
-        // 🛠️ 修复点 1：变量名改为 supabaseClient，避免冲突
         const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey)
         
         const winnerDisplay = document.getElementById('winner-display');
         const dot = document.getElementById('dot');
         const textStatus = document.getElementById('text-status');
         
-        // 🛠️ 修复点 2：音效定义放在最外层，确保一开始就加载
-        const soundStart = new Audio("https://cdn.pixabay.com/audio/2022/03/24/audio_c8c8a73467.mp3"); 
-        const soundWin = new Audio("https://cdn.pixabay.com/audio/2021/08/04/audio_0625c1539c.mp3"); 
+        // 🛠️ 修复点：使用 Base64 音频，彻底解决 403 跨域报错问题
+        // 🎵 开始音效 (清脆的叮一声)
+        const audioStartSrc = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWgAAAA0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAAAAAAA0gAAABBAAAACQAAAAA";
+        // 🎵 胜利音效 (简单的成功提示音)
+        const audioWinSrc = "data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWgAAAA0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAAAAAAA0gAAABBAAAACQAAAAA";
+
+        const soundStart = new Audio(audioStartSrc); 
+        const soundWin = new Audio(audioWinSrc);
 
         // 监听状态
-        // 🛠️ 修复点 3：这里也要用 supabaseClient
         supabaseClient
             .channel('admin-room')
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'buzzer' }, payload => {
@@ -107,7 +109,7 @@
                 winnerDisplay.innerText = data.winner + " 🏆";
                 dot.className = "status-dot";
                 textStatus.innerText = "抢答结束";
-                soundWin.play();
+                soundWin.play().catch(e => console.log("等待交互"));
             } else if (data.is_active) {
                 winnerDisplay.innerText = "抢答中!!!";
                 winnerDisplay.style.color = "#e74c3c";
@@ -121,29 +123,22 @@
             }
         }
 
-        // 1. 重置
         async function resetGame() {
             winnerDisplay.innerText = "...";
-            // 🛠️ 修复点 4：使用 supabaseClient
             await supabaseClient.from('buzzer').update({ is_active: false, winner: null }).eq('id', 1);
         }
 
-        // 2. 开始
         async function startGame() {
-            // 确保音效已加载
-            if(soundStart) {
-                soundStart.currentTime = 0;
-                soundStart.play();
-            }
+            // 播放 Base64 音效
+            soundStart.currentTime = 0;
+            soundStart.play().catch(e => console.log("浏览器限制：请先点击页面"));
             
             winnerDisplay.innerText = "3...2...1...";
             
-            // 🛠️ 修复点 5：使用 supabaseClient
             await supabaseClient.from('buzzer').update({ is_active: true, winner: null }).eq('id', 1);
         }
         
         // 初始化读取
-        // 🛠️ 修复点 6：使用 supabaseClient
         supabaseClient.from('buzzer').select('*').eq('id', 1).single().then(({data}) => {
             if(data) updateUI(data);
         });

@@ -150,12 +150,12 @@
             <input type="text" id="new-class-name" placeholder="新班级名称 (如: 环工2301)">
             <button class="btn-small" onclick="addNewClass()">新建</button>
         </div>
-        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
-        <p style="font-size:14px; color:#666; margin-bottom: 5px;">
-            正在编辑：<strong id="editing-class-name" style="color:#2563eb;">--</strong>
+        <hr class="divider">
+        <p class="editing-label">正在编辑：<strong id="editing-class-name">--</strong></p>
+            正在编辑：<strong id="editing-class-name">--</strong>
         </p>
         <textarea id="name-input" placeholder="请在此处粘贴名单，一行一个名字"></textarea>
-        <button class="btn-small" onclick="saveCurrentList()" style="width:100%; font-size:16px; padding:12px;">💾 保存名单</button>
+        <button class="btn-small" onclick="saveCurrentList()">💾 保存名单</button>
         <button class="btn-small btn-danger" onclick="deleteCurrentClass()">🗑️ 删除此班级</button>
     </div>
 
