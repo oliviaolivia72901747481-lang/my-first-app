@@ -6,56 +6,16 @@
     <title>📝 课堂答题器</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { 
-            font-family: 'Segoe UI', sans-serif; 
-            padding: 20px; 
-            max-width: 600px; 
-            margin: 0 auto; 
-            background-color: #f3f4f6; 
-            /* 移除了 padding-bottom，因为没有底部栏了 */
-        }
-
-        .info-bar { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            margin-bottom: 15px; 
-            font-size: 0.9rem; 
-            color: #666; 
-            background: white;
-            padding: 10px 15px;
-            border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-        
-        /* 题目卡片 */
-        .question-box {
-            background: white; 
-            padding: 20px; 
-            border-radius: 15px; 
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            margin-bottom: 20px;
-            min-height: 120px;
-        }
+        body { font-family: 'Segoe UI', sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; background-color: #f3f4f6; }
+        .info-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 0.9rem; color: #666; background: white; padding: 10px 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .question-box { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; min-height: 120px; }
         .q-title { font-size: 1.2rem; font-weight: bold; color: #333; margin-bottom: 15px; line-height: 1.4; }
         .q-opt { font-size: 1rem; color: #555; margin-bottom: 8px; padding: 8px; background: #f9fafb; border-radius: 5px; }
-        
-        /* 按钮 */
         .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        button.vote-btn {
-            padding: 20px; font-size: 1.5rem; font-weight: bold; border: none; border-radius: 12px; color: white; cursor: pointer;
-            touch-action: manipulation; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            transition: transform 0.1s, opacity 0.2s;
-            box-shadow: 0 4px 0 rgba(0,0,0,0.1);
-        }
+        button.vote-btn { padding: 20px; font-size: 1.5rem; font-weight: bold; border: none; border-radius: 12px; color: white; cursor: pointer; touch-action: manipulation; transition: transform 0.1s; box-shadow: 0 4px 0 rgba(0,0,0,0.1); }
         button.vote-btn:active { transform: translateY(4px); box-shadow: none; }
         button:disabled { background-color: #cbd5e1 !important; opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
-        
-        .btn-a { background-color: #FF6384; } 
-        .btn-b { background-color: #36A2EB; }
-        .btn-c { background-color: #FFCE56; } 
-        .btn-d { background-color: #4BC0C0; }
-        
+        .btn-a { background-color: #FF6384; } .btn-b { background-color: #36A2EB; } .btn-c { background-color: #FFCE56; } .btn-d { background-color: #4BC0C0; }
         #status-msg { text-align: center; margin-top: 20px; font-weight: bold; color: #666; height: 24px; }
     </style>
 </head>
@@ -82,36 +42,25 @@
 
     <script>
         // ================= 配置区域 =================
-        // ⚠️⚠️⚠️ 请务必填入您真实的 Supabase URL 和 Key ⚠️⚠️⚠️
         const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co' 
         const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h' 
-        // (如果上面的 Key 报错，请用您之前 vote.html 里那个长的 Key)
-        // ===========================================
-
         const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey)
+        // ===========================================
 
         let myName = localStorage.getItem('my_name');
         let myId = localStorage.getItem('my_id');
         let currentRound = 1;
         let isRoundActive = true;
+        let currentQuestion = null; // 🟢 新增：存当前题目信息（含答案）
 
-        // 身份检查
-        if (!myName) {
-            alert("⚠️ 请先签到！");
-            window.location.href = 'sign.html';
-        } else {
-            document.getElementById('user-name').innerText = myName;
-        }
+        if (!myName) { alert("⚠️ 请先签到！"); window.location.href = 'sign.html'; }
+        else { document.getElementById('user-name').innerText = myName; }
 
         async function init() {
-            // 使用 maybeSingle 防止 406 报错
             const { data: config } = await supabaseClient.from('vote_config').select('*').eq('id', 1).maybeSingle();
             if (config) handleRoundChange(config);
 
-            supabaseClient.channel('student-vote')
-                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'vote_config' }, payload => {
-                    handleRoundChange(payload.new);
-                }).subscribe();
+            supabaseClient.channel('student-vote').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'vote_config' }, payload => handleRoundChange(payload.new)).subscribe();
         }
 
         async function handleRoundChange(config) {
@@ -119,7 +68,6 @@
             isRoundActive = config.is_active;
             document.getElementById('round-num').innerText = currentRound;
             
-            // 加载题目
             loadQuestion(currentRound);
             checkIfIVoted();
 
@@ -134,8 +82,9 @@
         }
 
         async function loadQuestion(round) {
-            // 使用 maybeSingle 防止 406 报错
             const { data } = await supabaseClient.from('questions').select('*').eq('round', round).maybeSingle();
+            currentQuestion = data; // 🟢 存下来，提交时要用来比对答案
+            
             if (data) {
                 document.getElementById('q-title').innerText = `${round}. ${data.title}`;
                 document.getElementById('q-options').innerHTML = `
@@ -146,12 +95,11 @@
                 `;
             } else {
                 document.getElementById('q-title').innerText = `第 ${round} 题`;
-                document.getElementById('q-options').innerHTML = `<div style="color:#999; font-style:italic;">(听老师口述题目或查看大屏)</div>`;
+                document.getElementById('q-options').innerHTML = `<div style="color:#999;">(无题目数据)</div>`;
             }
         }
 
         async function checkIfIVoted() {
-            // 使用 maybeSingle 防止 406 报错
             const { data } = await supabaseClient.from('vote_logs').select('option').eq('student_id', myId).eq('round', currentRound).maybeSingle();
             if (data) {
                 disableButtons();
@@ -165,12 +113,19 @@
         async function submitVote(option) {
             if (!isRoundActive) return alert("已停止作答");
             disableButtons();
+
+            // 🟢 核心升级：判断正误
+            let isCorrect = false;
+            if (currentQuestion && currentQuestion.answer) {
+                isCorrect = (option === currentQuestion.answer); // 比如选 'A' == 'A'
+            }
             
             const { error } = await supabaseClient.from('vote_logs').insert([{ 
                 student_name: myName, 
                 student_id: myId, 
                 option: option, 
-                round: currentRound 
+                round: currentRound,
+                is_correct: isCorrect // 🟢 写入数据库
             }]);
 
             if (!error) {
@@ -187,7 +142,7 @@
 
         init();
     </script>
-
+    
     <script>
     (function() {
         const checkInterval = setInterval(() => {
@@ -196,25 +151,14 @@
                 startListening();
             }
         }, 100);
-
         function startListening() {
-            supabaseClient
-                .channel('global-control-sub')
-                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'global_state' }, payload => {
-                    const data = payload.new;
-                    const currentPath = window.location.pathname;
-                    
-                    if (data.status === 'active' && data.current_page !== 'idle') {
-                        // 如果老师切到了别的功能（比如 buzzer.html），立刻跳过去
-                        if (!currentPath.includes(data.current_page)) {
-                            window.location.href = data.current_page;
-                        }
-                    } else if (data.status === 'idle') {
-                        // 老师下课，跳回首页
-                        window.location.href = 'index.html';
-                    }
-                })
-                .subscribe();
+            supabaseClient.channel('global-control-sub').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'global_state' }, payload => {
+                if (payload.new.status === 'active' && payload.new.current_page !== 'idle' && !window.location.pathname.includes(payload.new.current_page)) {
+                    window.location.href = payload.new.current_page;
+                } else if (payload.new.status === 'idle') {
+                    window.location.href = 'index.html';
+                }
+            }).subscribe();
         }
     })();
     </script>
