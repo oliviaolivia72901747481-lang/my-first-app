@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>课堂实时答题</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; text-align: center; }
+        h1 { color: #333; }
+        
+        /* 投票按钮区域 */
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        button {
+            padding: 20px;
+            font-size: 1.5rem;
+            border: none;
+            border-radius: 10px;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.95); }
+        
+        .btn-a { background-color: #FF6384; } /* 红 */
+        .btn-b { background-color: #36A2EB; } /* 蓝 */
+        .btn-c { background-color: #FFCE56; } /* 黄 */
+        .btn-d { background-color: #4BC0C0; } /* 绿 */
+
+        /* 图表区域 */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+            margin-top: 30px;
+        }
+        
+        /* 重置按钮 */
+        .reset-btn {
+            margin-top: 30px;
+            background-color: #666;
+            padding: 10px 20px;
+            font-size: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>课堂互动：请选择正确答案</h1>
+
+    <div class="options-grid">
+        <button class="btn-a" onclick="vote('count_a')">A</button>
+        <button class="btn-b" onclick="vote('count_b')">B</button>
+        <button class="btn-c" onclick="vote('count_c')">C</button>
+        <button class="btn-d" onclick="vote('count_d')">D</button>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="myChart"></canvas>
+    </div>
+
+    <button class="reset-btn" onclick="resetVotes()">管理员重置 (归零)</button>
+
+    <script>
+        // ================= 配置区域 =================
+        const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co' 
+        const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h'
+        // ===========================================
+
+        const supabase = supabase.createClient(supabaseUrl, supabaseKey)
+        
+        // 1. 初始化图表
+        const ctx = document.getElementById('myChart').getContext('2d');
+        const myChart = new Chart(ctx, {
+            type: 'bar', // 柱状图
+            data: {
+                labels: ['选项 A', '选项 B', '选项 C', '选项 D'],
+                datasets: [{
+                    label: '得票数',
+                    data: [0, 0, 0, 0], // 初始数据
+                    backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0']
+                }]
+            },
+            options: {
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+            }
+        });
+
+        // 本地保存当前数据，方便计算
+        let currentData = { count_a: 0, count_b: 0, count_c: 0, count_d: 0 };
+
+        // 2. 获取初始数据
+        async function fetchInitialData() {
+            const { data, error } = await supabase
+                .from('counter')
+                .select('*') // 查所有列
+                .eq('id', 1)
+                .single()
+
+            if (data) {
+                updateLocalData(data)
+            }
+        }
+
+        // 3. 实时监听数据库变化
+        supabase
+            .channel('vote-channel')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'counter' }, payload => {
+                console.log('数据变了:', payload.new)
+                updateLocalData(payload.new)
+            })
+            .subscribe()
+
+        // 更新图表和本地变量的辅助函数
+        function updateLocalData(data) {
+            currentData = data;
+            // 更新图表数据
+            myChart.data.datasets[0].data = [data.count_a, data.count_b, data.count_c, data.count_d];
+            myChart.update(); // 让图表重绘
+        }
+
+        // 4. 投票功能
+        async function vote(columnName) {
+            // 乐观更新：先假装加了1，让用户觉得快
+            // (注意：高并发下最好用 Supabase 的 RPC 函数，但教学演示这样写最简单)
+            const newValue = currentData[columnName] + 1
+            
+            // 构造一个动态对象，比如 { count_a: 5 }
+            const updateObj = {}
+            updateObj[columnName] = newValue
+
+            const { error } = await supabase
+                .from('counter')
+                .update(updateObj)
+                .eq('id', 1)
+        }
+
+        // 5. 管理员重置功能
+        async function resetVotes() {
+            if(!confirm("确定要清空所有投票吗？")) return;
+            
+            await supabase
+                .from('counter')
+                .update({ count_a: 0, count_b: 0, count_c: 0, count_d: 0 })
+                .eq('id', 1)
+        }
+
+        fetchInitialData()
+    </script>
+</body>
+</html>
