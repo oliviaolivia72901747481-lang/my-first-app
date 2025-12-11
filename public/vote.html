@@ -3,143 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📊 实名投票系统</title>
+    <title>📝 课堂答题器</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
-    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
-
     <style>
-        body { font-family: 'Segoe UI', sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; text-align: center; background-color: #f3f4f6; }
+        body { font-family: 'Segoe UI', sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; background-color: #f3f4f6; padding-bottom: 80px; }
+        .info-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 0.9rem; color: #666; }
         
-        /* 顶部信息栏 */
-        .user-info {
-            background: white;
-            padding: 15px;
-            border-radius: 10px;
+        /* 题目卡片 */
+        .question-box {
+            background: white; padding: 20px; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
             margin-bottom: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
         }
-        .user-name { font-weight: bold; color: #2563eb; }
-
-        /* 投票按钮网格 */
-        .options-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-        button.vote-btn {
-            padding: 25px;
-            font-size: 2rem;
-            font-weight: bold;
-            border: none;
-            border-radius: 15px;
-            color: white;
-            cursor: pointer;
-            transition: transform 0.1s, opacity 0.3s;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        button.vote-btn:active { transform: scale(0.96); }
+        .q-title { font-size: 1.2rem; font-weight: bold; color: #333; margin-bottom: 15px; }
+        .q-opt { font-size: 1rem; color: #555; margin-bottom: 8px; padding: 5px; }
         
-        /* 禁用状态（投完票后） */
-        button.vote-btn:disabled {
-            background-color: #cbd5e1 !important; /* 灰色 */
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
+        /* 按钮 */
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        button.vote-btn {
+            padding: 20px; font-size: 1.5rem; font-weight: bold; border: none; border-radius: 12px; color: white; cursor: pointer;
+            touch-action: manipulation; display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-
-        .btn-a { background-color: #FF6384; }
-        .btn-b { background-color: #36A2EB; }
-        .btn-c { background-color: #FFCE56; }
-        .btn-d { background-color: #4BC0C0; }
-
-        /* 图表容器 */
-        .chart-container {
-            position: relative;
-            height: 350px;
-            width: 100%;
-            background: white;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-        }
-
-        /* 老师管理区 */
-        .admin-area {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px dashed #ccc;
-            text-align: right;
-        }
-        .btn-small {
-            padding: 8px 15px;
-            font-size: 14px;
-            cursor: pointer;
-            border: none;
-            border-radius: 5px;
-            margin-left: 10px;
-        }
+        button:disabled { background-color: #cbd5e1 !important; opacity: 0.6; }
+        
+        .btn-a { background-color: #FF6384; } .btn-b { background-color: #36A2EB; }
+        .btn-c { background-color: #FFCE56; } .btn-d { background-color: #4BC0C0; }
+        
+        #status-msg { text-align: center; margin-top: 20px; font-weight: bold; color: #666; }
     </style>
 </head>
-<style>
-    /* 腾出底部空间，防止内容被遮挡 */
-    body { padding-bottom: 70px; } 
-
-    .bottom-nav {
-        position: fixed; bottom: 0; left: 0; width: 100%;
-        height: 60px; background: white;
-        border-top: 1px solid #eee;
-        display: flex; justify-content: space-around; align-items: center;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 999;
-    }
-    .nav-item {
-        text-decoration: none; color: #94a3b8; font-size: 12px;
-        display: flex; flex-direction: column; align-items: center;
-    }
-    .nav-item.active { color: #2563eb; font-weight: bold; }
-    .nav-icon { font-size: 24px; margin-bottom: 2px; }
-</style>
-
-<div class="bottom-nav">
-    <a href="sign.html" class="nav-item" id="nav-sign">
-        <span class="nav-icon">📅</span>
-        <span>签到</span>
-    </a>
-    <a href="vote.html" class="nav-item" id="nav-vote">
-        <span class="nav-icon">📊</span>
-        <span>答题</span>
-    </a>
-    <a href="danmu.html" class="nav-item" id="nav-danmu">
-        <span class="nav-icon">💬</span>
-        <span>弹幕</span>
-    </a>
-    <a href="buzzer.html" class="nav-item" id="nav-buzzer">
-        <span class="nav-icon">⚡</span>
-        <span>抢答</span>
-    </a>
-</div>
-
-<script>
-    // 自动高亮当前页面的图标
-    const path = window.location.pathname;
-    if(path.includes('sign')) document.getElementById('nav-sign').classList.add('active');
-    if(path.includes('vote')) document.getElementById('nav-vote').classList.add('active');
-    if(path.includes('danmu')) document.getElementById('nav-danmu').classList.add('active');
-    if(path.includes('buzzer')) document.getElementById('nav-buzzer').classList.add('active');
-</script>
 <body>
 
-    <div class="user-info">
-        <span id="welcome-msg">未登录</span>
-        <span id="vote-status">检测中...</span>
+    <div class="info-bar">
+        <span>👤 <span id="user-name">...</span></span>
+        <span>第 <span id="round-num">1</span> 题</span>
     </div>
 
-    <h1>🤔 请选择正确答案</h1>
+    <div class="question-box">
+        <div id="q-title" class="q-title">等待老师出题...</div>
+        <div id="q-options"></div>
+    </div>
 
     <div class="options-grid">
         <button class="vote-btn btn-a" onclick="submitVote('A')">A</button>
@@ -148,205 +50,97 @@
         <button class="vote-btn btn-d" onclick="submitVote('D')">D</button>
     </div>
 
-    <div class="chart-container">
-        <canvas id="myChart"></canvas>
-    </div>
+    <div id="status-msg"></div>
 
-    <div class="admin-area">
-        <button class="btn-small btn-export" onclick="exportDetails()">📥 导出明细Excel</button>
-        <button class="btn-small btn-reset" onclick="resetAll()">🔄 清空重置</button>
+    <style>
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: 60px; background: white; border-top: 1px solid #eee; display: flex; justify-content: space-around; align-items: center; z-index: 999; }
+        .nav-item { text-decoration: none; color: #94a3b8; font-size: 12px; display: flex; flex-direction: column; align-items: center; }
+        .nav-icon { font-size: 24px; }
+    </style>
+    <div class="bottom-nav">
+        <a href="sign.html" class="nav-item"><span>📅</span>签到</a>
+        <a href="vote.html" class="nav-item" style="color:#2563eb; font-weight:bold;"><span>📊</span>答题</a>
+        <a href="danmu.html" class="nav-item"><span>💬</span>弹幕</a>
+        <a href="buzzer.html" class="nav-item"><span>⚡</span>抢答</a>
     </div>
-
     <script>
-        // ================= 配置区域 =================
-        const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co' 
-        const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h'
-        // ===========================================
-
+        const supabaseUrl = 'https://你的项目ID.supabase.co' 
+        const supabaseKey = '你的anon_public_key'
         const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey)
-        
-        // 全局变量
+
         let myName = localStorage.getItem('my_name');
         let myId = localStorage.getItem('my_id');
-        let hasVoted = false;
-        let allVotes = []; // 存所有投票数据，用于画图和导出
+        let currentRound = 1;
+        let isRoundActive = true;
 
-        // 0. 身份检查 (核心升级)
-        function checkIdentity() {
-            if (!myName || !myId) {
-                alert("⚠️ 请先进行课堂签到！\n即将跳转到签到页面...");
-                window.location.href = 'sign.html'; // 强制跳转
-                return;
-            }
-            document.getElementById('welcome-msg').innerHTML = `我是: <span class="user-name">${myName}</span>`;
+        if (!myName) window.location.href = 'sign.html';
+        document.getElementById('user-name').innerText = myName;
+
+        async function init() {
+            const { data: config } = await supabaseClient.from('vote_config').select('*').eq('id', 1).single();
+            if (config) handleRoundChange(config);
+
+            supabaseClient.channel('student-vote')
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'vote_config' }, payload => {
+                    handleRoundChange(payload.new);
+                }).subscribe();
         }
-        checkIdentity();
 
-        // 1. 图表初始化 (Chart.js)
-        Chart.register(ChartDataLabels);
-        const ctx = document.getElementById('myChart').getContext('2d');
-        const myChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: ['A', 'B', 'C', 'D'],
-                datasets: [{
-                    data: [0, 0, 0, 0],
-                    backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0'],
-                    borderRadius: 8
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    datalabels: { color: 'white', font: { weight: 'bold', size: 24 }, anchor: 'center', align: 'center', formatter: (v) => v > 0 ? v : '' }
-                },
-                scales: { y: { display: false }, x: { grid: { display: false }, ticks: { font: { size: 16, weight: 'bold' } } } }
-            }
-        });
-
-        // 2. 加载数据 & 检查我是否投过
-        async function loadVotes() {
-            // 查出所有投票记录
-            const { data, error } = await supabaseClient.from('vote_logs').select('*');
+        async function handleRoundChange(config) {
+            currentRound = config.current_round;
+            isRoundActive = config.is_active;
+            document.getElementById('round-num').innerText = currentRound;
             
+            // 加载题目
+            loadQuestion(currentRound);
+            checkIfIVoted();
+
+            if (!isRoundActive) {
+                disableButtons();
+                document.getElementById('status-msg').innerText = "⛔ 答题结束";
+            } else {
+                document.getElementById('status-msg').innerText = "请作答";
+            }
+        }
+
+        async function loadQuestion(round) {
+            const { data } = await supabaseClient.from('questions').select('*').eq('round', round).maybeSingle();
             if (data) {
-                allVotes = data;
-                updateChart(data);
-                checkIfIVoted(data);
+                document.getElementById('q-title').innerText = `${round}. ${data.title}`;
+                document.getElementById('q-options').innerHTML = `
+                    <div class="q-opt">A. ${data.option_a}</div>
+                    <div class="q-opt">B. ${data.option_b}</div>
+                    <div class="q-opt">C. ${data.option_c}</div>
+                    <div class="q-opt">D. ${data.option_d}</div>
+                `;
+            } else {
+                document.getElementById('q-title').innerText = `第 ${round} 题`;
+                document.getElementById('q-options').innerHTML = `<div style="color:#999; font-style:italic;">(听老师口述题目)</div>`;
             }
         }
 
-        // 3. 更新图表 (纯前端计算，不再依赖 counter 表)
-        function updateChart(data) {
-            // 统计 A, B, C, D 的数量
-            const counts = { A: 0, B: 0, C: 0, D: 0 };
-            data.forEach(row => {
-                if (counts[row.option] !== undefined) {
-                    counts[row.option]++;
-                }
-            });
-            
-            myChart.data.datasets[0].data = [counts.A, counts.B, counts.C, counts.D];
-            myChart.update();
-        }
-
-        // 4. 检查是否已投
-        function checkIfIVoted(data) {
-            // 在所有记录里找有没有我的学号
-            const myVote = data.find(row => row.student_id === myId);
-            
-            if (myVote) {
-                hasVoted = true;
-                disableButtons(myVote.option);
-                document.getElementById('vote-status').innerText = `已投: ${myVote.option}`;
-                document.getElementById('vote-status').style.color = "#10b981";
-            } else {
-                hasVoted = false;
+        async function checkIfIVoted() {
+            const { data } = await supabaseClient.from('vote_logs').select('option').eq('student_id', myId).eq('round', currentRound).single();
+            if (data) {
+                disableButtons();
+                document.getElementById('status-msg').innerText = `✅ 你已选: ${data.option}`;
+            } else if (isRoundActive) {
                 enableButtons();
-                document.getElementById('vote-status').innerText = "请投票";
             }
         }
 
-        // 5. 提交投票 (实名写入)
         async function submitVote(option) {
-            if (hasVoted) return alert("🚫 你已经投过票了，不能重复投！");
-
-            // 禁用按钮防止连点
-            disableButtons(option);
-
-            const { error } = await supabaseClient
-                .from('vote_logs')
-                .insert([
-                    { 
-                        student_name: myName, 
-                        student_id: myId, 
-                        option: option 
-                    }
-                ]);
-
-            if (error) {
-                alert("投票失败: " + error.message);
-                enableButtons(); // 恢复按钮
-            } else {
-                // 成功后，不需要手动刷新，下面的 Realtime 监听会自动更新图表
-                document.getElementById('vote-status').innerText = `已投: ${option}`;
-            }
+            if (!isRoundActive) return alert("已停止作答");
+            disableButtons();
+            const { error } = await supabaseClient.from('vote_logs').insert([{ student_name: myName, student_id: myId, option: option, round: currentRound }]);
+            if (!error) document.getElementById('status-msg').innerText = `✅ 已提交: ${option}`;
+            else enableButtons();
         }
 
-        // 6. 实时监听 (Realtime)
-        supabaseClient
-            .channel('vote-room')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'vote_logs' }, payload => {
-                // 无论谁投了，或者重置了，简单粗暴：重新拉取最新数据
-                loadVotes();
-            })
-            .subscribe();
+        function disableButtons() { document.querySelectorAll('.vote-btn').forEach(b => b.disabled = true); }
+        function enableButtons() { document.querySelectorAll('.vote-btn').forEach(b => b.disabled = false); }
 
-        // 辅助工具：禁用按钮
-        function disableButtons(selectedOption) {
-            const btns = document.querySelectorAll('.vote-btn');
-            btns.forEach(btn => {
-                btn.disabled = true;
-                btn.style.opacity = "0.5";
-                // 高亮选中的那个
-                if (selectedOption && btn.innerText === selectedOption) {
-                    btn.style.opacity = "1";
-                    btn.style.border = "4px solid #333";
-                    btn.style.transform = "scale(1.05)";
-                }
-            });
-        }
-
-        function enableButtons() {
-            const btns = document.querySelectorAll('.vote-btn');
-            btns.forEach(btn => {
-                btn.disabled = false;
-                btn.style.opacity = "1";
-                btn.style.border = "none";
-                btn.style.transform = "none";
-            });
-        }
-
-        // 7. 老师功能：清空数据
-        async function resetAll() {
-            let pwd = prompt("🔐 请输入管理员密码进行清空：");
-            if (pwd !== "888888") return alert("密码错误");
-
-            if(!confirm("⚠️ 确定要清空所有投票记录吗？")) return;
-
-            const { error } = await supabaseClient
-                .from('vote_logs')
-                .delete()
-                .neq('id', 0); // 删除所有
-
-            if (error) alert("清空失败");
-        }
-
-        // 8. 老师功能：导出 Excel
-        function exportDetails() {
-            if(allVotes.length === 0) return alert("暂无数据");
-            
-            let pwd = prompt("🔐 导出包含学生实名信息，请输入密码：");
-            if (pwd !== "888888") return alert("密码错误");
-
-            const excelData = allVotes.map(row => ({
-                "学号": row.student_id,
-                "姓名": row.student_name,
-                "选择": row.option,
-                "时间": new Date(row.created_at).toLocaleTimeString()
-            }));
-
-            const ws = XLSX.utils.json_to_sheet(excelData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "投票明细");
-            XLSX.writeFile(wb, `投票统计_${new Date().toISOString().split('T')[0]}.xlsx`);
-        }
-
-        // 启动加载
-        loadVotes();
-
+        init();
     </script>
 </body>
 </html>
