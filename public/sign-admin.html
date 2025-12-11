@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📋 签到数据管理</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+    
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; background: #f8f9fa; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        h1 { margin: 0; color: #333; }
+        
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; color: white; font-weight: bold; text-decoration: none; }
+        .btn-green { background: #10b981; } /* 导出按钮 */
+        .btn-red { background: #ef4444; } /* 清空按钮 */
+        
+        table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #f3f4f6; color: #666; }
+        tr:hover { background: #f9fafb; }
+        
+        .count-badge { background: #e0f2fe; color: #0284c7; padding: 5px 10px; border-radius: 20px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div>
+            <h1>📋 签到记录</h1>
+            <span class="count-badge">今日已签: <span id="count">0</span> 人</span>
+        </div>
+        <div class="btn-group"></div>
+            <button class="btn btn-green" onclick="exportExcel()">📥 导出 Excel</button>
+            <button class="btn btn-red" onclick="clearData()">🗑️ 清空数据</button>
+        </div>
+    </div>
+
+    <table id="data-table">
+        <thead>
+            <tr>
+                <th>学号</th>
+                <th>姓名</th>
+                <th>签到时间</th>
+            </tr>
+        </thead>
+        <tbody id="tbody">
+            </tbody>
+    </table>
+
+    <script>
+        // ================= 配置区域 =================
+        const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co' 
+        const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h'
+        // ===========================================
+
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey)
+        let allData = []; // 存一份原始数据方便导出
+
+        // 1. 加载数据
+        async function loadData() {
+            // 按时间倒序查，最新的在前面
+            const { data, error } = await supabaseClient
+                .from('attendance')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if(data) {
+                allData = data;
+                renderTable(data);
+            }
+        }
+
+        // 2. 渲染表格
+        function renderTable(data) {
+            const tbody = document.getElementById('tbody');
+            document.getElementById('count').innerText = data.length;
+            tbody.innerHTML = '';
+
+            data.forEach(row => {
+                // 格式化时间 (把 UTC 时间转为本地时间)
+                const date = new Date(row.created_at);
+                const timeStr = date.toLocaleString(); // "2023/10/1 08:00:00"
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${row.student_id}</td>
+                    <td><strong>${row.student_name}</strong></td>
+                    <td style="color:#666; font-size:14px;">${timeStr}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 3. 实时监听 (有人签到立刻刷新)
+        supabaseClient
+            .channel('sign-room')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendance' }, payload => {
+                loadData(); // 简单粗暴，有新数据就重载一次
+            })
+            .subscribe();
+
+        // 4. 导出 Excel (核心功能)
+        function exportExcel() {
+            if(allData.length === 0) return alert("没有数据可导出！");
+
+            // 准备 Excel 数据格式
+            const excelData = allData.map(row => ({
+                "学号": row.student_id,
+                "姓名": row.student_name,
+                "签到时间": new Date(row.created_at).toLocaleString()
+            }));
+
+            // 创建工作簿
+            const ws = XLSX.utils.json_to_sheet(excelData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "签到表");
+
+            // 生成文件名 (当前日期)
+            const today = new Date().toISOString().split('T')[0];
+            XLSX.writeFile(wb, `课堂签到_${today}.xlsx`);
+        }
+
+        // 5. 清空数据
+        async function clearData() {
+            if(!confirm("⚠️ 确定要清空所有签到记录吗？\n导出 Excel 了吗？")) return;
+
+            // 这里的逻辑有点特殊，Supabase 删除所有行需要一点技巧，
+            // 通常建议 Delete where id > 0
+            const { error } = await supabaseClient
+                .from('attendance')
+                .delete()
+                .neq('id', 0); // 删除 id 不等于 0 的（也就是所有）
+
+            if(!error) {
+                alert("已清空！");
+                loadData();
+            } else {
+                alert("删除失败: " + error.message);
+            }
+        }
+
+        loadData();
+    </script>
+</body>
+</html>

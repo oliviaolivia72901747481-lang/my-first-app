@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧课堂互动系统</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #f3f4f6;
+            margin: 0;
+            padding: 40px 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #1a202c;
+            margin-bottom: 40px;
+            font-size: 2.5rem;
+        }
+        
+        /* 卡片网格布局 */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        /* 功能卡片 */
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .card-icon { font-size: 3rem; margin-bottom: 15px; }
+        .card-title { font-size: 1.5rem; font-weight: bold; margin-bottom: 10px; }
+        .card-desc { color: #666; margin-bottom: 20px; flex-grow: 1; }
+
+        /* 按钮组 */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-direction: column;
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        /* 教师按钮 */
+        .btn-teacher {
+            background: #2563eb;
+            color: white;
+            border: 1px solid #2563eb;
+        }
+        .btn-teacher:hover { background: #1d4ed8; }
+
+        /* 学生二维码按钮 */
+        .btn-student {
+            background: white;
+            color: #2563eb;
+            border: 1px solid #2563eb;
+            cursor: pointer;
+        }
+        .btn-student:hover { background: #eff6ff; }
+
+        /* 页脚 */
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            color: #9ca3af;
+            font-size: 0.9rem;
+        }
+
+        /* 二维码弹窗 */
+        #qr-modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 90%;
+        }
+        #qr-image { width: 300px; height: 300px; margin-bottom: 20px; }
+        .modal-close {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 10px 30px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>🏫 环保互动课堂 · 总控台</h1>
+
+        <div class="grid">
+            
+            <div class="card">
+                <div class="card-icon">📊</div>
+                <div class="card-title">实时答题</div>
+                <div class="card-desc">全班参与 ABCD 选择题，实时生成柱状图统计。</div>
+                <div class="btn-group">
+                    <a href="/vote.html" target="_blank" class="btn btn-teacher">🖥️ 打开大屏 (看结果)</a>
+                    <button onclick="showQR('/vote.html')" class="btn btn-student">📱 学生扫码入口</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-icon">💬</div>
+                <div class="card-title">弹幕上墙</div>
+                <div class="card-desc">学生匿名发送消息，实时在屏幕上滚动显示。</div>
+                <div class="btn-group">
+                    <a href="/danmu.html" target="_blank" class="btn btn-teacher">🖥️ 打开大屏 (看弹幕)</a>
+                    <button onclick="showQR('/danmu.html')" class="btn btn-student">📱 学生扫码入口</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-icon">🎰</div>
+                <div class="card-title">幸运点名</div>
+                <div class="card-desc">支持多班级管理，带音效的随机滚动点名。</div>
+                <div class="btn-group">
+                    <a href="/lucky.html" target="_blank" class="btn btn-teacher btn-lucky">🖥️ 打开点名器</a>
+                    </div>
+            </div>
+
+            <div class="card">
+                <div class="card-icon">⚡</div>
+                <div class="card-title">极速抢答</div>
+                <div class="card-desc">拼手速！系统精确判定谁是第一名。</div>
+                <div class="btn-group">
+                    <a href="/buzzer-admin.html" target="_blank" class="btn btn-teacher">🖥️ 老师控制台</a>
+                    <button onclick="showQR('/buzzer.html')" class="btn btn-student">📱 学生扫码入口</button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-icon">📅</div>
+                <div class="card-title">考勤签到</div>
+                <div class="card-desc">实名制签到，支持一键导出 Excel 表格。</div>
+                <div class="btn-group">
+                    <a href="/sign-admin.html" target="_blank" class="btn btn-teacher">📋 打开签到表 (导出)</a>
+                    <button onclick="showQR('/sign.html')" class="btn btn-student">📱 学生扫码签到</button>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="footer">Developed for Changsha Environmental Protection College</div>
+    </div>
+
+    <div id="qr-modal" onclick="closeQR()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h2 id="qr-title">请扫码参与</h2>
+            <img id="qr-image" src="" alt="QR Code">
+            <p class="qr-tip">推荐使用微信扫一扫</p>
+            <button class="modal-close" onclick="closeQR()">关闭</button>
+        </div>
+    </div>
+
+    <script>
+        // 获取当前网站的域名 (自动适配 Vercel 或 本地)
+        const baseUrl = window.location.origin;
+
+        function showQR(path) {
+            const fullUrl = baseUrl + path;
+            const title = path.replace('/', '').replace('.html', '');
+            
+            // 使用第三方 API 生成二维码 (goqr.me)
+            const qrApi = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(fullUrl)}`;
+            
+            document.getElementById('qr-image').src = qrApi;
+            document.getElementById('qr-modal').style.display = 'flex';
+        }
+
+        function closeQR() {
+            document.getElementById('qr-modal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
