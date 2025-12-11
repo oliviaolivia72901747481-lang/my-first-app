@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>👩‍🏫 抢答控制台</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            background: #f0f2f5;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        h1 { color: #333; margin-bottom: 10px; }
+        
+        /* 获胜者显示 */
+        #winner-display {
+            font-size: 6rem;
+            font-weight: bold;
+            color: #2563eb;
+            min-height: 140px;
+            margin: 20px 0;
+            text-shadow: 0 5px 10px rgba(0,0,0,0.1);
+        }
+
+        /* 控制按钮 */
+        .controls {
+            display: flex;
+            gap: 20px;
+        }
+        
+        button {
+            padding: 20px 50px;
+            font-size: 1.5rem;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: transform 0.1s;
+            box-shadow: 0 5px 0 rgba(0,0,0,0.2);
+            font-weight: bold;
+        }
+        button:active { transform: translateY(5px); box-shadow: none; }
+
+        #btn-start { background: #27ae60; color: white; }
+        #btn-reset { background: #95a5a6; color: white; }
+        
+        /* 状态指示灯 */
+        .status-dot {
+            width: 20px; height: 20px; border-radius: 50%;
+            background: #ccc; display: inline-block;
+            margin-bottom: 5px;
+        }
+        .status-dot.active { background: #27ae60; box-shadow: 0 0 10px #27ae60; }
+
+    </style>
+</head>
+<body>
+
+    <h1>🚀 课堂抢答系统</h1>
+    <div id="status-label"><span class="status-dot" id="dot"></span> <span id="text-status">准备中</span></div>
+
+    <div id="winner-display">...</div>
+
+    <div class="controls">
+        <button id="btn-reset" onclick="resetGame()">🔄 重置 (归零)</button>
+        <button id="btn-start" onclick="startGame()">▶️ 开始抢答</button>
+    </div>
+
+    <script>
+        // ================= 配置区域 =================
+        // ⚠️ 记得确认这里的 URL 和 Key 是正确的
+        const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co' 
+        const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h'
+        // ===========================================
+
+        // 🛠️ 修复点 1：变量名改为 supabaseClient，避免冲突
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey)
+        
+        const winnerDisplay = document.getElementById('winner-display');
+        const dot = document.getElementById('dot');
+        const textStatus = document.getElementById('text-status');
+        
+        // 🛠️ 修复点 2：音效定义放在最外层，确保一开始就加载
+        const soundStart = new Audio("https://cdn.pixabay.com/audio/2022/03/24/audio_c8c8a73467.mp3"); 
+        const soundWin = new Audio("https://cdn.pixabay.com/audio/2021/08/04/audio_0625c1539c.mp3"); 
+
+        // 监听状态
+        // 🛠️ 修复点 3：这里也要用 supabaseClient
+        supabaseClient
+            .channel('admin-room')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'buzzer' }, payload => {
+                const data = payload.new;
+                updateUI(data);
+            })
+            .subscribe();
+
+        // 刷新UI
+        function updateUI(data) {
+            if (data.winner) {
+                winnerDisplay.innerText = data.winner + " 🏆";
+                dot.className = "status-dot";
+                textStatus.innerText = "抢答结束";
+                soundWin.play();
+            } else if (data.is_active) {
+                winnerDisplay.innerText = "抢答中!!!";
+                winnerDisplay.style.color = "#e74c3c";
+                dot.className = "status-dot active";
+                textStatus.innerText = "正在进行";
+            } else {
+                winnerDisplay.innerText = "准备...";
+                winnerDisplay.style.color = "#ccc";
+                dot.className = "status-dot";
+                textStatus.innerText = "等待开始";
+            }
+        }
+
+        // 1. 重置
+        async function resetGame() {
+            winnerDisplay.innerText = "...";
+            // 🛠️ 修复点 4：使用 supabaseClient
+            await supabaseClient.from('buzzer').update({ is_active: false, winner: null }).eq('id', 1);
+        }
+
+        // 2. 开始
+        async function startGame() {
+            // 确保音效已加载
+            if(soundStart) {
+                soundStart.currentTime = 0;
+                soundStart.play();
+            }
+            
+            winnerDisplay.innerText = "3...2...1...";
+            
+            // 🛠️ 修复点 5：使用 supabaseClient
+            await supabaseClient.from('buzzer').update({ is_active: true, winner: null }).eq('id', 1);
+        }
+        
+        // 初始化读取
+        // 🛠️ 修复点 6：使用 supabaseClient
+        supabaseClient.from('buzzer').select('*').eq('id', 1).single().then(({data}) => {
+            if(data) updateUI(data);
+        });
+
+    </script>
+</body>
+</html>
