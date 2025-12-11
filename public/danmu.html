@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>课堂弹幕墙</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* 全屏布局，防止滚动 */
+        body { 
+            margin: 0; 
+            padding: 0; 
+            overflow: hidden; 
+            background-color: #222; /* 黑底，适合投影 */
+            font-family: 'Microsoft YaHei', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 上半部分：弹幕显示区 (占屏幕 85%) */
+        #screen-area {
+            flex: 1;
+            position: relative;
+            width: 100%;
+            overflow: hidden; /* 弹幕飞出去后隐藏 */
+        }
+
+        /* 下半部分：输入控制区 (占屏幕 15%) */
+        #input-area {
+            height: 80px;
+            background: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 10px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
+            z-index: 100;
+        }
+
+        /* 输入框样式 */
+        input {
+            flex: 1;
+            padding: 12px;
+            font-size: 16px;
+            border-radius: 20px;
+            border: none;
+            outline: none;
+            margin-right: 10px;
+        }
+
+        /* 发送按钮样式 */
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 20px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button:active { transform: scale(0.95); }
+
+        /* ✈️ 弹幕的样式类 */
+        .danmu-item {
+            position: absolute;
+            white-space: nowrap; /* 不换行 */
+            color: #fff;
+            font-weight: bold;
+            font-size: 28px;
+            text-shadow: 2px 2px 2px rgba(0,0,0,0.8); /* 文字阴影，防背景干扰 */
+            left: 100%; /* 起始位置在屏幕最右侧外面 */
+            will-change: transform; /* 性能优化 */
+        }
+
+        /* 教师端清理按钮 */
+        #clear-btn {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: transparent;
+            color: #555;
+            font-size: 12px;
+            border: 1px solid #555;
+            padding: 5px;
+            z-index: 200;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="screen-area"></div>
+
+    <div id="input-area">
+        <input type="text" id="msg-input" placeholder="输入你想说的话..." maxlength="30">
+        <button onclick="sendMsg()">🚀 发送</button>
+    </div>
+    
+    <button id="clear-btn" onclick="clearScreen()">清屏</button>
+
+    <script>
+        // ================= 配置区域 =================
+        const supabaseUrl = 'hhttps://urqxrtlzaifvambytoci.supabase.co' 
+        const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h'
+        // ===========================================
+
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey)
+        const screen = document.getElementById('screen-area');
+        const input = document.getElementById('msg-input');
+
+        // 1. 发送消息
+        async function sendMsg() {
+            const text = input.value.trim();
+            if (!text) return;
+
+            // 清空输入框，防止重复点击
+            input.value = '';
+
+            // 直接写入数据库
+            const { error } = await supabaseClient
+                .from('messages')
+                .insert([{ content: text }])
+            
+            if (error) console.error('发送失败:', error);
+            
+            // 本地也立刻飘一条（为了体验丝滑）
+            createDanmu(text, true); 
+        }
+
+        // 2. 监听数据库的新弹幕
+        supabaseClient
+            .channel('danmu-channel')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+                const newMsg = payload.new.content;
+                // 如果是自己发的，前面已经飘过了，就不用再飘一次
+                // 这里简单处理：所有人都飘（自己可能会看到两条，但演示无所谓）
+                createDanmu(newMsg);
+            })
+            .subscribe()
+
+        // 3. 创建并动画化弹幕 (核心视觉逻辑)
+        function createDanmu(text, isSelf = false) {
+            const div = document.createElement('div');
+            div.innerText = text;
+            div.className = 'danmu-item';
+            
+            // 🎨 随机颜色 (让弹幕五颜六色)
+            const colors = ['#FFF', '#FFE4E1', '#7FFFD4', '#FFD700', '#00BFFF', '#FF69B4'];
+            div.style.color = colors[Math.floor(Math.random() * colors.length)];
+            
+            // 如果是自己发的，加个边框高亮
+            if (isSelf) div.style.border = "2px solid yellow";
+
+            // 📏 随机高度 (Top: 5% ~ 80%)
+            const randomTop = Math.floor(Math.random() * 80) + 5;
+            div.style.top = randomTop + '%';
+
+            // 🐢 随机速度 (5秒 ~ 10秒)
+            const duration = Math.floor(Math.random() * 5000) + 5000;
+
+            screen.appendChild(div);
+
+            // 使用 Web Animations API 让它飞起来
+            const animation = div.animate([
+                { transform: 'translateX(0)' },  // 起点：屏幕右边缘 (CSS里设置了 left: 100%)
+                { transform: `translateX(-${window.innerWidth + 500}px)` } // 终点：飞到屏幕左边外
+            ], {
+                duration: duration,
+                easing: 'linear'
+            });
+
+            // 动画结束后，把这个元素从网页里删掉，防止内存泄漏
+            animation.onfinish = () => {
+                div.remove();
+            };
+        }
+
+        // 4. 回车发送
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMsg();
+        });
+
+        function clearScreen() {
+            screen.innerHTML = '';
+        }
+    </script>
+</body>
+</html>
