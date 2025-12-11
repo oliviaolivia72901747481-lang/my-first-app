@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>👨‍🏫 课堂超级中控</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #1e293b; color: white; padding: 20px; text-align: center; }
+        h1 { margin-bottom: 30px; font-weight: 300; }
+        
+        .grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px; max-width: 800px; margin: 0 auto;
+        }
+
+        /* 遥控卡片 */
+        .card {
+            background: rgba(255,255,255,0.1); border: 2px solid transparent;
+            border-radius: 15px; padding: 20px; cursor: pointer;
+            transition: 0.2s; display: flex; flex-direction: column; align-items: center;
+        }
+        .card:hover { background: rgba(255,255,255,0.2); transform: translateY(-5px); }
+        
+        /* 激活状态 */
+        .card.active {
+            border-color: #10b981; background: rgba(16, 185, 129, 0.2);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .icon { font-size: 3rem; margin-bottom: 10px; }
+        .label { font-weight: bold; font-size: 1.1rem; }
+        .desc { font-size: 0.8rem; color: #94a3b8; margin-top: 5px; }
+
+        /* 停止按钮 */
+        .stop-btn {
+            margin-top: 40px; padding: 15px 40px;
+            background: #ef4444; color: white; border: none; border-radius: 50px;
+            font-size: 1.2rem; font-weight: bold; cursor: pointer;
+            box-shadow: 0 5px 15px rgba(239, 68, 68, 0.4);
+        }
+        .stop-btn:active { transform: scale(0.95); }
+
+        /* 状态条 */
+        #status-bar {
+            margin-bottom: 20px; padding: 10px; background: rgba(0,0,0,0.3);
+            border-radius: 8px; font-size: 0.9rem; color: #10b981;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🚀 课堂超级中控</h1>
+    <div id="status-bar">当前状态：<span id="current-status">自由活动</span></div>
+
+    <div class="grid">
+        <div class="card" id="card-sign" onclick="activateModule('sign', '/sign.html', '/sign-admin.html')">
+            <div class="icon">📅</div>
+            <div class="label">签到模式</div>
+            <div class="desc">学生端强制跳转签到</div>
+        </div>
+
+        <div class="card" id="card-vote" onclick="activateModule('vote', '/vote.html', '/vote-admin.html')">
+            <div class="icon">📊</div>
+            <div class="label">答题模式</div>
+            <div class="desc">全班同步显示题目</div>
+        </div>
+
+        <div class="card" id="card-danmu" onclick="activateModule('danmu', '/danmu.html', '/danmu-admin.html')">
+            <div class="icon">💬</div>
+            <div class="label">弹幕互动</div>
+            <div class="desc">开启弹幕墙</div>
+        </div>
+
+        <div class="card" id="card-buzzer" onclick="activateModule('buzzer', '/buzzer.html', '/buzzer-admin.html')">
+            <div class="icon">⚡</div>
+            <div class="label">抢答模式</div>
+            <div class="desc">进入抢答器</div>
+        </div>
+        
+        <div class="card" onclick="window.open('/lucky.html')">
+            <div class="icon">🎰</div>
+            <div class="label">随机点名</div>
+            <div class="desc">仅老师大屏显示</div>
+        </div>
+    </div>
+
+    <button class="stop-btn" onclick="stopAll()">⏸️ 释放控制 (自由模式)</button>
+
+    <script>
+        // ================= 配置 =================
+        const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co' 
+        const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h' // ⚠️ 替换成你真实的Key
+        // =======================================
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey)
+
+        // 1. 激活某个模块
+        async function activateModule(name, studentPath, teacherPath) {
+            // 视觉反馈
+            document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+            document.getElementById(`card-${name}`).classList.add('active');
+            document.getElementById('current-status').innerText = `正在进行：${name}`;
+
+            // 核心：更新数据库，指挥全班跳转
+            await supabaseClient.from('global_state').update({
+                current_page: studentPath,
+                status: 'active'
+            }).eq('id', 1);
+
+            // 老师自己也要跳转到对应的管理页面 (新窗口打开)
+            if(teacherPath) window.open(teacherPath, '_blank');
+        }
+
+        // 2. 停止控制
+        async function stopAll() {
+            document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+            document.getElementById('current-status').innerText = "自由活动 / 等待中";
+
+            // 更新数据库为 idle
+            await supabaseClient.from('global_state').update({
+                current_page: 'idle',
+                status: 'idle'
+            }).eq('id', 1);
+        }
+
+        // 初始化读取状态
+        supabaseClient.from('global_state').select('*').eq('id', 1).single().then(({data}) => {
+            if(data && data.status === 'active') {
+                // 简单的根据路径高亮对应卡片
+                if(data.current_page.includes('sign')) document.getElementById('card-sign').classList.add('active');
+                if(data.current_page.includes('vote')) document.getElementById('card-vote').classList.add('active');
+                if(data.current_page.includes('danmu')) document.getElementById('card-danmu').classList.add('active');
+                if(data.current_page.includes('buzzer')) document.getElementById('card-buzzer').classList.add('active');
+                document.getElementById('current-status').innerText = "系统运行中...";
+            }
+        });
+    </script>
+</body>
+</html>

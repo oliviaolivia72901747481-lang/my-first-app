@@ -142,5 +142,46 @@
 
         init();
     </script>
+    <script>
+(function() {
+    // 保护机制：检查页面是否已经连接了 Supabase
+    // 如果页面本身还没加载好 supabaseClient，这段代码就不运行，防止报错
+    const checkInterval = setInterval(() => {
+        if (typeof supabaseClient !== 'undefined') {
+            clearInterval(checkInterval);
+            startListening();
+        }
+    }, 100);
+
+    function startListening() {
+        console.log("📡 已启动课堂遥控监听...");
+        supabaseClient
+            .channel('global-control-sub')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'global_state' }, payload => {
+                const data = payload.new;
+                const currentPath = window.location.pathname; // 获取当前文件名 (如 /vote.html)
+                
+                // 1. 老师开启了某个功能
+                if (data.status === 'active' && data.current_page !== 'idle') {
+                    // 如果我当前不在老师指定的页面，就强制跳过去
+                    // 例如：老师开了 vote.html，但我还在 sign.html，我就得跳
+                    if (!currentPath.includes(data.current_page)) {
+                        console.log(`👨‍🏫 老师切换到了 ${data.current_page}，正在跟进...`);
+                        window.location.href = data.current_page;
+                    }
+                } 
+                // 2. 老师释放了控制 (下课/自由活动)
+                else if (data.status === 'idle') {
+                    // 如果我现在不是在首页，就被踢回首页
+                    if (!currentPath.includes('index.html')) {
+                        console.log("⏸️ 自由活动模式，返回首页");
+                        window.location.href = 'index.html';
+                    }
+                }
+            })
+            .subscribe();
+    }
+})();
+</script>
 </body>
 </html>
