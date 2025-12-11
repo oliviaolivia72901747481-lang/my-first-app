@@ -6,29 +6,57 @@
     <title>📝 课堂答题器</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; background-color: #f3f4f6; padding-bottom: 80px; }
-        .info-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 0.9rem; color: #666; }
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            padding: 20px; 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background-color: #f3f4f6; 
+            /* 移除了 padding-bottom，因为没有底部栏了 */
+        }
+
+        .info-bar { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 15px; 
+            font-size: 0.9rem; 
+            color: #666; 
+            background: white;
+            padding: 10px 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
         
         /* 题目卡片 */
         .question-box {
-            background: white; padding: 20px; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            background: white; 
+            padding: 20px; 
+            border-radius: 15px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
             margin-bottom: 20px;
+            min-height: 120px;
         }
-        .q-title { font-size: 1.2rem; font-weight: bold; color: #333; margin-bottom: 15px; }
-        .q-opt { font-size: 1rem; color: #555; margin-bottom: 8px; padding: 5px; }
+        .q-title { font-size: 1.2rem; font-weight: bold; color: #333; margin-bottom: 15px; line-height: 1.4; }
+        .q-opt { font-size: 1rem; color: #555; margin-bottom: 8px; padding: 8px; background: #f9fafb; border-radius: 5px; }
         
         /* 按钮 */
         .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         button.vote-btn {
             padding: 20px; font-size: 1.5rem; font-weight: bold; border: none; border-radius: 12px; color: white; cursor: pointer;
             touch-action: manipulation; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: transform 0.1s, opacity 0.2s;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.1);
         }
-        button:disabled { background-color: #cbd5e1 !important; opacity: 0.6; }
+        button.vote-btn:active { transform: translateY(4px); box-shadow: none; }
+        button:disabled { background-color: #cbd5e1 !important; opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
         
-        .btn-a { background-color: #FF6384; } .btn-b { background-color: #36A2EB; }
-        .btn-c { background-color: #FFCE56; } .btn-d { background-color: #4BC0C0; }
+        .btn-a { background-color: #FF6384; } 
+        .btn-b { background-color: #36A2EB; }
+        .btn-c { background-color: #FFCE56; } 
+        .btn-d { background-color: #4BC0C0; }
         
-        #status-msg { text-align: center; margin-top: 20px; font-weight: bold; color: #666; }
+        #status-msg { text-align: center; margin-top: 20px; font-weight: bold; color: #666; height: 24px; }
     </style>
 </head>
 <body>
@@ -52,20 +80,14 @@
 
     <div id="status-msg"></div>
 
-    <style>
-        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: 60px; background: white; border-top: 1px solid #eee; display: flex; justify-content: space-around; align-items: center; z-index: 999; }
-        .nav-item { text-decoration: none; color: #94a3b8; font-size: 12px; display: flex; flex-direction: column; align-items: center; }
-        .nav-icon { font-size: 24px; }
-    </style>
-    <div class="bottom-nav">
-        <a href="sign.html" class="nav-item"><span>📅</span>签到</a>
-        <a href="vote.html" class="nav-item" style="color:#2563eb; font-weight:bold;"><span>📊</span>答题</a>
-        <a href="danmu.html" class="nav-item"><span>💬</span>弹幕</a>
-        <a href="buzzer.html" class="nav-item"><span>⚡</span>抢答</a>
-    </div>
     <script>
-        const supabaseUrl = 'https://你的项目ID.supabase.co' 
-        const supabaseKey = '你的anon_public_key'
+        // ================= 配置区域 =================
+        // ⚠️⚠️⚠️ 请务必填入您真实的 Supabase URL 和 Key ⚠️⚠️⚠️
+        const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co' 
+        const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h' 
+        // (如果上面的 Key 报错，请用您之前 vote.html 里那个长的 Key)
+        // ===========================================
+
         const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey)
 
         let myName = localStorage.getItem('my_name');
@@ -73,11 +95,17 @@
         let currentRound = 1;
         let isRoundActive = true;
 
-        if (!myName) window.location.href = 'sign.html';
-        document.getElementById('user-name').innerText = myName;
+        // 身份检查
+        if (!myName) {
+            alert("⚠️ 请先签到！");
+            window.location.href = 'sign.html';
+        } else {
+            document.getElementById('user-name').innerText = myName;
+        }
 
         async function init() {
-            const { data: config } = await supabaseClient.from('vote_config').select('*').eq('id', 1).single();
+            // 使用 maybeSingle 防止 406 报错
+            const { data: config } = await supabaseClient.from('vote_config').select('*').eq('id', 1).maybeSingle();
             if (config) handleRoundChange(config);
 
             supabaseClient.channel('student-vote')
@@ -98,12 +126,15 @@
             if (!isRoundActive) {
                 disableButtons();
                 document.getElementById('status-msg').innerText = "⛔ 答题结束";
+                document.getElementById('status-msg').style.color = "#ef4444";
             } else {
                 document.getElementById('status-msg').innerText = "请作答";
+                document.getElementById('status-msg').style.color = "#666";
             }
         }
 
         async function loadQuestion(round) {
+            // 使用 maybeSingle 防止 406 报错
             const { data } = await supabaseClient.from('questions').select('*').eq('round', round).maybeSingle();
             if (data) {
                 document.getElementById('q-title').innerText = `${round}. ${data.title}`;
@@ -115,15 +146,17 @@
                 `;
             } else {
                 document.getElementById('q-title').innerText = `第 ${round} 题`;
-                document.getElementById('q-options').innerHTML = `<div style="color:#999; font-style:italic;">(听老师口述题目)</div>`;
+                document.getElementById('q-options').innerHTML = `<div style="color:#999; font-style:italic;">(听老师口述题目或查看大屏)</div>`;
             }
         }
 
         async function checkIfIVoted() {
-            const { data } = await supabaseClient.from('vote_logs').select('option').eq('student_id', myId).eq('round', currentRound).single();
+            // 使用 maybeSingle 防止 406 报错
+            const { data } = await supabaseClient.from('vote_logs').select('option').eq('student_id', myId).eq('round', currentRound).maybeSingle();
             if (data) {
                 disableButtons();
                 document.getElementById('status-msg').innerText = `✅ 你已选: ${data.option}`;
+                document.getElementById('status-msg').style.color = "#10b981";
             } else if (isRoundActive) {
                 enableButtons();
             }
@@ -132,9 +165,21 @@
         async function submitVote(option) {
             if (!isRoundActive) return alert("已停止作答");
             disableButtons();
-            const { error } = await supabaseClient.from('vote_logs').insert([{ student_name: myName, student_id: myId, option: option, round: currentRound }]);
-            if (!error) document.getElementById('status-msg').innerText = `✅ 已提交: ${option}`;
-            else enableButtons();
+            
+            const { error } = await supabaseClient.from('vote_logs').insert([{ 
+                student_name: myName, 
+                student_id: myId, 
+                option: option, 
+                round: currentRound 
+            }]);
+
+            if (!error) {
+                document.getElementById('status-msg').innerText = `✅ 已提交: ${option}`;
+                document.getElementById('status-msg').style.color = "#10b981";
+            } else {
+                alert("提交失败，请重试");
+                enableButtons();
+            }
         }
 
         function disableButtons() { document.querySelectorAll('.vote-btn').forEach(b => b.disabled = true); }
@@ -142,46 +187,36 @@
 
         init();
     </script>
-    <script>
-(function() {
-    // 保护机制：检查页面是否已经连接了 Supabase
-    // 如果页面本身还没加载好 supabaseClient，这段代码就不运行，防止报错
-    const checkInterval = setInterval(() => {
-        if (typeof supabaseClient !== 'undefined') {
-            clearInterval(checkInterval);
-            startListening();
-        }
-    }, 100);
 
-    function startListening() {
-        console.log("📡 已启动课堂遥控监听...");
-        supabaseClient
-            .channel('global-control-sub')
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'global_state' }, payload => {
-                const data = payload.new;
-                const currentPath = window.location.pathname; // 获取当前文件名 (如 /vote.html)
-                
-                // 1. 老师开启了某个功能
-                if (data.status === 'active' && data.current_page !== 'idle') {
-                    // 如果我当前不在老师指定的页面，就强制跳过去
-                    // 例如：老师开了 vote.html，但我还在 sign.html，我就得跳
-                    if (!currentPath.includes(data.current_page)) {
-                        console.log(`👨‍🏫 老师切换到了 ${data.current_page}，正在跟进...`);
-                        window.location.href = data.current_page;
-                    }
-                } 
-                // 2. 老师释放了控制 (下课/自由活动)
-                else if (data.status === 'idle') {
-                    // 如果我现在不是在首页，就被踢回首页
-                    if (!currentPath.includes('index.html')) {
-                        console.log("⏸️ 自由活动模式，返回首页");
+    <script>
+    (function() {
+        const checkInterval = setInterval(() => {
+            if (typeof supabaseClient !== 'undefined') {
+                clearInterval(checkInterval);
+                startListening();
+            }
+        }, 100);
+
+        function startListening() {
+            supabaseClient
+                .channel('global-control-sub')
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'global_state' }, payload => {
+                    const data = payload.new;
+                    const currentPath = window.location.pathname;
+                    
+                    if (data.status === 'active' && data.current_page !== 'idle') {
+                        // 如果老师切到了别的功能（比如 buzzer.html），立刻跳过去
+                        if (!currentPath.includes(data.current_page)) {
+                            window.location.href = data.current_page;
+                        }
+                    } else if (data.status === 'idle') {
+                        // 老师下课，跳回首页
                         window.location.href = 'index.html';
                     }
-                }
-            })
-            .subscribe();
-    }
-})();
-</script>
+                })
+                .subscribe();
+        }
+    })();
+    </script>
 </body>
 </html>
