@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>课堂弹幕墙</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -59,6 +59,8 @@
             font-size: 16px;
             font-weight: bold;
             cursor: pointer;
+            /* 🆕 新增这一行：告诉浏览器，这个按钮只处理点击和滑动，不要处理双击缩放 */
+            touch-action: manipulation;
         }
         button:active { transform: scale(0.95); }
 
@@ -101,7 +103,7 @@
 
     <script>
         // ================= 配置区域 =================
-        const supabaseUrl = 'hhttps://urqxrtlzaifvambytoci.supabase.co' 
+        const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co'
         const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h'
         // ===========================================
 
