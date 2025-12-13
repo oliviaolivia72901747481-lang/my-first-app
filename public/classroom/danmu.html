@@ -111,8 +111,8 @@
         let lastSendTime = 0;
         const SEND_COOLDOWN = 2000; // 2秒冷却时间
 
-        // 2. 发送消息 (实名上报)
-        async function sendMsg() {
+        // 2. 发送消息 (实名上报) - 暴露到全局作用域
+        window.sendMsg = async function() {
             const text = input.value.trim();
             if (!text) return;
 
