@@ -63,19 +63,27 @@ npm start
 - `/danmu` - 弹幕页面
 - `/buzzer` - 抢答页面
 
-### 教师端
+### 教师端 (推荐使用简洁URL)
 - `/admin` - 教师控制台
-- `/classroom/sign-admin.html` - 签到管理
-- `/classroom/vote-admin.html` - 答题管理
-- `/classroom/danmu-admin.html` - 弹幕管理
-- `/classroom/buzzer-admin.html` - 抢答管理
+- `/sign-admin` - 签到管理
+- `/vote-admin` - 答题管理
+- `/danmu-admin` - 弹幕管理
+- `/buzzer-admin` - 抢答管理
 
 ### 直接访问 (备用)
 如果简洁URL不工作，可以直接访问：
+
+**学生端:**
 - `/classroom/sign.html` - 签到页面
 - `/classroom/vote.html` - 答题页面
 - `/classroom/danmu.html` - 弹幕页面
 - `/classroom/buzzer.html` - 抢答页面
+
+**教师端:**
+- `/classroom/sign-admin.html` - 签到管理
+- `/classroom/vote-admin.html` - 答题管理
+- `/classroom/danmu-admin.html` - 弹幕管理
+- `/classroom/buzzer-admin.html` - 抢答管理
 
 ## ⚙️ 配置说明
 

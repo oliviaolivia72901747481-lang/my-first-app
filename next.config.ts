@@ -34,6 +34,22 @@ const nextConfig: NextConfig = {
         destination: '/classroom/admin.html',
       },
       {
+        source: '/sign-admin',
+        destination: '/classroom/sign-admin.html',
+      },
+      {
+        source: '/vote-admin',
+        destination: '/classroom/vote-admin.html',
+      },
+      {
+        source: '/danmu-admin',
+        destination: '/classroom/danmu-admin.html',
+      },
+      {
+        source: '/buzzer-admin',
+        destination: '/classroom/buzzer-admin.html',
+      },
+      {
         source: '/classroom',
         destination: '/classroom/index.html',
       },
