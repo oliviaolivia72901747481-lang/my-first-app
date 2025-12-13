@@ -57,9 +57,9 @@ function handleGlobalStateChange(data) {
     // 2. 老师释放了控制 (下课/自由活动)
     else if (data.status === 'idle') {
         // 如果现在不是在首页，就被踢回首页
-        if (!currentPath.includes('index.html')) {
+        if (!currentPath.includes('/classroom') && !currentPath.includes('index.html')) {
             console.log("⏸️ 自由活动模式，返回首页");
-            window.location.href = 'index.html';
+            window.location.href = '/classroom';
         }
     }
 }
@@ -72,7 +72,7 @@ function checkUserAuth() {
     
     if (!myName || !myId) {
         alert("⚠️ 请先签到！");
-        window.location.href = 'sign.html';
+        window.location.href = '/sign';
         return null;
     }
     

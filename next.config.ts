@@ -5,8 +5,6 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: "C:\\Users\\hn511\\Desktop\\hello-world"
   },
-  // 配置静态文件处理
-  trailingSlash: true,
   // 配置重写规则，将请求重定向到 classroom 目录
   async rewrites() {
     return [

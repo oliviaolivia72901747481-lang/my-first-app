@@ -5,23 +5,23 @@ function createBottomNavigation() {
     const nav = document.createElement('div');
     nav.className = 'bottom-nav';
     nav.innerHTML = `
-        <a href="sign.html" class="nav-item" id="nav-sign">
+        <a href="/sign" class="nav-item" id="nav-sign">
             <span class="nav-icon">📅</span>
             <span>签到</span>
         </a>
-        <a href="vote.html" class="nav-item" id="nav-vote">
+        <a href="/vote" class="nav-item" id="nav-vote">
             <span class="nav-icon">📊</span>
             <span>答题</span>
         </a>
-        <a href="danmu.html" class="nav-item" id="nav-danmu">
+        <a href="/danmu" class="nav-item" id="nav-danmu">
             <span class="nav-icon">💬</span>
             <span>弹幕</span>
         </a>
-        <a href="buzzer.html" class="nav-item" id="nav-buzzer">
+        <a href="/buzzer" class="nav-item" id="nav-buzzer">
             <span class="nav-icon">⚡</span>
             <span>抢答</span>
         </a>
-        <a href="index.html" class="nav-item" id="nav-home">
+        <a href="/classroom" class="nav-item" id="nav-home">
             <span class="nav-icon">🏠</span>
             <span>首页</span>
         </a>
@@ -78,10 +78,19 @@ function highlightCurrentNav() {
 // 初始化导航栏
 function initBottomNavigation() {
     // 只在学生端页面显示导航栏
-    const studentPages = ['sign.html', 'vote.html', 'danmu.html', 'buzzer.html', 'index.html'];
-    const currentPage = window.location.pathname.split('/').pop();
+    const currentPath = window.location.pathname;
+    const isStudentPage = currentPath.includes('/sign') || 
+                         currentPath.includes('/vote') || 
+                         currentPath.includes('/danmu') || 
+                         currentPath.includes('/buzzer') || 
+                         currentPath.includes('/classroom') ||
+                         currentPath.includes('sign.html') || 
+                         currentPath.includes('vote.html') || 
+                         currentPath.includes('danmu.html') || 
+                         currentPath.includes('buzzer.html') || 
+                         currentPath.includes('index.html');
     
-    if (studentPages.includes(currentPage)) {
+    if (isStudentPage) {
         const nav = createBottomNavigation();
         document.body.appendChild(nav);
         highlightCurrentNav();
