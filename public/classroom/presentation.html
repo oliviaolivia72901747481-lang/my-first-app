@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎬 智慧课件播放器</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background: #1a1a2e; 
+            color: white;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* 主容器 */
+        .presentation-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* PPT 背景层 */
+        #slide-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-color: #000;
+            z-index: 1;
+        }
+        
+        /* 互动工具悬浮层 */
+        #overlay-tools {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+        
+        #overlay-tools > * {
+            pointer-events: auto;
+        }
+        
+        /* 顶部控制栏 */
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: linear-gradient(180deg, rgba(0,0,0,0.8) 0%, transparent 100%);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .presentation-container:hover .top-bar {
+            opacity: 1;
+        }
+        
+        /* 底部控制栏 */
+        .bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 80px;
+            background: linear-gradient(0deg, rgba(0,0,0,0.9) 0%, transparent 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            padding: 0 20px;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .presentation-container:hover .bottom-bar {
+            opacity: 1;
+        }
+        
+        /* 页码显示 */
+        .page-indicator {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        
+        /* 控制按钮 */
+        .ctrl-btn {
+            padding: 12px 24px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .ctrl-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        .btn-nav { background: rgba(255,255,255,0.2); color: white; }
+        .btn-nav:hover { background: rgba(255,255,255,0.3); }
+        .btn-vote { background: #3b82f6; color: white; }
+        .btn-danmu { background: #8b5cf6; color: white; }
+        .btn-buzzer { background: #ef4444; color: white; }
+        .btn-upload { background: #10b981; color: white; }
+        
+        /* 弹幕层 */
+        #danmu-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 50;
+        }
+        
+        .danmu-item {
+            position: absolute;
+            white-space: nowrap;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            animation: danmuMove linear forwards;
+        }
+        
+        @keyframes danmuMove {
+            from { transform: translateX(100vw); }
+            to { transform: translateX(-100%); }
+        }
+        
+        /* 投票悬浮窗 */
+        #vote-overlay {
+            position: fixed;
+            bottom: 100px;
+            right: 20px;
+            width: 350px;
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            display: none;
+            z-index: 200;
+            color: #333;
+        }
+        
+        .vote-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #2563eb;
+        }
+        
+        .vote-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .vote-stat-item {
+            text-align: center;
+            padding: 10px;
+            background: #f1f5f9;
+            border-radius: 8px;
+        }
+        
+        .vote-stat-label { font-size: 1.2rem; font-weight: bold; }
+        .vote-stat-count { font-size: 0.9rem; color: #666; }
+        
+        /* 上传模态框 */
+        #upload-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .upload-content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            width: 90%;
+            max-width: 600px;
+            color: #333;
+            text-align: center;
+        }
+        
+        .drop-zone {
+            border: 3px dashed #ccc;
+            border-radius: 15px;
+            padding: 60px 20px;
+            margin: 20px 0;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+        
+        .slide-preview {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .slide-thumb {
+            width: 100px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 5px;
+            border: 2px solid transparent;
+            cursor: pointer;
+        }
+        
+        .slide-thumb.active {
+            border-color: #3b82f6;
+        }
+        
+        /* 触发点设置 */
+        .trigger-settings {
+            margin-top: 20px;
+            text-align: left;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 10px;
+        }
+        
+        .trigger-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+        }
+        
+        /* 快捷键提示 */
+        .hotkey-hint {
+            position: fixed;
+            bottom: 100px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 100;
+        }
+        
+        .presentation-container:hover .hotkey-hint {
+            opacity: 1;
+        }
+        
+        kbd {
+            background: rgba(255,255,255,0.2);
+            padding: 3px 8px;
+            border-radius: 4px;
+            margin: 0 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="presentation-container">
+        <!-- PPT 背景 -->
+        <div id="slide-background">
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:#666;">
+                <div style="font-size:5rem; margin-bottom:20px;">📽️</div>
+                <div style="font-size:1.5rem;">点击下方"上传课件"开始</div>
+            </div>
+        </div>
+        
+        <!-- 弹幕层 -->
+        <div id="danmu-layer"></div>
+        
+        <!-- 互动工具层 -->
+        <div id="overlay-tools"></div>
+        
+        <!-- 顶部控制栏 -->
+        <div class="top-bar">
+            <div class="page-indicator">
+                <span id="current-page">0</span> / <span id="total-pages">0</span>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button class="ctrl-btn btn-upload" onclick="openUploadModal()">📤 上传课件</button>
+                <button class="ctrl-btn" style="background:#f59e0b; color:white;" onclick="toggleFullscreen()">⛶ 全屏</button>
+            </div>
+        </div>
+        
+        <!-- 底部控制栏 -->
+        <div class="bottom-bar">
+            <button class="ctrl-btn btn-nav" onclick="prevSlide()">⬅️ 上一页</button>
+            <button class="ctrl-btn btn-vote" onclick="toggleVoteOverlay()">📊 答题</button>
+            <button class="ctrl-btn btn-danmu" onclick="toggleDanmu()">💬 弹幕</button>
+            <button class="ctrl-btn btn-buzzer" onclick="startBuzzer()">⚡ 抢答</button>
+            <button class="ctrl-btn btn-nav" onclick="nextSlide()">下一页 ➡️</button>
+        </div>
+        
+        <!-- 快捷键提示 -->
+        <div class="hotkey-hint">
+            <div><kbd>←</kbd><kbd>→</kbd> 翻页</div>
+            <div><kbd>V</kbd> 答题 <kbd>D</kbd> 弹幕 <kbd>B</kbd> 抢答</div>
+            <div><kbd>F</kbd> 全屏 <kbd>ESC</kbd> 退出</div>
+        </div>
+    </div>
+    
+    <!-- 投票悬浮窗 -->
+    <div id="vote-overlay">
+        <div class="vote-title">📊 第 <span id="vote-round">1</span> 题 实时统计</div>
+        <div id="vote-question" style="margin-bottom:10px; font-size:0.95rem;"></div>
+        <div class="vote-stats">
+            <div class="vote-stat-item">
+                <div class="vote-stat-label" style="color:#FF6384;">A</div>
+                <div class="vote-stat-count" id="stat-a">0</div>
+            </div>
+            <div class="vote-stat-item">
+                <div class="vote-stat-label" style="color:#36A2EB;">B</div>
+                <div class="vote-stat-count" id="stat-b">0</div>
+            </div>
+            <div class="vote-stat-item">
+                <div class="vote-stat-label" style="color:#FFCE56;">C</div>
+                <div class="vote-stat-count" id="stat-c">0</div>
+            </div>
+            <div class="vote-stat-item">
+                <div class="vote-stat-label" style="color:#4BC0C0;">D</div>
+                <div class="vote-stat-count" id="stat-d">0</div>
+            </div>
+        </div>
+        <div style="margin-top:15px; display:flex; gap:10px;">
+            <button onclick="toggleVoteActive()" style="flex:1; padding:10px; background:#f59e0b; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">
+                ⏯️ 暂停/公布
+            </button>
+            <button onclick="nextVoteRound()" style="flex:1; padding:10px; background:#3b82f6; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">
+                ➡️ 下一题
+            </button>
+        </div>
+    </div>
+    
+    <!-- 上传模态框 -->
+    <div id="upload-modal">
+        <div class="upload-content">
+            <h2 style="margin-bottom:10px;">📤 上传课件图片</h2>
+            <p style="color:#666; margin-bottom:20px;">将 PPT 导出为图片后上传，支持 JPG/PNG 格式</p>
+            
+            <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+                <div style="font-size:3rem; margin-bottom:10px;">📁</div>
+                <div>拖拽图片到这里，或点击选择</div>
+                <div style="color:#999; font-size:0.9rem; margin-top:10px;">支持多选，按文件名排序</div>
+                <input type="file" id="file-input" multiple accept="image/*" style="display:none;" onchange="handleFiles(this.files)">
+            </div>
+            
+            <div class="slide-preview" id="slide-preview"></div>
+            
+            <div class="trigger-settings" id="trigger-settings" style="display:none;">
+                <h4 style="margin-bottom:10px;">⚡ 自动触发设置</h4>
+                <div id="trigger-list"></div>
+                <button onclick="addTrigger()" style="margin-top:10px; padding:8px 15px; background:#10b981; color:white; border:none; border-radius:5px; cursor:pointer;">
+                    + 添加触发点
+                </button>
+            </div>
+            
+            <div style="margin-top:20px; display:flex; gap:10px; justify-content:center;">
+                <button onclick="closeUploadModal()" style="padding:12px 30px; background:#ccc; color:#333; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">
+                    取消
+                </button>
+                <button onclick="applySlides()" style="padding:12px 30px; background:#3b82f6; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">
+                    应用课件
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Supabase 配置
+        const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co';
+        const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h';
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+        
+        // 状态
+        let slides = [];
+        let currentSlide = 0;
+        let triggers = []; // 自动触发点
+        let isDanmuEnabled = false;
+        let isVoteVisible = false;
+        
+        // ================== 幻灯片管理 ==================
+        function handleFiles(files) {
+            const fileArray = Array.from(files).sort((a, b) => a.name.localeCompare(b.name));
+            slides = [];
+            
+            const preview = document.getElementById('slide-preview');
+            preview.innerHTML = '';
+            
+            fileArray.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    slides[index] = e.target.result;
+                    
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.className = 'slide-thumb';
+                    img.onclick = () => goToSlide(index);
+                    preview.appendChild(img);
+                    
+                    if (slides.filter(s => s).length === fileArray.length) {
+                        document.getElementById('trigger-settings').style.display = 'block';
+                        updateTriggerList();
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        function goToSlide(index) {
+            if (index < 0 || index >= slides.length) return;
+            currentSlide = index;
+            
+            document.getElementById('slide-background').style.backgroundImage = `url(${slides[index]})`;
+            document.getElementById('current-page').innerText = index + 1;
+            document.getElementById('total-pages').innerText = slides.length;
+            
+            // 更新缩略图高亮
+            document.querySelectorAll('.slide-thumb').forEach((thumb, i) => {
+                thumb.classList.toggle('active', i === index);
+            });
+            
+            // 检查触发点
+            checkTriggers(index);
+        }
+        
+        function prevSlide() {
+            goToSlide(currentSlide - 1);
+        }
+        
+        function nextSlide() {
+            goToSlide(currentSlide + 1);
+        }
+        
+        function applySlides() {
+            if (slides.length === 0) {
+                alert('请先上传图片');
+                return;
+            }
+            goToSlide(0);
+            closeUploadModal();
+        }
+        
+        // ================== 触发点管理 ==================
+        function addTrigger() {
+            triggers.push({
+                page: 1,
+                action: 'vote',
+                round: 1
+            });
+            updateTriggerList();
+        }
+        
+        function removeTrigger(index) {
+            triggers.splice(index, 1);
+            updateTriggerList();
+        }
+        
+        function updateTriggerList() {
+            const list = document.getElementById('trigger-list');
+            list.innerHTML = triggers.map((t, i) => `
+                <div class="trigger-item">
+                    <span>第</span>
+                    <input type="number" value="${t.page}" min="1" max="${slides.length}" 
+                           style="width:50px; padding:5px; border:1px solid #ddd; border-radius:4px;"
+                           onchange="triggers[${i}].page = parseInt(this.value)">
+                    <span>页触发</span>
+                    <select style="padding:5px; border:1px solid #ddd; border-radius:4px;"
+                            onchange="triggers[${i}].action = this.value">
+                        <option value="vote" ${t.action === 'vote' ? 'selected' : ''}>📊 答题</option>
+                        <option value="danmu" ${t.action === 'danmu' ? 'selected' : ''}>💬 弹幕</option>
+                        <option value="buzzer" ${t.action === 'buzzer' ? 'selected' : ''}>⚡ 抢答</option>
+                    </select>
+                    <input type="number" value="${t.round || 1}" min="1" placeholder="题号"
+                           style="width:50px; padding:5px; border:1px solid #ddd; border-radius:4px; ${t.action !== 'vote' ? 'display:none' : ''}"
+                           onchange="triggers[${i}].round = parseInt(this.value)">
+                    <button onclick="removeTrigger(${i})" style="background:#ef4444; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">✕</button>
+                </div>
+            `).join('');
+        }
+        
+        function checkTriggers(pageIndex) {
+            const pageTriggers = triggers.filter(t => t.page === pageIndex + 1);
+            pageTriggers.forEach(t => {
+                switch(t.action) {
+                    case 'vote':
+                        showVoteOverlay(t.round);
+                        break;
+                    case 'danmu':
+                        enableDanmu();
+                        break;
+                    case 'buzzer':
+                        startBuzzer();
+                        break;
+                }
+            });
+        }
+        
+        // ================== 答题功能 ==================
+        let voteRound = 1;
+        let isVoteActive = true;
+        
+        function toggleVoteOverlay() {
+            isVoteVisible = !isVoteVisible;
+            document.getElementById('vote-overlay').style.display = isVoteVisible ? 'block' : 'none';
+            if (isVoteVisible) {
+                loadVoteData();
+            }
+        }
+        
+        function showVoteOverlay(round) {
+            voteRound = round || voteRound;
+            document.getElementById('vote-round').innerText = voteRound;
+            document.getElementById('vote-overlay').style.display = 'block';
+            isVoteVisible = true;
+            loadVoteData();
+            
+            // 同步到数据库
+            supabaseClient.from('vote_config').update({ 
+                current_round: voteRound, 
+                is_active: true 
+            }).eq('id', 1);
+        }
+        
+        async function loadVoteData() {
+            try {
+                const { data } = await supabaseClient
+                    .from('vote_logs')
+                    .select('option')
+                    .eq('round', voteRound);
+                
+                const counts = { A: 0, B: 0, C: 0, D: 0 };
+                if (data) {
+                    data.forEach(row => {
+                        if (counts[row.option] !== undefined) counts[row.option]++;
+                    });
+                }
+                
+                document.getElementById('stat-a').innerText = counts.A;
+                document.getElementById('stat-b').innerText = counts.B;
+                document.getElementById('stat-c').innerText = counts.C;
+                document.getElementById('stat-d').innerText = counts.D;
+                
+                // 加载题目
+                const { data: q } = await supabaseClient
+                    .from('questions')
+                    .select('title')
+                    .eq('round', voteRound)
+                    .maybeSingle();
+                
+                document.getElementById('vote-question').innerText = q ? q.title : '';
+            } catch (e) {
+                console.error('加载答题数据失败:', e);
+            }
+        }
+        
+        async function toggleVoteActive() {
+            isVoteActive = !isVoteActive;
+            await supabaseClient.from('vote_config').update({ is_active: isVoteActive }).eq('id', 1);
+        }
+        
+        async function nextVoteRound() {
+            voteRound++;
+            document.getElementById('vote-round').innerText = voteRound;
+            await supabaseClient.from('vote_config').update({ 
+                current_round: voteRound, 
+                is_active: true 
+            }).eq('id', 1);
+            loadVoteData();
+        }
+        
+        // 实时监听答题
+        supabaseClient.channel('presentation-vote')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'vote_logs' }, () => {
+                if (isVoteVisible) loadVoteData();
+            })
+            .subscribe();
+        
+        // ================== 弹幕功能 ==================
+        function toggleDanmu() {
+            isDanmuEnabled = !isDanmuEnabled;
+            if (isDanmuEnabled) {
+                enableDanmu();
+            }
+        }
+        
+        function enableDanmu() {
+            isDanmuEnabled = true;
+            // 订阅弹幕
+            supabaseClient.channel('presentation-danmu')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+                    if (isDanmuEnabled) {
+                        createDanmu(payload.new.content);
+                    }
+                })
+                .subscribe();
+        }
+        
+        function createDanmu(text) {
+            const layer = document.getElementById('danmu-layer');
+            const div = document.createElement('div');
+            div.className = 'danmu-item';
+            div.innerText = text;
+            
+            const colors = ['#FFF', '#FFE4E1', '#7FFFD4', '#FFD700', '#00BFFF', '#FF69B4'];
+            div.style.color = colors[Math.floor(Math.random() * colors.length)];
+            div.style.top = Math.floor(Math.random() * 80) + 5 + '%';
+            div.style.animationDuration = (Math.random() * 5 + 8) + 's';
+            
+            layer.appendChild(div);
+            div.addEventListener('animationend', () => div.remove());
+        }
+        
+        // ================== 抢答功能 ==================
+        async function startBuzzer() {
+            // 重置并启动抢答
+            await supabaseClient.from('buzzer').update({ 
+                is_active: true, 
+                winner: null 
+            }).eq('id', 1);
+            
+            // 打开抢答控制台
+            window.open('/buzzer-admin', '_blank', 'width=800,height=600');
+        }
+        
+        // ================== 模态框 ==================
+        function openUploadModal() {
+            document.getElementById('upload-modal').style.display = 'flex';
+        }
+        
+        function closeUploadModal() {
+            document.getElementById('upload-modal').style.display = 'none';
+        }
+        
+        // ================== 全屏 ==================
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+        
+        // ================== 键盘快捷键 ==================
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            
+            switch(e.key) {
+                case 'ArrowLeft':
+                case 'PageUp':
+                    e.preventDefault();
+                    prevSlide();
+                    break;
+                case 'ArrowRight':
+                case 'PageDown':
+                case ' ':
+                    e.preventDefault();
+                    nextSlide();
+                    break;
+                case 'v':
+                case 'V':
+                    toggleVoteOverlay();
+                    break;
+                case 'd':
+                case 'D':
+                    toggleDanmu();
+                    break;
+                case 'b':
+                case 'B':
+                    startBuzzer();
+                    break;
+                case 'f':
+                case 'F':
+                    toggleFullscreen();
+                    break;
+                case 'Escape':
+                    closeUploadModal();
+                    document.getElementById('vote-overlay').style.display = 'none';
+                    isVoteVisible = false;
+                    break;
+            }
+        });
+        
+        // ================== 拖拽上传 ==================
+        const dropZone = document.getElementById('drop-zone');
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+        
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+    </script>
+</body>
+</html>

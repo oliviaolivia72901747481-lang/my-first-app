@@ -54,6 +54,10 @@ const nextConfig: NextConfig = {
         destination: '/classroom/lucky.html',
       },
       {
+        source: '/presentation',
+        destination: '/classroom/presentation.html',
+      },
+      {
         source: '/classroom',
         destination: '/classroom/index.html',
       },
