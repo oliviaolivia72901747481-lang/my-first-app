@@ -75,8 +75,7 @@
         }
 
         // ================= 防重复签到 =================
-        // 使用公共工具函数
-        const getTodayKey = ClassroomCommon.getTodayKey;
+        // 使用公共工具函数 (getTodayKey is available from ClassroomCommon)
 
         // 检查今天是否已签到 (本地缓存)
         function hasSignedToday(sid) {
@@ -85,7 +84,7 @@
             
             try {
                 const record = JSON.parse(signRecord);
-                return record.date === getTodayKey() && record.student_id === sid;
+                return record.date === ClassroomCommon.getTodayKey() && record.student_id === sid;
             } catch {
                 return false;
             }
@@ -94,7 +93,7 @@
         // 保存签到记录到本地
         function saveSignRecord(sid) {
             localStorage.setItem('sign_record', JSON.stringify({
-                date: getTodayKey(),
+                date: ClassroomCommon.getTodayKey(),
                 student_id: sid
             }));
         }

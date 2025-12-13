@@ -138,9 +138,9 @@
                 const tbody = document.getElementById('tbody');
                 // 使用 textContent 防止 XSS 攻击
                 tbody.innerHTML = data.map(row => {
-                    const safeContent = escapeHtml(row.content);
-                    const safeName = escapeHtml(row.student_name || '未知');
-                    const safeId = escapeHtml(row.student_id || '-');
+                    const safeContent = ClassroomCommon.escapeHtml(row.content);
+                    const safeName = ClassroomCommon.escapeHtml(row.student_name || '未知');
+                    const safeId = ClassroomCommon.escapeHtml(row.student_id || '-');
                     return `
                     <tr>
                         <td style="font-weight:bold; color:#333;">${safeContent}</td>
@@ -152,8 +152,7 @@
             }
         }
 
-        // 使用公共工具函数
-        const escapeHtml = ClassroomCommon.escapeHtml;
+        // 使用公共工具函数 (escapeHtml is available from ClassroomCommon)
 
         // 实时监控：有新弹幕立刻刷新列表
         supabaseClient

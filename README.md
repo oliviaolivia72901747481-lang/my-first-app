@@ -147,6 +147,8 @@ const SUPABASE_CONFIG = {
 - **404 错误** - 使用简洁URL（如 `/vote` 而不是 `/vote.html`）
 - **JavaScript文件404** - 确保所有script标签使用绝对路径（如 `/classroom/js/common.js`）
 - **"Dependencies not loaded"错误** - 检查common.js和navigation.js是否正确加载
+- **"Identifier already declared"错误** - 避免重新声明ClassroomCommon中的函数，直接使用`ClassroomCommon.functionName()`
+- **"function is not defined"错误** - 清除浏览器缓存，确保JavaScript文件正确加载
 - **页面无法访问** - 检查 `public/classroom/` 目录是否存在
 - **功能异常** - 确认 Supabase 配置正确
 - **样式错误** - 清除浏览器缓存重试
