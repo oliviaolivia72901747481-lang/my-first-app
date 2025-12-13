@@ -919,12 +919,52 @@
         let isLuckyRunning = false;
         let isLuckyMuted = false;
         
-        // 音效
-        const luckyRollSound = new Audio("https://cdn.pixabay.com/audio/2022/03/10/audio_510344b080.mp3");
-        luckyRollSound.loop = true;
-        luckyRollSound.volume = 0.8;
-        const luckyWinSound = new Audio("https://cdn.pixabay.com/audio/2021/08/04/audio_0625c1539c.mp3");
-        luckyWinSound.volume = 1.0;
+        // 音效 - 使用 Web Audio API 生成
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let rollInterval = null;
+        
+        const luckyRollSound = {
+            play: function() {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                rollInterval = setInterval(() => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.value = 200 + Math.random() * 100;
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    gain.gain.value = 0.1;
+                    osc.start();
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+                    osc.stop(audioCtx.currentTime + 0.1);
+                }, 80);
+                return Promise.resolve();
+            },
+            pause: function() { clearInterval(rollInterval); },
+            muted: false
+        };
+        
+        const luckyWinSound = {
+            play: function() {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                [523, 659, 784, 1047].forEach((freq, i) => {
+                    setTimeout(() => {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.value = freq;
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        gain.gain.value = 0.2;
+                        osc.start();
+                        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+                        osc.stop(audioCtx.currentTime + 0.3);
+                    }, i * 100);
+                });
+            },
+            currentTime: 0,
+            muted: false
+        };
         
         function toggleLuckyOverlay() {
             isLuckyVisible = !isLuckyVisible;
