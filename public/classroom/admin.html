@@ -7,6 +7,9 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
@@ -14,133 +17,209 @@
             background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
             color: white; 
             min-height: 100vh;
+            padding: 20px;
+        }
+        
+        /* 顶部状态栏 */
+        .top-bar {
             display: flex;
-            flex-direction: column;
+            justify-content: space-between;
             align-items: center;
-            padding: 40px 20px;
-        }
-        
-        h1 { font-size: 2.5rem; font-weight: 300; margin-bottom: 10px; }
-        .subtitle { color: #94a3b8; margin-bottom: 30px; font-size: 1.1rem; }
-        
-        .main-container {
-            display: flex;
-            gap: 50px;
-            align-items: stretch;
-            flex-wrap: wrap;
-            justify-content: center;
-            max-width: 1400px;
-            width: 100%;
-        }
-        
-        /* 二维码区域 - 放大 */
-        .qr-section {
-            background: white;
-            border-radius: 25px;
-            padding: 40px;
-            text-align: center;
-            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
-            min-width: 380px;
-        }
-        
-        .qr-title { color: #1e293b; font-size: 1.5rem; font-weight: bold; margin-bottom: 20px; }
-        #qr-code { margin: 20px auto; }
-        #qr-code img, #qr-code canvas { border-radius: 15px; }
-        .qr-url { color: #64748b; font-size: 1rem; margin-top: 15px; word-break: break-all; }
-        
-        .student-count {
-            margin-top: 20px;
-            padding: 15px 25px;
-            background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%);
+            padding: 10px 20px;
+            background: rgba(0,0,0,0.3);
             border-radius: 15px;
-            color: #1e293b;
+            margin-bottom: 20px;
         }
-        .count-label { font-size: 0.9rem; color: #64748b; }
-        .count-number { font-size: 3rem; font-weight: bold; color: #2563eb; }
+        .top-bar h1 { font-size: 1.5rem; font-weight: 400; }
+        .status-badge { 
+            padding: 8px 20px; 
+            border-radius: 20px; 
+            font-size: 0.9rem;
+            background: rgba(255,255,255,0.1);
+        }
+        .status-badge.active { background: rgba(16, 185, 129, 0.3); color: #10b981; }
+        .status-badge.idle { background: rgba(148, 163, 184, 0.3); color: #94a3b8; }
+
+        /* 主布局 */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 20px;
+            height: calc(100vh - 120px);
+        }
         
-        /* 右侧功能区 */
-        .right-section {
+        /* 左侧面板 */
+        .left-panel {
             display: flex;
             flex-direction: column;
-            gap: 20px;
-            flex: 1;
-            max-width: 500px;
-        }
-        
-        /* 功能卡片 */
-        .card {
-            background: rgba(255,255,255,0.1);
-            border: 2px solid transparent;
-            border-radius: 20px;
-            padding: 25px 30px;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-        
-        .card:hover {
-            background: rgba(255,255,255,0.15);
-            transform: translateX(5px);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
-        
-        .card.active {
-            border-color: #10b981;
-            background: rgba(16, 185, 129, 0.2);
-        }
-        
-        .card-icon { font-size: 2.5rem; }
-        .card-content { text-align: left; flex: 1; }
-        .card-title { font-size: 1.3rem; font-weight: bold; margin-bottom: 3px; }
-        .card-desc { color: #94a3b8; font-size: 0.9rem; }
-        
-        .card-presentation {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-        }
-        .card-presentation:hover { background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%); }
-        .card-presentation .card-desc { color: rgba(255,255,255,0.8); }
-        
-        .card-import {
-            background: rgba(139, 92, 246, 0.2);
-            border: 2px dashed #8b5cf6;
-        }
-        .card-import:hover { background: rgba(139, 92, 246, 0.3); }
-        
-        /* 底部控制 */
-        .bottom-controls {
-            margin-top: 30px;
-            display: flex;
             gap: 15px;
-            flex-wrap: wrap;
-            justify-content: center;
         }
         
-        .ctrl-btn {
-            padding: 12px 25px;
-            font-size: 0.95rem;
+        /* 二维码卡片 */
+        .qr-card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            text-align: center;
+            color: #333;
+        }
+        .qr-card h3 { color: #1e293b; margin-bottom: 15px; font-size: 1.1rem; }
+        #qr-code { margin: 0 auto; }
+        #qr-code img, #qr-code canvas { border-radius: 10px; }
+        .qr-url { color: #64748b; font-size: 0.8rem; margin-top: 10px; word-break: break-all; }
+        .student-count {
+            margin-top: 15px;
+            padding: 12px;
+            background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%);
+            border-radius: 12px;
+        }
+        .count-number { font-size: 2.5rem; font-weight: bold; color: #2563eb; }
+        .count-label { font-size: 0.8rem; color: #64748b; }
+        
+        /* 功能按钮组 */
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .action-btn {
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+        .action-btn:hover { transform: translateY(-2px); }
+        .action-btn .icon { font-size: 1.5rem; }
+        
+        .btn-sign { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; }
+        .btn-presentation { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-import { background: rgba(139, 92, 246, 0.2); color: #a78bfa; border: 2px dashed #8b5cf6; }
+        .btn-release { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+        .btn-endclass { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; grid-column: span 2; }
+
+        /* 右侧显示区域 */
+        .right-panel {
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* 标签页导航 */
+        .tab-nav {
+            display: flex;
+            background: rgba(0,0,0,0.2);
+            padding: 10px;
+            gap: 10px;
+        }
+        .tab-btn {
+            padding: 12px 20px;
             border: none;
             border-radius: 10px;
             cursor: pointer;
             font-weight: bold;
+            font-size: 0.9rem;
+            background: transparent;
+            color: #94a3b8;
             transition: all 0.2s;
         }
+        .tab-btn:hover { background: rgba(255,255,255,0.1); }
+        .tab-btn.active { background: #3b82f6; color: white; }
         
-        .btn-release { background: #ef4444; color: white; }
-        .btn-release:hover { background: #dc2626; }
-        .btn-endclass { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; }
-        .btn-endclass:hover { background: linear-gradient(135deg, #d97706 0%, #b45309 100%); }
-        .btn-secondary {
-            background: rgba(255,255,255,0.1);
-            color: white;
-            border: 1px solid rgba(255,255,255,0.2);
+        /* 标签页内容 */
+        .tab-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
         }
-        .btn-secondary:hover { background: rgba(255,255,255,0.2); }
+        .tab-pane { display: none; height: 100%; }
+        .tab-pane.active { display: block; }
+        
+        /* 签到管理样式 */
+        .sign-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .sign-table th, .sign-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .sign-table th { background: rgba(0,0,0,0.2); color: #94a3b8; font-size: 0.85rem; }
+        .sign-table tr:hover { background: rgba(255,255,255,0.05); }
+        
+        /* 答题管理样式 */
+        .vote-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .round-display { font-size: 1.8rem; font-weight: bold; color: #3b82f6; }
+        .question-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .q-title { font-size: 1.3rem; margin-bottom: 15px; }
+        .q-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .q-opt { padding: 10px 15px; background: rgba(255,255,255,0.05); border-radius: 8px; font-size: 0.95rem; }
+        .q-opt.correct { background: rgba(16, 185, 129, 0.3); border: 2px solid #10b981; }
+        .chart-container { height: 200px; background: rgba(255,255,255,0.05); border-radius: 15px; padding: 15px; }
+        .vote-controls { display: flex; gap: 10px; margin-top: 15px; }
+        .vote-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        .vote-btn.primary { background: #3b82f6; color: white; }
+        .vote-btn.warning { background: #f59e0b; color: white; }
+        .vote-btn.danger { background: #ef4444; color: white; }
+
+        /* 抢答管理样式 */
+        .buzzer-display {
+            text-align: center;
+            padding: 40px;
+        }
+        .buzzer-status {
+            font-size: 4rem;
+            font-weight: bold;
+            color: #3b82f6;
+            margin: 30px 0;
+            min-height: 100px;
+        }
+        .buzzer-controls { display: flex; gap: 15px; justify-content: center; }
+        .buzzer-btn {
+            padding: 20px 40px;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.2rem;
+            transition: all 0.2s;
+        }
+        .buzzer-btn:hover { transform: translateY(-3px); }
+        .buzzer-btn.start { background: #10b981; color: white; }
+        .buzzer-btn.reset { background: #64748b; color: white; }
         
         /* 导入模态框 */
-        #import-modal {
+        .modal-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.7);
@@ -149,227 +228,325 @@
             justify-content: center;
             z-index: 1000;
         }
-        
         .modal-content {
             background: white;
             border-radius: 20px;
-            padding: 40px;
+            padding: 30px;
             width: 90%;
-            max-width: 550px;
+            max-width: 500px;
             color: #333;
             text-align: center;
         }
-        
-        .modal-title { font-size: 1.5rem; margin-bottom: 10px; }
-        .modal-desc { color: #666; font-size: 0.9rem; margin-bottom: 20px; }
-        
-        .file-drop-area {
+        .modal-title { font-size: 1.3rem; margin-bottom: 15px; }
+        .file-drop {
             border: 3px dashed #ccc;
             border-radius: 15px;
-            padding: 50px 20px;
+            padding: 40px;
+            margin: 15px 0;
             cursor: pointer;
             transition: all 0.3s;
-            background: #fafafa;
         }
-        .file-drop-area:hover { border-color: #8b5cf6; background: #f5f3ff; }
-        .file-drop-area.dragover { border-color: #8b5cf6; background: #f5f3ff; }
-        
-        .modal-btns { margin-top: 25px; display: flex; gap: 15px; justify-content: center; }
+        .file-drop:hover, .file-drop.dragover { border-color: #8b5cf6; background: #f5f3ff; }
+        .modal-btns { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
         .modal-btn {
-            padding: 12px 30px;
-            font-size: 1rem;
+            padding: 12px 25px;
             border: none;
             border-radius: 10px;
             cursor: pointer;
             font-weight: bold;
         }
-        .modal-btn-cancel { background: #e5e7eb; color: #333; }
-        .modal-btn-confirm { background: #8b5cf6; color: white; }
+        .modal-btn.cancel { background: #e5e7eb; color: #333; }
+        .modal-btn.confirm { background: #8b5cf6; color: white; }
         
         input[type=file] { display: none; }
         
-        /* 状态条 */
-        .status-bar {
-            position: fixed;
-            top: 0; left: 0; right: 0;
-            padding: 8px;
-            background: rgba(0,0,0,0.6);
-            text-align: center;
-            font-size: 0.85rem;
-            z-index: 100;
+        /* 工具栏 */
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
         }
-        .status-active { color: #10b981; }
-        .status-idle { color: #94a3b8; }
-        
-        /* 题库信息 */
-        .question-info {
-            margin-top: 10px;
-            padding: 10px 15px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 10px;
-            font-size: 0.85rem;
+        .tool-btn {
+            padding: 8px 15px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: transparent;
             color: #94a3b8;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
         }
+        .tool-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+        .tool-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; }
     </style>
 </head>
+
 <body>
-    <div class="status-bar">
-        当前状态：<span id="current-status" class="status-idle">自由活动</span>
+    <!-- 顶部状态栏 -->
+    <div class="top-bar">
+        <h1>🎓 智慧课堂中控台</h1>
+        <div class="status-badge idle" id="status-badge">
+            <span id="current-status">自由活动</span>
+        </div>
+    </div>
+    
+    <div class="main-layout">
+        <!-- 左侧面板 -->
+        <div class="left-panel">
+            <!-- 二维码 -->
+            <div class="qr-card">
+                <h3>📱 学生扫码入口</h3>
+                <div id="qr-code"></div>
+                <div class="qr-url" id="qr-url"></div>
+                <div class="student-count">
+                    <div class="count-number" id="student-count">0</div>
+                    <div class="count-label">今日签到人数</div>
+                </div>
+            </div>
+            
+            <!-- 功能按钮 -->
+            <div class="action-buttons">
+                <button class="action-btn btn-sign" onclick="activateSign()">
+                    <span class="icon">📝</span>
+                    <span>开始签到</span>
+                </button>
+                <button class="action-btn btn-presentation" onclick="openPresentation()">
+                    <span class="icon">🎬</span>
+                    <span>课件播放</span>
+                </button>
+                <button class="action-btn btn-import" onclick="openImportModal()">
+                    <span class="icon">📥</span>
+                    <span>导入题库</span>
+                </button>
+                <button class="action-btn btn-release" onclick="releaseControl()">
+                    <span class="icon">⏸️</span>
+                    <span>释放控制</span>
+                </button>
+                <button class="action-btn btn-endclass" onclick="endClass()">
+                    <span class="icon">🔔</span>
+                    <span>下课 · 重置所有功能</span>
+                </button>
+            </div>
+            
+            <div style="padding:10px; background:rgba(255,255,255,0.05); border-radius:10px; font-size:0.85rem; color:#94a3b8;">
+                📊 题库：<span id="question-count">0</span> 道题目
+            </div>
+        </div>
+
+        <!-- 右侧显示区域 -->
+        <div class="right-panel">
+            <!-- 标签页导航 -->
+            <div class="tab-nav">
+                <button class="tab-btn active" onclick="switchTab('sign')">📋 签到管理</button>
+                <button class="tab-btn" onclick="switchTab('vote')">📊 答题管理</button>
+                <button class="tab-btn" onclick="switchTab('buzzer')">⚡ 抢答管理</button>
+            </div>
+            
+            <!-- 标签页内容 -->
+            <div class="tab-content">
+                <!-- 签到管理 -->
+                <div class="tab-pane active" id="tab-sign">
+                    <div class="toolbar">
+                        <button class="tool-btn" onclick="exportSignExcel()">📥 导出 Excel</button>
+                        <button class="tool-btn" onclick="clearSignData()">🗑️ 清空记录</button>
+                        <button class="tool-btn" onclick="loadSignData()">🔄 刷新</button>
+                    </div>
+                    <table class="sign-table">
+                        <thead>
+                            <tr>
+                                <th>学号</th>
+                                <th>姓名</th>
+                                <th>签到时间</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sign-tbody"></tbody>
+                    </table>
+                </div>
+                
+                <!-- 答题管理 -->
+                <div class="tab-pane" id="tab-vote">
+                    <div class="vote-header">
+                        <div class="round-display">第 <span id="vote-round">1</span> 题</div>
+                        <div id="vote-status" style="color:#94a3b8;">准备中...</div>
+                    </div>
+                    <div class="question-card">
+                        <div class="q-title" id="q-title">正在加载题目...</div>
+                        <div class="q-options" id="q-options"></div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="voteChart"></canvas>
+                    </div>
+                    <div class="vote-controls">
+                        <button class="vote-btn warning" onclick="toggleVoteActive()">⏯️ 暂停/公布</button>
+                        <button class="vote-btn primary" onclick="prevVoteRound()">⬅️ 上一题</button>
+                        <button class="vote-btn primary" onclick="nextVoteRound()">➡️ 下一题</button>
+                        <button class="vote-btn danger" onclick="resetVote()">🔄 重置</button>
+                    </div>
+                </div>
+                
+                <!-- 抢答管理 -->
+                <div class="tab-pane" id="tab-buzzer">
+                    <div class="buzzer-display">
+                        <h2>🚀 课堂抢答系统</h2>
+                        <div id="buzzer-indicator" style="margin:15px 0;">
+                            <span style="display:inline-block; width:15px; height:15px; border-radius:50%; background:#94a3b8;"></span>
+                            <span id="buzzer-status-text" style="color:#94a3b8; margin-left:10px;">等待开始</span>
+                        </div>
+                        <div class="buzzer-status" id="buzzer-winner">Ready?</div>
+                        <div class="buzzer-controls">
+                            <button class="buzzer-btn reset" onclick="resetBuzzer()">🔄 重置</button>
+                            <button class="buzzer-btn start" onclick="startBuzzer()">▶️ 开始抢答</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <h1>🎓 智慧课堂</h1>
-    <p class="subtitle">扫码进入 · 开始互动</p>
-    
-    <div class="main-container">
-        <!-- 二维码区域 -->
-        <div class="qr-section">
-            <div class="qr-title">📱 学生扫码入口</div>
-            <div id="qr-code"></div>
-            <div class="qr-url" id="qr-url"></div>
-            <div class="student-count">
-                <div class="count-label">今日签到</div>
-                <div class="count-number" id="student-count">0</div>
-                <div class="count-label">人</div>
-            </div>
-        </div>
-        
-        <!-- 右侧功能区 -->
-        <div class="right-section">
-            <div class="card" id="card-sign" onclick="activateSign()">
-                <div class="card-icon">📝</div>
-                <div class="card-content">
-                    <div class="card-title">开始签到</div>
-                    <div class="card-desc">学生扫码后自动跳转签到页面</div>
-                </div>
-            </div>
-            
-            <div class="card card-presentation" onclick="openPresentation()">
-                <div class="card-icon">🎬</div>
-                <div class="card-content">
-                    <div class="card-title">课件播放器</div>
-                    <div class="card-desc">PPT + 答题 + 弹幕 + 抢答 + 点名</div>
-                </div>
-            </div>
-            
-            <div class="card card-import" onclick="openImportModal()">
-                <div class="card-icon">📥</div>
-                <div class="card-content">
-                    <div class="card-title">导入题库</div>
-                    <div class="card-desc">上传 Excel 文件导入答题题目</div>
-                </div>
-            </div>
-            
-            <div class="question-info">
-                📊 当前题库：<span id="question-count">0</span> 道题目
-            </div>
-        </div>
-    </div>
-    
-    <div class="bottom-controls">
-        <button class="ctrl-btn btn-release" onclick="releaseControl()">⏸️ 释放控制</button>
-        <button class="ctrl-btn btn-secondary" onclick="window.open('/sign-admin')">📋 签到管理</button>
-        <button class="ctrl-btn btn-secondary" onclick="window.open('/vote-admin')">📊 答题管理</button>
-        <button class="ctrl-btn btn-endclass" onclick="endClass()">🔔 下课</button>
-    </div>
-    
     <!-- 导入模态框 -->
-    <div id="import-modal">
+    <div class="modal-overlay" id="import-modal">
         <div class="modal-content">
             <div class="modal-title">📥 导入 Excel 题库</div>
-            <div class="modal-desc">
-                请上传 .xlsx 文件，表头需包含：轮次、题目、选项A、选项B、选项C、选项D、答案<br>
+            <p style="color:#666; font-size:0.9rem; margin-bottom:15px;">
+                表头需包含：轮次、题目、选项A、选项B、选项C、选项D、答案<br>
                 <span style="color:#999; font-size:0.8rem;">类型可选：single(单选)、multi(多选)、judge(判断)</span>
-            </div>
-            
-            <label class="file-drop-area" id="drop-area" for="file-input">
-                <div style="font-size:3rem; margin-bottom:10px;">📄</div>
+            </p>
+            <label class="file-drop" id="drop-area" for="file-input">
+                <div style="font-size:2.5rem; margin-bottom:10px;">📄</div>
                 <div id="file-name">点击选择文件或拖拽到此处</div>
                 <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFileSelect(this)">
             </label>
-            
             <div class="modal-btns">
-                <button class="modal-btn modal-btn-cancel" onclick="closeImportModal()">取消</button>
-                <button class="modal-btn modal-btn-confirm" onclick="uploadExcel()">确认导入</button>
+                <button class="modal-btn cancel" onclick="closeImportModal()">取消</button>
+                <button class="modal-btn confirm" onclick="uploadExcel()">确认导入</button>
             </div>
         </div>
     </div>
 
     <script>
+        // Supabase 配置
         const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co';
         const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h';
         const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
-        let selectedFile = null;
         
-        // 生成二维码 - 放大到 280px
+        let selectedFile = null;
+        let signData = [];
+        let voteRound = 1;
+        let isVoteActive = true;
+        let currentQuestion = null;
+        let voteChart = null;
+        
+        // ================== 初始化 ==================
+        async function init() {
+            generateQRCode();
+            loadStudentCount();
+            loadQuestionCount();
+            loadSignData();
+            initVoteChart();
+            loadVoteState();
+            loadBuzzerState();
+            
+            // 检查全局状态
+            const { data } = await supabaseClient.from('global_state').select('*').eq('id', 1).single();
+            if (data && data.status === 'active') {
+                updateStatusBadge('active', '系统运行中...');
+            }
+            
+            // 实时监听
+            setupRealtimeListeners();
+        }
+        
+        function setupRealtimeListeners() {
+            // 签到监听
+            supabaseClient.channel('admin-sign')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendance' }, () => {
+                    loadSignData();
+                    loadStudentCount();
+                })
+                .subscribe();
+            
+            // 答题监听
+            supabaseClient.channel('admin-vote-config')
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'vote_config' }, payload => {
+                    updateVoteState(payload.new);
+                })
+                .subscribe();
+            
+            supabaseClient.channel('admin-vote-logs')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'vote_logs' }, () => {
+                    loadVoteChartData();
+                })
+                .subscribe();
+            
+            // 抢答监听
+            supabaseClient.channel('admin-buzzer')
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'buzzer' }, payload => {
+                    updateBuzzerUI(payload.new);
+                })
+                .subscribe();
+        }
+
+        // ================== 通用功能 ==================
         function generateQRCode() {
             const studentUrl = window.location.origin + '/classroom';
             document.getElementById('qr-url').innerText = studentUrl;
-            
             const container = document.getElementById('qr-code');
             container.innerHTML = '';
-            
             try {
                 new QRCode(container, {
                     text: studentUrl,
-                    width: 280,
-                    height: 280,
+                    width: 200,
+                    height: 200,
                     colorDark: '#1e293b',
                     colorLight: '#ffffff',
                     correctLevel: QRCode.CorrectLevel.H
                 });
             } catch (e) {
-                console.error('二维码生成失败:', e);
-                container.innerHTML = `<div style="padding:30px; background:#f1f5f9; border-radius:15px; color:#1e293b;">
-                    <p style="margin-bottom:10px; font-size:1.2rem;">📱 请访问:</p>
-                    <a href="${studentUrl}" style="color:#2563eb; font-size:1.1rem;">${studentUrl}</a>
-                </div>`;
+                container.innerHTML = `<div style="padding:20px; color:#666;">二维码生成失败</div>`;
             }
         }
         
-        // 获取签到人数
         async function loadStudentCount() {
             try {
                 const today = new Date().toISOString().split('T')[0];
-                const { count } = await supabaseClient
-                    .from('attendance')
+                const { count } = await supabaseClient.from('attendance')
                     .select('*', { count: 'exact', head: true })
                     .gte('created_at', today);
                 document.getElementById('student-count').innerText = count || 0;
-            } catch (e) {
-                console.error('获取签到人数失败:', e);
-            }
+            } catch (e) { console.error(e); }
         }
         
-        // 获取题库数量
         async function loadQuestionCount() {
             try {
-                const { count } = await supabaseClient
-                    .from('questions')
+                const { count } = await supabaseClient.from('questions')
                     .select('*', { count: 'exact', head: true });
                 document.getElementById('question-count').innerText = count || 0;
-            } catch (e) {
-                console.error('获取题库数量失败:', e);
-            }
+            } catch (e) { console.error(e); }
         }
         
-        // 实时监听签到
-        supabaseClient.channel('admin-attendance')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendance' }, loadStudentCount)
-            .subscribe();
+        function updateStatusBadge(status, text) {
+            const badge = document.getElementById('status-badge');
+            const statusText = document.getElementById('current-status');
+            badge.className = 'status-badge ' + status;
+            statusText.innerText = text;
+        }
         
-        // 激活签到模式
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            document.getElementById('tab-' + tabName).classList.add('active');
+        }
+        
+        // ================== 左侧按钮功能 ==================
         async function activateSign() {
-            document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
-            document.getElementById('card-sign').classList.add('active');
-            document.getElementById('current-status').innerText = '签到进行中...';
-            document.getElementById('current-status').className = 'status-active';
-            
+            updateStatusBadge('active', '签到进行中...');
             await supabaseClient.from('global_state').update({
                 current_page: '/sign',
                 status: 'active'
             }).eq('id', 1);
-            
-            window.open('/sign-admin', '_blank');
+            switchTab('sign');
         }
         
         function openPresentation() {
@@ -377,66 +554,252 @@
         }
         
         async function releaseControl() {
-            document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
-            document.getElementById('current-status').innerText = '自由活动';
-            document.getElementById('current-status').className = 'status-idle';
-            
+            updateStatusBadge('idle', '自由活动');
             await supabaseClient.from('global_state').update({
                 current_page: 'idle',
                 status: 'idle'
             }).eq('id', 1);
         }
         
-        // 下课功能 - 初始化所有状态
         async function endClass() {
-            if (!confirm('⚠️ 确定要下课吗？\n\n这将会：\n• 释放学生端控制\n• 重置答题轮次\n• 关闭抢答功能\n• 清空今日签到记录（可选）')) {
-                return;
-            }
+            if (!confirm('⚠️ 确定要下课吗？\n\n这将会：\n• 释放学生端控制\n• 重置答题轮次\n• 关闭抢答功能\n• 清空今日答题记录')) return;
             
             const clearAttendance = confirm('是否清空今日签到记录？\n\n点击"确定"清空，点击"取消"保留');
             
             try {
-                // 1. 释放全局控制
-                await supabaseClient.from('global_state').update({
-                    current_page: 'idle',
-                    status: 'idle'
-                }).eq('id', 1);
+                await supabaseClient.from('global_state').update({ current_page: 'idle', status: 'idle' }).eq('id', 1);
+                await supabaseClient.from('vote_config').update({ current_round: 1, is_active: false }).eq('id', 1);
+                await supabaseClient.from('buzzer').update({ is_active: false, winner: null }).eq('id', 1);
                 
-                // 2. 重置答题配置
-                await supabaseClient.from('vote_config').update({
-                    current_round: 1,
-                    is_active: false
-                }).eq('id', 1);
-                
-                // 3. 关闭抢答
-                await supabaseClient.from('buzzer').update({
-                    is_active: false,
-                    winner: null
-                }).eq('id', 1);
-                
-                // 4. 清空今日答题记录
                 const today = new Date().toISOString().split('T')[0];
                 await supabaseClient.from('vote_logs').delete().gte('created_at', today);
                 
-                // 5. 可选：清空今日签到记录
                 if (clearAttendance) {
                     await supabaseClient.from('attendance').delete().gte('created_at', today);
                 }
                 
-                // 更新界面
-                document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
-                document.getElementById('current-status').innerText = '已下课';
-                document.getElementById('current-status').className = 'status-idle';
+                updateStatusBadge('idle', '已下课');
                 loadStudentCount();
+                loadSignData();
+                loadVoteState();
                 
                 alert('✅ 下课成功！所有功能已重置。');
             } catch (err) {
-                console.error('下课操作失败:', err);
                 alert('❌ 操作失败: ' + err.message);
             }
         }
+
+        // ================== 签到管理 ==================
+        async function loadSignData() {
+            try {
+                const { data } = await supabaseClient.from('attendance')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                signData = data || [];
+                renderSignTable(signData);
+            } catch (e) { console.error(e); }
+        }
         
-        // ========== 题库导入功能 ==========
+        function renderSignTable(data) {
+            const tbody = document.getElementById('sign-tbody');
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#94a3b8; padding:30px;">暂无签到记录</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.map(row => `
+                <tr>
+                    <td>${row.student_id}</td>
+                    <td><strong>${row.student_name}</strong></td>
+                    <td style="color:#94a3b8; font-size:0.9rem;">${new Date(row.created_at).toLocaleString()}</td>
+                </tr>
+            `).join('');
+        }
+        
+        function exportSignExcel() {
+            if (signData.length === 0) return alert('没有数据可导出！');
+            const excelData = signData.map(row => ({
+                '学号': row.student_id,
+                '姓名': row.student_name,
+                '签到时间': new Date(row.created_at).toLocaleString()
+            }));
+            const ws = XLSX.utils.json_to_sheet(excelData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, '签到表');
+            XLSX.writeFile(wb, `课堂签到_${new Date().toISOString().split('T')[0]}.xlsx`);
+        }
+        
+        async function clearSignData() {
+            if (!confirm('⚠️ 确定要清空所有签到记录吗？')) return;
+            await supabaseClient.from('attendance').delete().neq('id', 0);
+            loadSignData();
+            loadStudentCount();
+            alert('已清空！');
+        }
+        
+        // ================== 答题管理 ==================
+        function initVoteChart() {
+            Chart.register(ChartDataLabels);
+            const ctx = document.getElementById('voteChart').getContext('2d');
+            voteChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['A', 'B', 'C', 'D'],
+                    datasets: [{
+                        data: [0, 0, 0, 0],
+                        backgroundColor: ['#3b82f6', '#3b82f6', '#3b82f6', '#3b82f6'],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        datalabels: { color: 'white', font: { size: 16, weight: 'bold' } }
+                    },
+                    scales: {
+                        y: { display: false },
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 14 } } }
+                    }
+                }
+            });
+        }
+        
+        async function loadVoteState() {
+            try {
+                const { data } = await supabaseClient.from('vote_config').select('*').eq('id', 1).single();
+                if (data) updateVoteState(data);
+            } catch (e) { console.error(e); }
+        }
+        
+        async function updateVoteState(config) {
+            voteRound = config.current_round;
+            isVoteActive = config.is_active;
+            document.getElementById('vote-round').innerText = voteRound;
+            document.getElementById('vote-status').innerText = isVoteActive ? '正在接收答案...' : '⛔ 已停止作答';
+            document.getElementById('vote-status').style.color = isVoteActive ? '#10b981' : '#ef4444';
+            await loadQuestion(voteRound);
+            await loadVoteChartData();
+        }
+        
+        async function loadQuestion(round) {
+            try {
+                const { data } = await supabaseClient.from('questions').select('*').eq('round', round).maybeSingle();
+                currentQuestion = data;
+                if (data) {
+                    document.getElementById('q-title').innerText = `${round}. ${data.title}`;
+                    const opts = document.getElementById('q-options');
+                    opts.innerHTML = `
+                        <div class="q-opt ${!isVoteActive && data.answer.includes('A') ? 'correct' : ''}" id="opt-A">A. ${data.option_a || ''}</div>
+                        <div class="q-opt ${!isVoteActive && data.answer.includes('B') ? 'correct' : ''}" id="opt-B">B. ${data.option_b || ''}</div>
+                        <div class="q-opt ${!isVoteActive && data.answer.includes('C') ? 'correct' : ''}" id="opt-C">C. ${data.option_c || ''}</div>
+                        <div class="q-opt ${!isVoteActive && data.answer.includes('D') ? 'correct' : ''}" id="opt-D">D. ${data.option_d || ''}</div>
+                    `;
+                } else {
+                    document.getElementById('q-title').innerText = `第 ${round} 题 (无数据)`;
+                    document.getElementById('q-options').innerHTML = '';
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function loadVoteChartData() {
+            try {
+                const { data } = await supabaseClient.from('vote_logs').select('option').eq('round', voteRound);
+                const counts = { A: 0, B: 0, C: 0, D: 0 };
+                if (data) data.forEach(row => { if (counts[row.option] !== undefined) counts[row.option]++; });
+                voteChart.data.datasets[0].data = [counts.A, counts.B, counts.C, counts.D];
+                
+                if (!isVoteActive && currentQuestion) {
+                    const colors = ['A', 'B', 'C', 'D'].map(opt => 
+                        currentQuestion.answer.includes(opt) ? '#10b981' : '#ef4444'
+                    );
+                    voteChart.data.datasets[0].backgroundColor = colors;
+                } else {
+                    voteChart.data.datasets[0].backgroundColor = ['#3b82f6', '#3b82f6', '#3b82f6', '#3b82f6'];
+                }
+                voteChart.update();
+            } catch (e) { console.error(e); }
+        }
+        
+        async function toggleVoteActive() {
+            await supabaseClient.from('vote_config').update({ is_active: !isVoteActive }).eq('id', 1);
+        }
+        
+        async function prevVoteRound() {
+            if (voteRound <= 1) return;
+            await supabaseClient.from('vote_config').update({ current_round: voteRound - 1, is_active: true }).eq('id', 1);
+        }
+        
+        async function nextVoteRound() {
+            await supabaseClient.from('vote_config').update({ current_round: voteRound + 1, is_active: true }).eq('id', 1);
+        }
+        
+        async function resetVote() {
+            if (!confirm('重置所有答题数据？')) return;
+            await supabaseClient.from('vote_logs').delete().neq('id', 0);
+            await supabaseClient.from('vote_config').update({ current_round: 1, is_active: true }).eq('id', 1);
+        }
+        
+        // ================== 抢答管理 ==================
+        async function loadBuzzerState() {
+            try {
+                const { data } = await supabaseClient.from('buzzer').select('*').eq('id', 1).single();
+                if (data) updateBuzzerUI(data);
+            } catch (e) { console.error(e); }
+        }
+        
+        function updateBuzzerUI(data) {
+            const winner = document.getElementById('buzzer-winner');
+            const indicator = document.getElementById('buzzer-indicator').querySelector('span');
+            const statusText = document.getElementById('buzzer-status-text');
+            
+            if (data.winner) {
+                winner.innerText = data.winner + ' 🏆';
+                winner.style.color = '#3b82f6';
+                indicator.style.background = '#94a3b8';
+                statusText.innerText = '抢答结束';
+                triggerConfetti();
+            } else if (data.is_active) {
+                winner.innerText = 'GO!!!';
+                winner.style.color = '#ef4444';
+                indicator.style.background = '#10b981';
+                statusText.innerText = '正在进行';
+            } else {
+                winner.innerText = 'Ready?';
+                winner.style.color = '#3b82f6';
+                indicator.style.background = '#94a3b8';
+                statusText.innerText = '等待开始';
+            }
+        }
+        
+        async function resetBuzzer() {
+            document.getElementById('buzzer-winner').innerText = 'Ready?';
+            await supabaseClient.from('buzzer').update({ is_active: false, winner: null }).eq('id', 1);
+        }
+        
+        async function startBuzzer() {
+            // 更新全局状态让学生跳转
+            await supabaseClient.from('global_state').update({ status: 'active', current_page: 'buzzer.html' }).eq('id', 1);
+            updateStatusBadge('active', '抢答进行中...');
+            
+            // 倒计时
+            const winner = document.getElementById('buzzer-winner');
+            for (let i = 3; i >= 1; i--) {
+                winner.innerText = i;
+                winner.style.color = '#ef4444';
+                await new Promise(r => setTimeout(r, 800));
+            }
+            winner.innerText = 'GO!!!';
+            
+            // 启动抢答
+            await supabaseClient.from('buzzer').update({ is_active: true, winner: null }).eq('id', 1);
+        }
+        
+        function triggerConfetti() {
+            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+        }
+
+        // ================== 题库导入 ==================
         function openImportModal() {
             document.getElementById('import-modal').style.display = 'flex';
         }
@@ -455,10 +818,7 @@
         }
         
         async function uploadExcel() {
-            if (!selectedFile) {
-                alert('请先选择文件');
-                return;
-            }
+            if (!selectedFile) return alert('请先选择文件');
             
             const reader = new FileReader();
             reader.onload = async function(e) {
@@ -478,17 +838,15 @@
                         type: row['类型'] || 'single'
                     }));
                     
-                    // 清空旧题库并导入新题库
                     await supabaseClient.from('questions').delete().neq('id', 0);
                     const { error } = await supabaseClient.from('questions').insert(dbData);
-                    
                     if (error) throw error;
                     
                     alert(`✅ 导入成功！共 ${dbData.length} 道题目`);
                     closeImportModal();
                     loadQuestionCount();
+                    loadVoteState();
                 } catch (err) {
-                    console.error('导入失败:', err);
                     alert('导入失败: ' + err.message);
                 }
             };
@@ -497,13 +855,8 @@
         
         // 拖拽上传
         const dropArea = document.getElementById('drop-area');
-        dropArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropArea.classList.add('dragover');
-        });
-        dropArea.addEventListener('dragleave', () => {
-            dropArea.classList.remove('dragover');
-        });
+        dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.classList.add('dragover'); });
+        dropArea.addEventListener('dragleave', () => { dropArea.classList.remove('dragover'); });
         dropArea.addEventListener('drop', (e) => {
             e.preventDefault();
             dropArea.classList.remove('dragover');
@@ -513,27 +866,7 @@
             }
         });
         
-        // 初始化
-        async function init() {
-            generateQRCode();
-            loadStudentCount();
-            loadQuestionCount();
-            
-            const { data } = await supabaseClient
-                .from('global_state')
-                .select('*')
-                .eq('id', 1)
-                .single();
-            
-            if (data && data.status === 'active') {
-                if (data.current_page.includes('sign')) {
-                    document.getElementById('card-sign').classList.add('active');
-                }
-                document.getElementById('current-status').innerText = '系统运行中...';
-                document.getElementById('current-status').className = 'status-active';
-            }
-        }
-        
+        // 启动
         init();
     </script>
 </body>
