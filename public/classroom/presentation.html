@@ -729,6 +729,8 @@
             document.getElementById('question-panel').style.display = 'none';
         }
         
+        let showAnswerRevealed = false; // 是否已公布答案
+        
         async function loadQPQuestion() {
             try {
                 const { data } = await supabaseClient.from('questions').select('*').eq('round', qpRound).maybeSingle();
@@ -738,12 +740,12 @@
                 if (data) {
                     document.getElementById('qp-title').innerText = data.title;
                     const opts = document.getElementById('qp-options');
-                    const showAnswer = !isQPActive;
+                    // 只有在教师点击"公布答案"后才显示正确答案
                     opts.innerHTML = `
-                        <div class="qp-opt ${showAnswer && data.answer.includes('A') ? 'correct' : ''}">A. ${data.option_a || ''}</div>
-                        <div class="qp-opt ${showAnswer && data.answer.includes('B') ? 'correct' : ''}">B. ${data.option_b || ''}</div>
-                        <div class="qp-opt ${showAnswer && data.answer.includes('C') ? 'correct' : ''}">C. ${data.option_c || ''}</div>
-                        <div class="qp-opt ${showAnswer && data.answer.includes('D') ? 'correct' : ''}">D. ${data.option_d || ''}</div>
+                        <div class="qp-opt ${showAnswerRevealed && data.answer.includes('A') ? 'correct' : ''}">A. ${data.option_a || ''}</div>
+                        <div class="qp-opt ${showAnswerRevealed && data.answer.includes('B') ? 'correct' : ''}">B. ${data.option_b || ''}</div>
+                        <div class="qp-opt ${showAnswerRevealed && data.answer.includes('C') ? 'correct' : ''}">C. ${data.option_c || ''}</div>
+                        <div class="qp-opt ${showAnswerRevealed && data.answer.includes('D') ? 'correct' : ''}">D. ${data.option_d || ''}</div>
                     `;
                     // 设置模式
                     qpMode = data.mode || 'vote';
@@ -822,6 +824,7 @@
         
         async function stopQuestion() {
             isQPActive = false;
+            showAnswerRevealed = true; // 公布答案
             if (qpMode === 'vote') {
                 await supabaseClient.from('vote_config').update({ is_active: false }).eq('id', 1);
             } else if (qpMode === 'buzzer') {
@@ -834,6 +837,7 @@
             if (qpRound <= 1) return;
             qpRound--;
             isQPActive = false;
+            showAnswerRevealed = false; // 切换题目时隐藏答案
             await supabaseClient.from('vote_config').update({ current_round: qpRound, is_active: true }).eq('id', 1);
             loadQPQuestion();
         }
@@ -841,6 +845,7 @@
         async function nextQuestion() {
             qpRound++;
             isQPActive = false;
+            showAnswerRevealed = false; // 切换题目时隐藏答案
             await supabaseClient.from('vote_config').update({ current_round: qpRound, is_active: true }).eq('id', 1);
             loadQPQuestion();
         }
