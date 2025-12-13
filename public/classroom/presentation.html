@@ -817,6 +817,13 @@
         async function startQuestion() {
             if (!qpQuestion) { alert('当前没有题目'); return; }
             isQPActive = true;
+            showAnswerRevealed = false; // 重置答案显示状态
+            
+            // 清除当前题目的答题记录，让学生可以重新回答
+            await supabaseClient.from('vote_logs').delete().eq('round', qpRound);
+            
+            // 隐藏上一次的回答结果
+            document.getElementById('qp-answer-result').style.display = 'none';
             
             switch (qpMode) {
                 case 'vote':
