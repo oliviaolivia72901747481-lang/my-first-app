@@ -356,8 +356,7 @@
             <!-- 标签页导航 -->
             <div class="tab-nav">
                 <button class="tab-btn active" onclick="switchTab('sign')">📋 签到管理</button>
-                <button class="tab-btn" onclick="switchTab('vote')">📚 题库管理</button>
-                <button class="tab-btn" onclick="switchTab('buzzer')">⚡ 抢答管理</button>
+                <button class="tab-btn" onclick="switchTab('result')">📊 实时结果</button>
             </div>
             
             <!-- 标签页内容 -->
@@ -381,59 +380,37 @@
                     </table>
                 </div>
                 
-                <!-- 题库管理 -->
-                <div class="tab-pane" id="tab-vote">
-                    <div class="vote-header">
-                        <div class="round-display">第 <span id="vote-round">1</span> 题</div>
-                        <div style="display:flex; align-items:center; gap:15px;">
-                            <div id="q-mode-badge" style="padding:5px 12px; border-radius:15px; font-size:0.85rem; font-weight:bold;">📊 答题</div>
-                            <div id="vote-status" style="color:#94a3b8;">准备中...</div>
-                        </div>
+                <!-- 实时结果 -->
+                <div class="tab-pane" id="tab-result">
+                    <div style="text-align:center; padding:20px;">
+                        <p style="color:#94a3b8; margin-bottom:20px;">📺 实时显示课件播放器中的互动结果</p>
                     </div>
+                    
+                    <!-- 当前题目 -->
                     <div class="question-card">
-                        <div class="q-title" id="q-title">正在加载题目...</div>
-                        <div class="q-options" id="q-options"></div>
-                        <!-- 模式选择器 -->
-                        <div id="mode-selector" style="margin-top:15px; padding:15px; background:rgba(0,0,0,0.2); border-radius:10px;">
-                            <div style="font-size:0.85rem; color:#94a3b8; margin-bottom:10px;">选择互动模式：</div>
-                            <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                                <button class="mode-btn active" data-mode="vote" onclick="setQuestionMode('vote')">
-                                    📊 答题模式
-                                </button>
-                                <button class="mode-btn" data-mode="buzzer" onclick="setQuestionMode('buzzer')">
-                                    ⚡ 抢答模式
-                                </button>
-                                <button class="mode-btn" data-mode="lucky" onclick="setQuestionMode('lucky')">
-                                    🎰 点名模式
-                                </button>
-                            </div>
+                        <div class="vote-header" style="margin-bottom:15px;">
+                            <div class="round-display">第 <span id="vote-round">1</span> 题</div>
+                            <div id="vote-status" style="color:#94a3b8;">等待中...</div>
                         </div>
+                        <div class="q-title" id="q-title">等待课件播放器开始互动...</div>
+                        <div class="q-options" id="q-options"></div>
                     </div>
+                    
+                    <!-- 答题统计 -->
                     <div class="chart-container" id="chart-container">
                         <canvas id="voteChart"></canvas>
                     </div>
-                    <div class="vote-controls">
-                        <button class="vote-btn" style="background:#10b981;" onclick="startCurrentQuestion()">▶️ 开始本题</button>
-                        <button class="vote-btn warning" onclick="toggleVoteActive()">⏯️ 暂停/公布</button>
-                        <button class="vote-btn primary" onclick="prevVoteRound()">⬅️ 上一题</button>
-                        <button class="vote-btn primary" onclick="nextVoteRound()">➡️ 下一题</button>
-                        <button class="vote-btn danger" onclick="resetVote()">🔄 重置</button>
+                    
+                    <!-- 抢答结果 -->
+                    <div id="buzzer-result-card" style="background:rgba(255,255,255,0.1); border-radius:15px; padding:20px; margin-top:15px; text-align:center; display:none;">
+                        <div style="font-size:0.9rem; color:#94a3b8; margin-bottom:10px;">⚡ 抢答结果</div>
+                        <div id="buzzer-winner" style="font-size:2.5rem; font-weight:bold; color:#10b981;">等待中...</div>
                     </div>
-                </div>
-                
-                <!-- 抢答管理 -->
-                <div class="tab-pane" id="tab-buzzer">
-                    <div class="buzzer-display">
-                        <h2>🚀 课堂抢答系统</h2>
-                        <div id="buzzer-indicator" style="margin:15px 0;">
-                            <span style="display:inline-block; width:15px; height:15px; border-radius:50%; background:#94a3b8;"></span>
-                            <span id="buzzer-status-text" style="color:#94a3b8; margin-left:10px;">等待开始</span>
-                        </div>
-                        <div class="buzzer-status" id="buzzer-winner">Ready?</div>
-                        <div class="buzzer-controls">
-                            <button class="buzzer-btn reset" onclick="resetBuzzer()">🔄 重置</button>
-                            <button class="buzzer-btn start" onclick="startBuzzer()">▶️ 开始抢答</button>
-                        </div>
+                    
+                    <!-- 工具栏 -->
+                    <div class="toolbar" style="margin-top:15px;">
+                        <button class="tool-btn" onclick="exportVoteExcel()">📥 导出答题报告</button>
+                        <button class="tool-btn" onclick="resetVote()">🔄 重置答题数据</button>
                     </div>
                 </div>
             </div>
@@ -744,70 +721,49 @@
         
         // 更新模式显示
         function updateModeDisplay(mode) {
-            const badge = document.getElementById('q-mode-badge');
-            const modeConfig = {
-                'vote': { text: '📊 答题', bg: '#3b82f6' },
-                'buzzer': { text: '⚡ 抢答', bg: '#ef4444' },
-                'lucky': { text: '🎰 点名', bg: '#f59e0b' }
-            };
-            const config = modeConfig[mode] || modeConfig['vote'];
-            badge.innerText = config.text;
-            badge.style.background = config.bg;
-            badge.style.color = 'white';
-            
-            // 更新模式按钮状态
-            document.querySelectorAll('.mode-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.mode === mode);
-            });
-            
-            // 根据模式显示/隐藏图表
+            // 根据模式显示/隐藏相关区域
             const chartContainer = document.getElementById('chart-container');
-            chartContainer.style.display = mode === 'vote' ? 'block' : 'none';
-        }
-        
-        // 设置题目模式
-        async function setQuestionMode(mode) {
-            if (!currentQuestion) return;
-            try {
-                await supabaseClient.from('questions').update({ mode: mode }).eq('id', currentQuestion.id);
-                currentQuestion.mode = mode;
-                updateModeDisplay(mode);
-            } catch (e) { console.error(e); }
-        }
-        
-        // 开始当前题目（根据模式）
-        async function startCurrentQuestion() {
-            if (!currentQuestion) {
-                alert('当前没有题目');
-                return;
+            const buzzerCard = document.getElementById('buzzer-result-card');
+            
+            if (mode === 'vote') {
+                chartContainer.style.display = 'block';
+                buzzerCard.style.display = 'none';
+            } else if (mode === 'buzzer') {
+                chartContainer.style.display = 'none';
+                buzzerCard.style.display = 'block';
+            } else {
+                chartContainer.style.display = 'none';
+                buzzerCard.style.display = 'none';
             }
-            
-            const mode = currentQuestion.mode || 'vote';
-            
-            switch (mode) {
-                case 'vote':
-                    // 答题模式：更新全局状态让学生跳转到答题页
-                    await supabaseClient.from('global_state').update({ status: 'active', current_page: 'vote.html' }).eq('id', 1);
-                    await supabaseClient.from('vote_config').update({ current_round: voteRound, is_active: true }).eq('id', 1);
-                    updateStatusBadge('active', '答题进行中...');
-                    break;
-                    
-                case 'buzzer':
-                    // 抢答模式：跳转到抢答页并开始倒计时
-                    await supabaseClient.from('global_state').update({ status: 'active', current_page: 'buzzer.html' }).eq('id', 1);
-                    updateStatusBadge('active', '抢答进行中...');
-                    // 显示题目后开始抢答
-                    setTimeout(async () => {
-                        await supabaseClient.from('buzzer').update({ is_active: true, winner: null }).eq('id', 1);
-                    }, 1000);
-                    break;
-                    
-                case 'lucky':
-                    // 点名模式：随机选人回答
-                    await supabaseClient.from('global_state').update({ status: 'active', current_page: 'lucky.html' }).eq('id', 1);
-                    updateStatusBadge('active', '点名进行中...');
-                    alert('🎰 请在课件播放器中使用点名功能选择学生回答');
-                    break;
+        }
+        
+        // 导出答题报告
+        async function exportVoteExcel() {
+            try {
+                const { data: students } = await supabaseClient.from('attendance').select('student_name, student_id');
+                const { data: logs } = await supabaseClient.from('vote_logs').select('*');
+                
+                if (!logs || logs.length === 0) {
+                    alert('暂无答题数据');
+                    return;
+                }
+                
+                const reportData = logs.map(log => ({
+                    '题目轮次': `第 ${log.round} 题`,
+                    '学号': log.student_id,
+                    '姓名': log.student_name,
+                    '选择': log.option,
+                    '正误': log.is_correct ? '✅ 正确' : '❌ 错误',
+                    '时间': new Date(log.created_at).toLocaleString()
+                }));
+                
+                const ws = XLSX.utils.json_to_sheet(reportData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, '答题报告');
+                XLSX.writeFile(wb, `答题报告_${new Date().toISOString().split('T')[0]}.xlsx`);
+            } catch (e) {
+                console.error(e);
+                alert('导出失败');
             }
         }
 
@@ -830,26 +786,13 @@
             } catch (e) { console.error(e); }
         }
         
-        async function toggleVoteActive() {
-            await supabaseClient.from('vote_config').update({ is_active: !isVoteActive }).eq('id', 1);
-        }
-        
-        async function prevVoteRound() {
-            if (voteRound <= 1) return;
-            await supabaseClient.from('vote_config').update({ current_round: voteRound - 1, is_active: true }).eq('id', 1);
-        }
-        
-        async function nextVoteRound() {
-            await supabaseClient.from('vote_config').update({ current_round: voteRound + 1, is_active: true }).eq('id', 1);
-        }
-        
         async function resetVote() {
             if (!confirm('重置所有答题数据？')) return;
             await supabaseClient.from('vote_logs').delete().neq('id', 0);
             await supabaseClient.from('vote_config').update({ current_round: 1, is_active: true }).eq('id', 1);
         }
         
-        // ================== 抢答管理 ==================
+        // ================== 抢答结果显示 ==================
         async function loadBuzzerState() {
             try {
                 const { data } = await supabaseClient.from('buzzer').select('*').eq('id', 1).single();
@@ -859,49 +802,18 @@
         
         function updateBuzzerUI(data) {
             const winner = document.getElementById('buzzer-winner');
-            const indicator = document.getElementById('buzzer-indicator').querySelector('span');
-            const statusText = document.getElementById('buzzer-status-text');
+            const buzzerCard = document.getElementById('buzzer-result-card');
             
             if (data.winner) {
                 winner.innerText = data.winner + ' 🏆';
-                winner.style.color = '#3b82f6';
-                indicator.style.background = '#94a3b8';
-                statusText.innerText = '抢答结束';
+                winner.style.color = '#10b981';
+                buzzerCard.style.display = 'block';
                 triggerConfetti();
             } else if (data.is_active) {
-                winner.innerText = 'GO!!!';
-                winner.style.color = '#ef4444';
-                indicator.style.background = '#10b981';
-                statusText.innerText = '正在进行';
             } else {
-                winner.innerText = 'Ready?';
-                winner.style.color = '#3b82f6';
-                indicator.style.background = '#94a3b8';
-                statusText.innerText = '等待开始';
+                winner.innerText = '等待中...';
+                winner.style.color = '#94a3b8';
             }
-        }
-        
-        async function resetBuzzer() {
-            document.getElementById('buzzer-winner').innerText = 'Ready?';
-            await supabaseClient.from('buzzer').update({ is_active: false, winner: null }).eq('id', 1);
-        }
-        
-        async function startBuzzer() {
-            // 更新全局状态让学生跳转
-            await supabaseClient.from('global_state').update({ status: 'active', current_page: 'buzzer.html' }).eq('id', 1);
-            updateStatusBadge('active', '抢答进行中...');
-            
-            // 倒计时
-            const winner = document.getElementById('buzzer-winner');
-            for (let i = 3; i >= 1; i--) {
-                winner.innerText = i;
-                winner.style.color = '#ef4444';
-                await new Promise(r => setTimeout(r, 800));
-            }
-            winner.innerText = 'GO!!!';
-            
-            // 启动抢答
-            await supabaseClient.from('buzzer').update({ is_active: true, winner: null }).eq('id', 1);
         }
         
         function triggerConfetti() {

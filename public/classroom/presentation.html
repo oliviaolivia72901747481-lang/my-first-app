@@ -300,6 +300,121 @@
             border-radius: 4px;
             margin: 0 3px;
         }
+        
+        /* 题库面板 */
+        #question-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 700px;
+            max-width: 90vw;
+            max-height: 80vh;
+            background: rgba(30, 41, 59, 0.98);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+            display: none;
+            z-index: 250;
+            overflow-y: auto;
+        }
+        .qp-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .qp-title { font-size: 1.3rem; font-weight: bold; }
+        .qp-close {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+        .qp-question {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        .qp-q-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .qp-round { font-size: 1.5rem; font-weight: bold; color: #3b82f6; }
+        .qp-mode-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+        .qp-mode-vote { background: #3b82f6; }
+        .qp-mode-buzzer { background: #ef4444; }
+        .qp-mode-lucky { background: #f59e0b; }
+        .qp-q-title { font-size: 1.2rem; margin-bottom: 15px; line-height: 1.5; }
+        .qp-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .qp-opt {
+            padding: 12px 15px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            font-size: 0.95rem;
+        }
+        .qp-opt.correct { background: rgba(16, 185, 129, 0.3); border: 2px solid #10b981; }
+        .qp-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .qp-btn {
+            flex: 1;
+            min-width: 120px;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+        .qp-btn:hover { transform: translateY(-2px); }
+        .qp-btn-start { background: #10b981; color: white; }
+        .qp-btn-stop { background: #f59e0b; color: white; }
+        .qp-btn-prev { background: rgba(255,255,255,0.1); color: white; }
+        .qp-btn-next { background: #3b82f6; color: white; }
+        
+        /* 抢答结果显示 */
+        #buzzer-result {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            display: none;
+            z-index: 260;
+            min-width: 400px;
+        }
+        .buzzer-countdown {
+            font-size: 8rem;
+            font-weight: bold;
+            color: #ef4444;
+            text-shadow: 0 0 30px rgba(239, 68, 68, 0.5);
+        }
+        .buzzer-winner {
+            font-size: 4rem;
+            font-weight: bold;
+            color: #10b981;
+            margin: 20px 0;
+        }
     </style>
 </head>
 <body>
@@ -329,9 +444,8 @@
         <!-- 底部控制栏 -->
         <div class="bottom-bar">
             <button class="ctrl-btn btn-nav" onclick="prevSlide()">⬅️ 上一页</button>
-            <button class="ctrl-btn btn-vote" onclick="toggleVoteOverlay()">📊 答题</button>
+            <button class="ctrl-btn" style="background:#10b981;" onclick="toggleQuestionPanel()">📚 题库</button>
             <button class="ctrl-btn btn-danmu" onclick="toggleDanmu()">💬 弹幕</button>
-            <button class="ctrl-btn btn-buzzer" onclick="startBuzzer()">⚡ 抢答</button>
             <button class="ctrl-btn" style="background:#f59e0b;" onclick="toggleLuckyOverlay()">🎰 点名</button>
             <button class="ctrl-btn" style="background:#64748b;" onclick="releaseControl()">⏸️ 释放</button>
             <button class="ctrl-btn" style="background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);" onclick="endClass()">🔔 下课</button>
@@ -341,40 +455,57 @@
         <!-- 快捷键提示 -->
         <div class="hotkey-hint">
             <div><kbd>←</kbd><kbd>→</kbd> 翻页</div>
-            <div><kbd>V</kbd> 答题 <kbd>D</kbd> 弹幕 <kbd>B</kbd> 抢答 <kbd>L</kbd> 点名</div>
+            <div><kbd>Q</kbd> 题库 <kbd>D</kbd> 弹幕 <kbd>L</kbd> 点名</div>
             <div><kbd>R</kbd> 释放控制 <kbd>F</kbd> 全屏 <kbd>ESC</kbd> 退出</div>
         </div>
     </div>
     
-    <!-- 投票悬浮窗 -->
-    <div id="vote-overlay">
-        <div class="vote-title">📊 第 <span id="vote-round">1</span> 题 实时统计</div>
-        <div id="vote-question" style="margin-bottom:10px; font-size:0.95rem;"></div>
-        <div class="vote-stats">
-            <div class="vote-stat-item">
-                <div class="vote-stat-label" style="color:#FF6384;">A</div>
-                <div class="vote-stat-count" id="stat-a">0</div>
+    <!-- 题库面板 -->
+    <div id="question-panel">
+        <div class="qp-header">
+            <div class="qp-title">📚 题库互动</div>
+            <button class="qp-close" onclick="closeQuestionPanel()">✕</button>
+        </div>
+        <div class="qp-question">
+            <div class="qp-q-header">
+                <div class="qp-round">第 <span id="qp-round">1</span> 题</div>
+                <div class="qp-mode-badge qp-mode-vote" id="qp-mode-badge">📊 答题</div>
             </div>
-            <div class="vote-stat-item">
-                <div class="vote-stat-label" style="color:#36A2EB;">B</div>
-                <div class="vote-stat-count" id="stat-b">0</div>
-            </div>
-            <div class="vote-stat-item">
-                <div class="vote-stat-label" style="color:#FFCE56;">C</div>
-                <div class="vote-stat-count" id="stat-c">0</div>
-            </div>
-            <div class="vote-stat-item">
-                <div class="vote-stat-label" style="color:#4BC0C0;">D</div>
-                <div class="vote-stat-count" id="stat-d">0</div>
+            <div class="qp-q-title" id="qp-title">正在加载题目...</div>
+            <div class="qp-options" id="qp-options"></div>
+        </div>
+        <!-- 实时统计 -->
+        <div id="qp-stats" style="background:rgba(255,255,255,0.1); border-radius:15px; padding:15px; margin-bottom:15px;">
+            <div style="font-size:0.9rem; color:#94a3b8; margin-bottom:10px;">📊 实时统计</div>
+            <div class="vote-stats">
+                <div class="vote-stat-item"><div class="vote-stat-label" style="color:#FF6384;">A</div><div class="vote-stat-count" id="qp-stat-a">0</div></div>
+                <div class="vote-stat-item"><div class="vote-stat-label" style="color:#36A2EB;">B</div><div class="vote-stat-count" id="qp-stat-b">0</div></div>
+                <div class="vote-stat-item"><div class="vote-stat-label" style="color:#FFCE56;">C</div><div class="vote-stat-count" id="qp-stat-c">0</div></div>
+                <div class="vote-stat-item"><div class="vote-stat-label" style="color:#4BC0C0;">D</div><div class="vote-stat-count" id="qp-stat-d">0</div></div>
             </div>
         </div>
-        <div style="margin-top:15px; display:flex; gap:10px;">
-            <button onclick="toggleVoteActive()" style="flex:1; padding:10px; background:#f59e0b; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">
-                ⏯️ 暂停/公布
-            </button>
-            <button onclick="nextVoteRound()" style="flex:1; padding:10px; background:#3b82f6; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">
-                ➡️ 下一题
-            </button>
+        <!-- 模式选择 -->
+        <div style="background:rgba(255,255,255,0.05); border-radius:10px; padding:15px; margin-bottom:15px;">
+            <div style="font-size:0.85rem; color:#94a3b8; margin-bottom:10px;">选择互动模式：</div>
+            <div style="display:flex; gap:10px;">
+                <button class="qp-mode-select active" data-mode="vote" onclick="setQPMode('vote')" style="flex:1; padding:10px; border:2px solid #3b82f6; background:#3b82f6; color:white; border-radius:10px; cursor:pointer; font-weight:bold;">📊 答题</button>
+                <button class="qp-mode-select" data-mode="buzzer" onclick="setQPMode('buzzer')" style="flex:1; padding:10px; border:2px solid rgba(255,255,255,0.2); background:transparent; color:#94a3b8; border-radius:10px; cursor:pointer; font-weight:bold;">⚡ 抢答</button>
+                <button class="qp-mode-select" data-mode="lucky" onclick="setQPMode('lucky')" style="flex:1; padding:10px; border:2px solid rgba(255,255,255,0.2); background:transparent; color:#94a3b8; border-radius:10px; cursor:pointer; font-weight:bold;">🎰 点名</button>
+            </div>
+        </div>
+        <div class="qp-controls">
+            <button class="qp-btn qp-btn-start" id="qp-start-btn" onclick="startQuestion()">▶️ 开始本题</button>
+            <button class="qp-btn qp-btn-stop" onclick="stopQuestion()">⏹️ 停止/公布</button>
+            <button class="qp-btn qp-btn-prev" onclick="prevQuestion()">⬅️ 上一题</button>
+            <button class="qp-btn qp-btn-next" onclick="nextQuestion()">➡️ 下一题</button>
+        </div>
+    </div>
+    
+    <!-- 抢答结果显示 -->
+    <div id="buzzer-result">
+        <div id="buzzer-display" class="buzzer-countdown">3</div>
+        <div style="margin-top:20px;">
+            <button onclick="closeBuzzerResult()" style="padding:15px 40px; background:#64748b; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold; font-size:1rem;">关闭</button>
         </div>
     </div>
     
@@ -578,101 +709,177 @@
             });
         }
         
-        // ================== 答题功能 ==================
-        let voteRound = 1;
-        let isVoteActive = true;
+        // ================== 题库功能 ==================
+        let qpRound = 1;
+        let qpQuestion = null;
+        let qpMode = 'vote';
+        let isQPActive = false;
+        let isQuestionPanelVisible = false;
         
-        async function toggleVoteOverlay() {
-            isVoteVisible = !isVoteVisible;
-            document.getElementById('vote-overlay').style.display = isVoteVisible ? 'block' : 'none';
-            if (isVoteVisible) {
-                loadVoteData();
-                
-                // 🔥 关键：更新全局状态，让学生端跳转到答题页面
-                await supabaseClient.from('global_state').update({ 
-                    status: 'active', 
-                    current_page: 'vote.html' 
-                }).eq('id', 1);
-                
-                // 同步答题配置
-                await supabaseClient.from('vote_config').update({ 
-                    current_round: voteRound, 
-                    is_active: true 
-                }).eq('id', 1);
+        function toggleQuestionPanel() {
+            isQuestionPanelVisible = !isQuestionPanelVisible;
+            document.getElementById('question-panel').style.display = isQuestionPanelVisible ? 'block' : 'none';
+            if (isQuestionPanelVisible) {
+                loadQPQuestion();
             }
         }
         
-        async function showVoteOverlay(round) {
-            voteRound = round || voteRound;
-            document.getElementById('vote-round').innerText = voteRound;
-            document.getElementById('vote-overlay').style.display = 'block';
-            isVoteVisible = true;
-            loadVoteData();
-            
-            // 🔥 关键：更新全局状态，让学生端跳转到答题页面
-            await supabaseClient.from('global_state').update({ 
-                status: 'active', 
-                current_page: 'vote.html' 
-            }).eq('id', 1);
-            
-            // 同步答题配置
-            await supabaseClient.from('vote_config').update({ 
-                current_round: voteRound, 
-                is_active: true 
-            }).eq('id', 1);
+        function closeQuestionPanel() {
+            isQuestionPanelVisible = false;
+            document.getElementById('question-panel').style.display = 'none';
         }
         
-        async function loadVoteData() {
+        async function loadQPQuestion() {
             try {
-                const { data } = await supabaseClient
-                    .from('vote_logs')
-                    .select('option')
-                    .eq('round', voteRound);
+                const { data } = await supabaseClient.from('questions').select('*').eq('round', qpRound).maybeSingle();
+                qpQuestion = data;
+                document.getElementById('qp-round').innerText = qpRound;
                 
-                const counts = { A: 0, B: 0, C: 0, D: 0 };
                 if (data) {
-                    data.forEach(row => {
-                        if (counts[row.option] !== undefined) counts[row.option]++;
-                    });
+                    document.getElementById('qp-title').innerText = data.title;
+                    const opts = document.getElementById('qp-options');
+                    const showAnswer = !isQPActive;
+                    opts.innerHTML = `
+                        <div class="qp-opt ${showAnswer && data.answer.includes('A') ? 'correct' : ''}">A. ${data.option_a || ''}</div>
+                        <div class="qp-opt ${showAnswer && data.answer.includes('B') ? 'correct' : ''}">B. ${data.option_b || ''}</div>
+                        <div class="qp-opt ${showAnswer && data.answer.includes('C') ? 'correct' : ''}">C. ${data.option_c || ''}</div>
+                        <div class="qp-opt ${showAnswer && data.answer.includes('D') ? 'correct' : ''}">D. ${data.option_d || ''}</div>
+                    `;
+                    // 设置模式
+                    qpMode = data.mode || 'vote';
+                    updateQPModeDisplay();
+                } else {
+                    document.getElementById('qp-title').innerText = '(无题目数据)';
+                    document.getElementById('qp-options').innerHTML = '';
                 }
-                
-                document.getElementById('stat-a').innerText = counts.A;
-                document.getElementById('stat-b').innerText = counts.B;
-                document.getElementById('stat-c').innerText = counts.C;
-                document.getElementById('stat-d').innerText = counts.D;
-                
-                // 加载题目
-                const { data: q } = await supabaseClient
-                    .from('questions')
-                    .select('title')
-                    .eq('round', voteRound)
-                    .maybeSingle();
-                
-                document.getElementById('vote-question').innerText = q ? q.title : '';
-            } catch (e) {
-                console.error('加载答题数据失败:', e);
+                loadQPStats();
+            } catch (e) { console.error(e); }
+        }
+        
+        async function loadQPStats() {
+            try {
+                const { data } = await supabaseClient.from('vote_logs').select('option').eq('round', qpRound);
+                const counts = { A: 0, B: 0, C: 0, D: 0 };
+                if (data) data.forEach(row => { if (counts[row.option] !== undefined) counts[row.option]++; });
+                document.getElementById('qp-stat-a').innerText = counts.A;
+                document.getElementById('qp-stat-b').innerText = counts.B;
+                document.getElementById('qp-stat-c').innerText = counts.C;
+                document.getElementById('qp-stat-d').innerText = counts.D;
+            } catch (e) { console.error(e); }
+        }
+        
+        function updateQPModeDisplay() {
+            const badge = document.getElementById('qp-mode-badge');
+            const stats = document.getElementById('qp-stats');
+            const modeConfig = {
+                'vote': { text: '📊 答题', class: 'qp-mode-vote' },
+                'buzzer': { text: '⚡ 抢答', class: 'qp-mode-buzzer' },
+                'lucky': { text: '🎰 点名', class: 'qp-mode-lucky' }
+            };
+            const config = modeConfig[qpMode] || modeConfig['vote'];
+            badge.innerText = config.text;
+            badge.className = 'qp-mode-badge ' + config.class;
+            
+            // 只有答题模式显示统计
+            stats.style.display = qpMode === 'vote' ? 'block' : 'none';
+            
+            // 更新模式选择按钮
+            document.querySelectorAll('.qp-mode-select').forEach(btn => {
+                const isActive = btn.dataset.mode === qpMode;
+                btn.style.background = isActive ? (qpMode === 'vote' ? '#3b82f6' : qpMode === 'buzzer' ? '#ef4444' : '#f59e0b') : 'transparent';
+                btn.style.borderColor = isActive ? btn.style.background : 'rgba(255,255,255,0.2)';
+                btn.style.color = isActive ? 'white' : '#94a3b8';
+            });
+        }
+        
+        async function setQPMode(mode) {
+            qpMode = mode;
+            updateQPModeDisplay();
+            if (qpQuestion) {
+                await supabaseClient.from('questions').update({ mode: mode }).eq('id', qpQuestion.id);
             }
         }
         
-        async function toggleVoteActive() {
-            isVoteActive = !isVoteActive;
-            await supabaseClient.from('vote_config').update({ is_active: isVoteActive }).eq('id', 1);
+        async function startQuestion() {
+            if (!qpQuestion) { alert('当前没有题目'); return; }
+            isQPActive = true;
+            
+            switch (qpMode) {
+                case 'vote':
+                    await supabaseClient.from('global_state').update({ status: 'active', current_page: 'vote.html' }).eq('id', 1);
+                    await supabaseClient.from('vote_config').update({ current_round: qpRound, is_active: true }).eq('id', 1);
+                    break;
+                case 'buzzer':
+                    await supabaseClient.from('global_state').update({ status: 'active', current_page: 'buzzer.html' }).eq('id', 1);
+                    showBuzzerCountdown();
+                    break;
+                case 'lucky':
+                    toggleLuckyOverlay();
+                    break;
+            }
+            loadQPQuestion();
         }
         
-        async function nextVoteRound() {
-            voteRound++;
-            document.getElementById('vote-round').innerText = voteRound;
-            await supabaseClient.from('vote_config').update({ 
-                current_round: voteRound, 
-                is_active: true 
-            }).eq('id', 1);
-            loadVoteData();
+        async function stopQuestion() {
+            isQPActive = false;
+            if (qpMode === 'vote') {
+                await supabaseClient.from('vote_config').update({ is_active: false }).eq('id', 1);
+            } else if (qpMode === 'buzzer') {
+                await supabaseClient.from('buzzer').update({ is_active: false }).eq('id', 1);
+            }
+            loadQPQuestion();
         }
+        
+        async function prevQuestion() {
+            if (qpRound <= 1) return;
+            qpRound--;
+            isQPActive = false;
+            await supabaseClient.from('vote_config').update({ current_round: qpRound, is_active: true }).eq('id', 1);
+            loadQPQuestion();
+        }
+        
+        async function nextQuestion() {
+            qpRound++;
+            isQPActive = false;
+            await supabaseClient.from('vote_config').update({ current_round: qpRound, is_active: true }).eq('id', 1);
+            loadQPQuestion();
+        }
+        
+        // 抢答倒计时
+        async function showBuzzerCountdown() {
+            const result = document.getElementById('buzzer-result');
+            const display = document.getElementById('buzzer-display');
+            result.style.display = 'block';
+            
+            for (let i = 3; i >= 1; i--) {
+                display.innerText = i;
+                display.className = 'buzzer-countdown';
+                await new Promise(r => setTimeout(r, 800));
+            }
+            display.innerText = 'GO!';
+            await supabaseClient.from('buzzer').update({ is_active: true, winner: null }).eq('id', 1);
+        }
+        
+        function closeBuzzerResult() {
+            document.getElementById('buzzer-result').style.display = 'none';
+        }
+        
+        // 监听抢答结果
+        supabaseClient.channel('presentation-buzzer')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'buzzer' }, payload => {
+                if (payload.new.winner) {
+                    const display = document.getElementById('buzzer-display');
+                    display.innerText = payload.new.winner + ' 🏆';
+                    display.className = 'buzzer-winner';
+                    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                }
+            })
+            .subscribe();
         
         // 实时监听答题
         supabaseClient.channel('presentation-vote')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'vote_logs' }, () => {
-                if (isVoteVisible) loadVoteData();
+                if (isQuestionPanelVisible) loadQPStats();
             })
             .subscribe();
         
@@ -805,10 +1012,10 @@
                 
                 // 重置本地状态
                 isDanmuEnabled = false;
-                isVoteVisible = false;
-                voteRound = 1;
-                document.getElementById('vote-overlay').style.display = 'none';
-                document.getElementById('vote-round').innerText = '1';
+                isQuestionPanelVisible = false;
+                qpRound = 1;
+                isQPActive = false;
+                document.getElementById('question-panel').style.display = 'none';
                 updateDanmuButton();
                 
                 // 关闭点名面板
@@ -857,17 +1064,13 @@
                     e.preventDefault();
                     nextSlide();
                     break;
-                case 'v':
-                case 'V':
-                    toggleVoteOverlay();
+                case 'q':
+                case 'Q':
+                    toggleQuestionPanel();
                     break;
                 case 'd':
                 case 'D':
                     toggleDanmu();
-                    break;
-                case 'b':
-                case 'B':
-                    startBuzzer();
                     break;
                 case 'l':
                 case 'L':
@@ -883,10 +1086,10 @@
                     break;
                 case 'Escape':
                     closeUploadModal();
-                    document.getElementById('vote-overlay').style.display = 'none';
+                    closeQuestionPanel();
+                    closeBuzzerResult();
                     document.getElementById('lucky-overlay').style.display = 'none';
                     document.getElementById('lucky-settings-panel').style.display = 'none';
-                    isVoteVisible = false;
                     isLuckyVisible = false;
                     break;
             }
