@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>👨‍🏫 课堂中控</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- 二维码生成库 -->
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <!-- 二维码生成库 (qrcodejs) -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
@@ -267,22 +267,26 @@
             const studentUrl = window.location.origin + '/classroom';
             document.getElementById('qr-url').innerText = studentUrl;
             
-            QRCode.toCanvas(document.createElement('canvas'), studentUrl, {
-                width: 200,
-                margin: 2,
-                color: {
-                    dark: '#1e293b',
-                    light: '#ffffff'
-                }
-            }, function(error, canvas) {
-                if (error) {
-                    console.error(error);
-                    return;
-                }
-                const container = document.getElementById('qr-code');
-                container.innerHTML = '';
-                container.appendChild(canvas);
-            });
+            const container = document.getElementById('qr-code');
+            container.innerHTML = '';
+            
+            try {
+                new QRCode(container, {
+                    text: studentUrl,
+                    width: 200,
+                    height: 200,
+                    colorDark: '#1e293b',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            } catch (e) {
+                console.error('二维码生成失败:', e);
+                // 备用方案：显示链接
+                container.innerHTML = `<div style="padding:20px; background:#f1f5f9; border-radius:10px; color:#1e293b;">
+                    <p style="margin-bottom:10px;">📱 请访问:</p>
+                    <a href="${studentUrl}" style="color:#2563eb; word-break:break-all;">${studentUrl}</a>
+                </div>`;
+            }
         }
         
         // 获取签到人数
