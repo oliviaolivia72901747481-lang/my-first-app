@@ -882,7 +882,9 @@
             qpRound--;
             isQPActive = false;
             showAnswerRevealed = false; // 切换题目时隐藏答案
-            await supabaseClient.from('vote_config').update({ current_round: qpRound, is_active: true }).eq('id', 1);
+            // 清除新题目的答题记录，让学生可以重新回答
+            await supabaseClient.from('vote_logs').delete().eq('round', qpRound);
+            await supabaseClient.from('vote_config').update({ current_round: qpRound, is_active: false }).eq('id', 1);
             loadQPQuestion();
         }
         
@@ -890,7 +892,9 @@
             qpRound++;
             isQPActive = false;
             showAnswerRevealed = false; // 切换题目时隐藏答案
-            await supabaseClient.from('vote_config').update({ current_round: qpRound, is_active: true }).eq('id', 1);
+            // 清除新题目的答题记录，让学生可以重新回答
+            await supabaseClient.from('vote_logs').delete().eq('round', qpRound);
+            await supabaseClient.from('vote_config').update({ current_round: qpRound, is_active: false }).eq('id', 1);
             loadQPQuestion();
         }
         
