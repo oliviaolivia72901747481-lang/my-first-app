@@ -86,9 +86,16 @@
             supabaseClient.channel('student-vote').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'vote_config' }, payload => handleRoundChange(payload.new)).subscribe();
         }
 
+        // 新增：答题模式和允许回答的学生
+        let answerMode = 'vote';
+        let allowedStudent = null;
+        
         async function handleRoundChange(config) {
             currentRound = config.current_round;
             isRoundActive = config.is_active;
+            answerMode = config.answer_mode || 'vote';
+            allowedStudent = config.allowed_student || null;
+            
             document.getElementById('round-num').innerText = currentRound;
             
             // 重置多选状态
@@ -104,8 +111,32 @@
                 document.getElementById('status-msg').style.color = "#ef4444";
                 document.getElementById('submit-multi').style.display = 'none';
             } else {
+                // 检查是否有权回答
+                checkAnswerPermission();
+            }
+        }
+        
+        function checkAnswerPermission() {
+            // 如果是普通答题模式，所有人都可以回答
+            if (answerMode === 'vote' || !allowedStudent) {
                 document.getElementById('status-msg').innerText = "请作答";
                 document.getElementById('status-msg').style.color = "#666";
+                enableButtons();
+                return;
+            }
+            
+            // 抢答或点名模式：只有指定学生可以回答
+            if (allowedStudent === myName) {
+                const modeText = answerMode === 'buzzer' ? '🏆 抢答成功！' : '🎯 你被点名了！';
+                document.getElementById('status-msg').innerHTML = `${modeText} 请作答`;
+                document.getElementById('status-msg').style.color = "#10b981";
+                enableButtons();
+            } else {
+                const modeText = answerMode === 'buzzer' ? '抢答' : '点名';
+                document.getElementById('status-msg').innerHTML = `👀 ${modeText}回答：<strong>${allowedStudent}</strong>`;
+                document.getElementById('status-msg').style.color = "#f59e0b";
+                disableButtons();
+                document.getElementById('submit-multi').style.display = 'none';
             }
         }
 
@@ -190,7 +221,8 @@
                 document.getElementById('status-msg').innerText = `✅ 你已选: ${data.option}`;
                 document.getElementById('status-msg').style.color = "#10b981";
             } else if (isRoundActive) {
-                enableButtons();
+                // 检查是否有权回答
+                checkAnswerPermission();
             }
         }
 
