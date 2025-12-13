@@ -149,6 +149,7 @@ const SUPABASE_CONFIG = {
 - **"Dependencies not loaded"错误** - 检查common.js和navigation.js是否正确加载
 - **"Identifier already declared"错误** - 避免重新声明ClassroomCommon中的函数，直接使用`ClassroomCommon.functionName()`
 - **"function is not defined"错误** - 清除浏览器缓存，确保JavaScript文件正确加载
+- **"Illegal return statement"错误** - return语句必须在函数内部，已修复为函数包装模式
 - **页面无法访问** - 检查 `public/classroom/` 目录是否存在
 - **功能异常** - 确认 Supabase 配置正确
 - **样式错误** - 清除浏览器缓存重试

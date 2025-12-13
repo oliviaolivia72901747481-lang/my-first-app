@@ -65,18 +65,20 @@
     </div>
 
     <script>
-        // 使用公共配置
-        const supabaseClient = ClassroomCommon.createSupabaseClient();
-        const screen = document.getElementById('screen-area');
-        const input = document.getElementById('msg-input');
-        
-        // 1. 身份验证 (核心)
-        const userAuth = ClassroomCommon.checkUserAuth();
-        if (!userAuth) return; // 如果未签到会自动跳转
-        
-        const myName = userAuth.name;
-        const myId = userAuth.id;
-        document.getElementById('user-status').innerText = `当前用户: ${myName} (已隐藏)`;
+        // 主初始化函数
+        function initDanmu() {
+            // 使用公共配置
+            const supabaseClient = ClassroomCommon.createSupabaseClient();
+            const screen = document.getElementById('screen-area');
+            const input = document.getElementById('msg-input');
+            
+            // 1. 身份验证 (核心)
+            const userAuth = ClassroomCommon.checkUserAuth();
+            if (!userAuth) return; // 如果未签到会自动跳转
+            
+            const myName = userAuth.name;
+            const myId = userAuth.id;
+            document.getElementById('user-status').innerText = `当前用户: ${myName} (已隐藏)`;
 
         // ================= 敏感词过滤系统 =================
         // 敏感词库 (可根据需要扩展)
@@ -179,11 +181,9 @@
             animation.onfinish = () => div.remove();
         }
         
-        // 回车发送
-        input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMsg(); });
-        
-        // 等待页面加载完成后初始化
-        window.addEventListener('load', function() {
+            // 回车发送
+            input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMsg(); });
+            
             // 启动全局控制监听
             ClassroomCommon.initGlobalControlListener(supabaseClient);
             
@@ -191,7 +191,10 @@
             if (typeof NavigationComponent !== 'undefined') {
                 NavigationComponent.init();
             }
-        });
+        }
+        
+        // 等待页面加载完成后初始化
+        window.addEventListener('load', initDanmu);
     </script>
 </body>
 </html>

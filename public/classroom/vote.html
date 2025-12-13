@@ -57,13 +57,15 @@
     <div id="status-msg"></div>
 
     <script>
-        // 使用公共配置和身份验证
-        const supabaseClient = ClassroomCommon.createSupabaseClient();
-        const userAuth = ClassroomCommon.checkUserAuth();
-        if (!userAuth) return; // 如果未签到会自动跳转
-        
-        const myName = userAuth.name;
-        const myId = userAuth.id;
+        // 主初始化函数
+        function initVote() {
+            // 使用公共配置和身份验证
+            const supabaseClient = ClassroomCommon.createSupabaseClient();
+            const userAuth = ClassroomCommon.checkUserAuth();
+            if (!userAuth) return; // 如果未签到会自动跳转
+            
+            const myName = userAuth.name;
+            const myId = userAuth.id;
         let currentRound = 1;
         let isRoundActive = true;
         let currentQuestion = null;
@@ -257,8 +259,7 @@
             document.querySelectorAll('.vote-btn').forEach(b => b.disabled = false); 
         }
 
-        // 等待页面加载完成后初始化
-        window.addEventListener('load', function() {
+            // 初始化答题功能
             init();
             
             // 启动全局控制监听
@@ -268,7 +269,10 @@
             if (typeof NavigationComponent !== 'undefined') {
                 NavigationComponent.init();
             }
-        });
+        }
+        
+        // 等待页面加载完成后初始化
+        window.addEventListener('load', initVote);
     </script>
 </body>
 </html>
