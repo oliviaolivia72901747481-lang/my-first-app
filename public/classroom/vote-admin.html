@@ -70,6 +70,43 @@
     <div id="accuracy-display" style="margin-top:15px; font-size:1.5rem; font-weight:bold; color:#64748b; display:none;">
         正确率: <span id="accuracy-value">0%</span>
     </div>
+    
+    <!-- 📊 排行榜 & 🎯 提词器 并排显示 -->
+    <div style="display:flex; gap:20px; margin-top:20px; width:100%; max-width:1000px;">
+        <!-- 🏆 实时排行榜 -->
+        <div id="leaderboard-panel" style="flex:1; background:white; border-radius:15px; padding:20px; box-shadow:0 4px 10px rgba(0,0,0,0.1);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="margin:0; color:#2563eb;">🏆 今日学霸榜</h3>
+                <button onclick="showLeaderboardFullscreen()" style="background:#2563eb; color:white; padding:5px 15px; font-size:0.9rem; border-radius:5px;">
+                    📺 全屏展示
+                </button>
+            </div>
+            <div id="leaderboard-list" style="max-height:200px; overflow-y:auto;">
+                <div style="color:#999; text-align:center; padding:20px;">加载中...</div>
+            </div>
+            <div style="margin-top:10px; font-size:0.8rem; color:#999;">
+                答对 +10分 | 抢答获胜 +20分
+            </div>
+        </div>
+        
+        <!-- 🎯 老师提词器 (画中画) -->
+        <div id="teleprompter-panel" style="flex:1; background:linear-gradient(135deg, #1e293b 0%, #334155 100%); border-radius:15px; padding:20px; box-shadow:0 4px 10px rgba(0,0,0,0.2); color:white;">
+            <h3 style="margin:0 0 15px 0; color:#fbbf24;">🎯 老师提词器 <span style="font-size:0.7rem; color:#94a3b8;">(仅老师可见)</span></h3>
+            
+            <!-- 当前题目解析 -->
+            <div style="background:rgba(255,255,255,0.1); border-radius:10px; padding:12px; margin-bottom:10px;">
+                <div style="font-size:0.8rem; color:#94a3b8; margin-bottom:5px;">📝 本题解析</div>
+                <div id="current-explanation" style="font-size:0.95rem; line-height:1.5;">暂无解析</div>
+            </div>
+            
+            <!-- 下一题预览 -->
+            <div style="background:rgba(255,255,255,0.1); border-radius:10px; padding:12px;">
+                <div style="font-size:0.8rem; color:#94a3b8; margin-bottom:5px;">👀 下一题预览</div>
+                <div id="next-question-preview" style="font-size:0.95rem; line-height:1.5;">暂无下一题</div>
+                <div id="next-answer-hint" style="font-size:0.8rem; color:#10b981; margin-top:5px;"></div>
+            </div>
+        </div>
+    </div>
 
     <div id="import-modal" aria-modal="true" aria-labelledby="modal-title" role="dialog">
         <div class="modal-content">
@@ -534,6 +571,7 @@
             confettiTriggered = false; // 重置礼花状态
             await originalUpdateState(config);
             await calculateAccuracyAndCelebrate();
+            await loadTeleprompter(); // 加载提词器
         };
         
         // 修改 loadChartData 以更新正确率
@@ -541,9 +579,146 @@
         loadChartData = async function() {
             await originalLoadChartData();
             await calculateAccuracyAndCelebrate();
+            await loadLeaderboard(); // 更新排行榜
         };
+        
+        // ================== 🏆 实时排行榜系统 ==================
+        async function loadLeaderboard() {
+            try {
+                // 获取所有答题记录
+                const { data: voteLogs } = await supabaseClient
+                    .from('vote_logs')
+                    .select('student_id, student_name, is_correct');
+                
+                // 获取抢答获胜记录
+                const { data: buzzerWins } = await supabaseClient
+                    .from('buzzer')
+                    .select('winner');
+                
+                // 计算积分
+                const scores = {};
+                
+                // 答对 +10分
+                if (voteLogs) {
+                    voteLogs.forEach(log => {
+                        if (!scores[log.student_id]) {
+                            scores[log.student_id] = { 
+                                name: log.student_name, 
+                                score: 0,
+                                correct: 0,
+                                buzzer: 0
+                            };
+                        }
+                        if (log.is_correct === true) {
+                            scores[log.student_id].score += 10;
+                            scores[log.student_id].correct++;
+                        }
+                    });
+                }
+                
+                // 抢答获胜 +20分 (这里简化处理，实际需要记录历史)
+                // 注意：需要在数据库中添加 buzzer_history 表来记录历史获胜者
+                
+                // 转换为数组并排序
+                const leaderboard = Object.entries(scores)
+                    .map(([id, data]) => ({ id, ...data }))
+                    .sort((a, b) => b.score - a.score)
+                    .slice(0, 10); // 只显示前10名
+                
+                // 渲染排行榜
+                const listEl = document.getElementById('leaderboard-list');
+                if (leaderboard.length === 0) {
+                    listEl.innerHTML = '<div style="color:#999; text-align:center; padding:20px;">暂无数据</div>';
+                    return;
+                }
+                
+                listEl.innerHTML = leaderboard.map((item, index) => {
+                    const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+                    const bgColor = index === 0 ? '#fef3c7' : index === 1 ? '#f1f5f9' : index === 2 ? '#fed7aa' : 'transparent';
+                    return `
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:${bgColor}; border-radius:8px; margin-bottom:5px;">
+                            <span style="font-weight:${index < 3 ? 'bold' : 'normal'};">
+                                ${medal} ${item.name}
+                            </span>
+                            <span style="color:#2563eb; font-weight:bold;">${item.score}分</span>
+                        </div>
+                    `;
+                }).join('');
+                
+            } catch (error) {
+                console.error('加载排行榜失败:', error);
+            }
+        }
+        
+        // 全屏展示排行榜
+        function showLeaderboardFullscreen() {
+            const modal = document.createElement('div');
+            modal.id = 'leaderboard-fullscreen';
+            modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%); z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white;';
+            modal.innerHTML = `
+                <h1 style="font-size:4rem; margin-bottom:30px; text-shadow:0 4px 10px rgba(0,0,0,0.3);">🏆 今日学霸榜 🏆</h1>
+                <div id="fullscreen-list" style="font-size:2rem; width:80%; max-width:800px;"></div>
+                <button onclick="this.parentElement.remove()" style="margin-top:40px; padding:15px 40px; font-size:1.5rem; background:rgba(255,255,255,0.2); border:2px solid white; color:white; border-radius:10px; cursor:pointer;">
+                    关闭 (ESC)
+                </button>
+            `;
+            document.body.appendChild(modal);
+            
+            // 复制排行榜内容
+            const listContent = document.getElementById('leaderboard-list').innerHTML;
+            document.getElementById('fullscreen-list').innerHTML = listContent;
+            
+            // ESC关闭
+            const closeHandler = (e) => {
+                if (e.key === 'Escape') {
+                    modal.remove();
+                    document.removeEventListener('keydown', closeHandler);
+                }
+            };
+            document.addEventListener('keydown', closeHandler);
+            
+            // 触发礼花
+            triggerConfetti();
+        }
+        
+        // ================== 🎯 老师提词器系统 ==================
+        async function loadTeleprompter() {
+            try {
+                // 加载当前题目解析
+                if (currentQuestion && currentQuestion.explanation) {
+                    document.getElementById('current-explanation').innerText = currentQuestion.explanation;
+                } else if (currentQuestion) {
+                    document.getElementById('current-explanation').innerHTML = `
+                        <span style="color:#94a3b8;">正确答案: </span>
+                        <span style="color:#10b981; font-weight:bold;">${currentQuestion.answer}</span>
+                    `;
+                } else {
+                    document.getElementById('current-explanation').innerText = '暂无解析';
+                }
+                
+                // 加载下一题预览
+                const nextRound = currentRound + 1;
+                const { data: nextQ } = await supabaseClient
+                    .from('questions')
+                    .select('*')
+                    .eq('round', nextRound)
+                    .maybeSingle();
+                
+                if (nextQ) {
+                    document.getElementById('next-question-preview').innerText = `${nextRound}. ${nextQ.title}`;
+                    document.getElementById('next-answer-hint').innerHTML = `答案: <strong>${nextQ.answer}</strong>`;
+                } else {
+                    document.getElementById('next-question-preview').innerText = '已是最后一题';
+                    document.getElementById('next-answer-hint').innerText = '';
+                }
+                
+            } catch (error) {
+                console.error('加载提词器失败:', error);
+            }
+        }
 
         init();
+        loadLeaderboard(); // 初始加载排行榜
     </script>
 </body>
 </html>
