@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>智慧课堂 · 学生端</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/common.js"></script>
+    <script src="js/navigation.js"></script>
     <style>
         body { 
             font-family: 'Segoe UI', sans-serif; 
@@ -46,11 +48,8 @@
     </div>
 
     <script>
-        // ================= 配置 =================
-        const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co' 
-        const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h' // ⚠️ 替换成你真实的Key
-        // =======================================
-        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey)
+        // 使用公共配置
+        const supabaseClient = ClassroomCommon.createSupabaseClient();
 
         // 核心：监听全局状态
         console.log("正在连接课堂中控...");
@@ -79,6 +78,9 @@
                 console.log("课堂空闲中");
             }
         }
+        
+        // 初始化底部导航
+        NavigationComponent.init();
     </script>
 </body>
 </html>

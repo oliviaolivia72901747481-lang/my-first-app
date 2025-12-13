@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>课堂弹幕墙</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/common.js"></script>
+    <script src="js/navigation.js"></script>
     <style>
         /* 全屏布局 */
         body { 
@@ -63,37 +65,76 @@
     </div>
 
     <script>
-        // ================= 配置区域 =================
-        const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co' 
-        const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h'
-        // ===========================================
-
-        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey)
+        // 使用公共配置
+        const supabaseClient = ClassroomCommon.createSupabaseClient();
         const screen = document.getElementById('screen-area');
         const input = document.getElementById('msg-input');
         
         // 1. 身份验证 (核心)
-        const myName = localStorage.getItem('my_name');
-        const myId = localStorage.getItem('my_id');
+        const userAuth = ClassroomCommon.checkUserAuth();
+        if (!userAuth) return; // 如果未签到会自动跳转
+        
+        const myName = userAuth.name;
+        const myId = userAuth.id;
+        document.getElementById('user-status').innerText = `当前用户: ${myName} (已隐藏)`;
 
-        if (!myName || !myId) {
-            alert("⚠️ 请先签到！\n只有签到后才能发送弹幕。");
-            window.location.href = 'sign.html';
-        } else {
-            document.getElementById('user-status').innerText = `当前用户: ${myName} (已隐藏)`;
+        // ================= 敏感词过滤系统 =================
+        // 敏感词库 (可根据需要扩展)
+        const sensitiveWords = [
+            // 侮辱性词汇
+            '笨蛋', '傻瓜', '白痴', '蠢货', '废物', '垃圾', '滚蛋', '混蛋',
+            // 脏话
+            '妈的', '他妈', '卧槽', '草泥马', '尼玛', '傻逼', '牛逼', '装逼',
+            // 其他不当词汇
+            '去死', '弱智', '脑残', '智障', '变态', '神经病',
+            // 拼音/谐音变体
+            'sb', 'nm', 'cnm', 'wtf', 'tmd'
+        ];
+
+        // 敏感词检测函数 (支持模糊匹配)
+        function containsSensitiveWord(text) {
+            const lowerText = text.toLowerCase();
+            // 移除空格和特殊字符后再检测，防止 "傻 瓜" 这种绕过方式
+            const cleanText = lowerText.replace(/[\s\.\-\_\*\#\@\!\？\。\，]/g, '');
+            
+            for (const word of sensitiveWords) {
+                if (cleanText.includes(word.toLowerCase())) {
+                    return true;
+                }
+            }
+            return false;
         }
+
+        // 发送频率限制 (防刷屏)
+        let lastSendTime = 0;
+        const SEND_COOLDOWN = 2000; // 2秒冷却时间
 
         // 2. 发送消息 (实名上报)
         async function sendMsg() {
             const text = input.value.trim();
             if (!text) return;
-            input.value = ''; 
 
-            // 敏感词过滤
-            if (text.includes("笨蛋") || text.includes("傻瓜")) {
-                alert("🚫 请文明发言");
+            // 频率限制检查
+            const now = Date.now();
+            if (now - lastSendTime < SEND_COOLDOWN) {
+                alert("🚫 发送太快了，请稍后再试");
                 return;
             }
+
+            // 长度检查
+            if (text.length > 50) {
+                alert("🚫 弹幕内容过长，请控制在50字以内");
+                return;
+            }
+
+            // 敏感词过滤
+            if (containsSensitiveWord(text)) {
+                alert("🚫 请文明发言，您的消息包含不当内容");
+                return;
+            }
+
+            input.value = ''; 
+            lastSendTime = now;
 
             const { error } = await supabaseClient
                 .from('messages')
@@ -140,47 +181,12 @@
         
         // 回车发送
         input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMsg(); });
+        
+        // 启动全局控制监听
+        ClassroomCommon.initGlobalControlListener(supabaseClient);
+        
+        // 初始化底部导航
+        NavigationComponent.init();
     </script>
-    <script>
-(function() {
-    // 保护机制：检查页面是否已经连接了 Supabase
-    // 如果页面本身还没加载好 supabaseClient，这段代码就不运行，防止报错
-    const checkInterval = setInterval(() => {
-        if (typeof supabaseClient !== 'undefined') {
-            clearInterval(checkInterval);
-            startListening();
-        }
-    }, 100);
-
-    function startListening() {
-        console.log("📡 已启动课堂遥控监听...");
-        supabaseClient
-            .channel('global-control-sub')
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'global_state' }, payload => {
-                const data = payload.new;
-                const currentPath = window.location.pathname; // 获取当前文件名 (如 /vote.html)
-                
-                // 1. 老师开启了某个功能
-                if (data.status === 'active' && data.current_page !== 'idle') {
-                    // 如果我当前不在老师指定的页面，就强制跳过去
-                    // 例如：老师开了 vote.html，但我还在 sign.html，我就得跳
-                    if (!currentPath.includes(data.current_page)) {
-                        console.log(`👨‍🏫 老师切换到了 ${data.current_page}，正在跟进...`);
-                        window.location.href = data.current_page;
-                    }
-                } 
-                // 2. 老师释放了控制 (下课/自由活动)
-                else if (data.status === 'idle') {
-                    // 如果我现在不是在首页，就被踢回首页
-                    if (!currentPath.includes('index.html')) {
-                        console.log("⏸️ 自由活动模式，返回首页");
-                        window.location.href = 'index.html';
-                    }
-                }
-            })
-            .subscribe();
-    }
-})();
-</script>
 </body>
 </html>
