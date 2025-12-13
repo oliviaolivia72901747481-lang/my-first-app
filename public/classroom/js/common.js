@@ -43,21 +43,33 @@ function startGlobalListening(supabaseClient) {
         .subscribe();
 }
 
+// 页面路径映射表
+const PAGE_MAP = {
+    'vote.html': '/vote',
+    'danmu.html': '/danmu',
+    'buzzer.html': '/buzzer',
+    'sign.html': '/sign',
+    'lucky.html': '/lucky'
+};
+
 function handleGlobalStateChange(data) {
     const currentPath = window.location.pathname;
     
     // 1. 老师开启了某个功能
     if (data.status === 'active' && data.current_page !== 'idle') {
+        // 将数据库中的文件名转换为正确的URL路径
+        const targetPage = PAGE_MAP[data.current_page] || `/classroom/${data.current_page}`;
+        
         // 如果当前不在老师指定的页面，就强制跳转
-        if (!currentPath.includes(data.current_page)) {
-            console.log(`👨‍🏫 老师切换到了 ${data.current_page}，正在跟进...`);
-            window.location.href = data.current_page;
+        if (currentPath !== targetPage) {
+            console.log(`👨‍🏫 老师切换到了 ${targetPage}，正在跟进...`);
+            window.location.href = targetPage;
         }
     } 
     // 2. 老师释放了控制 (下课/自由活动)
     else if (data.status === 'idle') {
         // 如果现在不是在首页，就被踢回首页
-        if (!currentPath.includes('/classroom') && !currentPath.includes('index.html')) {
+        if (currentPath !== '/classroom' && currentPath !== '/classroom/') {
             console.log("⏸️ 自由活动模式，返回首页");
             window.location.href = '/classroom';
         }
