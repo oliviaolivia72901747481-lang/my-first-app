@@ -944,7 +944,7 @@
             .subscribe();
         
         // 显示抢答/点名学生的回答结果
-        function showAnswerResult(voteLog) {
+        async function showAnswerResult(voteLog) {
             const resultDiv = document.getElementById('qp-answer-result');
             const modeLabel = document.getElementById('qp-answer-mode-label');
             const studentName = document.getElementById('qp-answer-student');
@@ -978,6 +978,16 @@
             if (voteLog.is_correct) {
                 confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
             }
+            
+            // 抢答/点名模式：学生回答后自动停止本题，下一题需要老师重新开始
+            isQPActive = false;
+            showAnswerRevealed = true; // 公布答案
+            await supabaseClient.from('vote_config').update({ 
+                is_active: false,
+                allowed_student: null
+            }).eq('id', 1);
+            // 重新加载题目以显示正确答案
+            loadQPQuestion();
         }
         
         // ================== 弹幕功能 ==================
