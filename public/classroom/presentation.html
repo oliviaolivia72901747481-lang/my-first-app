@@ -474,6 +474,15 @@
             <div class="qp-q-title" id="qp-title">正在加载题目...</div>
             <div class="qp-options" id="qp-options"></div>
         </div>
+        <!-- 抢答/点名回答结果 -->
+        <div id="qp-answer-result" style="background:linear-gradient(135deg, rgba(16,185,129,0.2), rgba(59,130,246,0.2)); border-radius:15px; padding:20px; margin-bottom:15px; display:none; text-align:center;">
+            <div style="font-size:0.9rem; color:#94a3b8; margin-bottom:10px;" id="qp-answer-mode-label">🏆 抢答回答</div>
+            <div style="font-size:1.5rem; font-weight:bold; color:white; margin-bottom:10px;" id="qp-answer-student">--</div>
+            <div style="display:flex; justify-content:center; gap:20px; align-items:center;">
+                <div style="font-size:3rem; font-weight:bold;" id="qp-answer-option">--</div>
+                <div id="qp-answer-correct" style="font-size:2rem;">--</div>
+            </div>
+        </div>
         <!-- 实时统计 -->
         <div id="qp-stats" style="background:rgba(255,255,255,0.1); border-radius:15px; padding:15px; margin-bottom:15px;">
             <div style="font-size:0.9rem; color:#94a3b8; margin-bottom:10px;">📊 实时统计</div>
@@ -733,6 +742,9 @@
         
         async function loadQPQuestion() {
             try {
+                // 隐藏上一题的回答结果
+                document.getElementById('qp-answer-result').style.display = 'none';
+                
                 const { data } = await supabaseClient.from('questions').select('*').eq('round', qpRound).maybeSingle();
                 qpQuestion = data;
                 document.getElementById('qp-round').innerText = qpRound;
@@ -809,12 +821,20 @@
             switch (qpMode) {
                 case 'vote':
                     // 普通答题模式：所有学生都可以回答
-                    await supabaseClient.from('vote_config').update({ 
+                    // 先尝试更新包含新字段，如果失败则只更新基本字段
+                    const voteUpdate = await supabaseClient.from('vote_config').update({ 
                         current_round: qpRound, 
                         is_active: true,
                         allowed_student: null,
                         answer_mode: 'vote'
                     }).eq('id', 1);
+                    if (voteUpdate.error) {
+                        // 如果新字段不存在，只更新基本字段
+                        await supabaseClient.from('vote_config').update({ 
+                            current_round: qpRound, 
+                            is_active: true
+                        }).eq('id', 1);
+                    }
                     await supabaseClient.from('global_state').update({ status: 'active', current_page: 'vote.html' }).eq('id', 1);
                     break;
                 case 'buzzer':
@@ -835,11 +855,15 @@
             isQPActive = false;
             showAnswerRevealed = true; // 公布答案
             // 停止答题并清除权限限制
-            await supabaseClient.from('vote_config').update({ 
+            const stopUpdate = await supabaseClient.from('vote_config').update({ 
                 is_active: false,
                 allowed_student: null,
                 answer_mode: 'vote'
             }).eq('id', 1);
+            if (stopUpdate.error) {
+                // 如果新字段不存在，只更新基本字段
+                await supabaseClient.from('vote_config').update({ is_active: false }).eq('id', 1);
+            }
             if (qpMode === 'buzzer') {
                 await supabaseClient.from('buzzer').update({ is_active: false }).eq('id', 1);
             }
@@ -906,11 +930,55 @@
             .subscribe();
         
         // 实时监听答题
+        // 实时监听答题结果
         supabaseClient.channel('presentation-vote')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'vote_logs' }, () => {
-                if (isQuestionPanelVisible) loadQPStats();
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'vote_logs' }, payload => {
+                if (isQuestionPanelVisible) {
+                    loadQPStats();
+                    // 如果是抢答或点名模式，显示回答结果
+                    if (qpMode === 'buzzer' || qpMode === 'lucky') {
+                        showAnswerResult(payload.new);
+                    }
+                }
             })
             .subscribe();
+        
+        // 显示抢答/点名学生的回答结果
+        function showAnswerResult(voteLog) {
+            const resultDiv = document.getElementById('qp-answer-result');
+            const modeLabel = document.getElementById('qp-answer-mode-label');
+            const studentName = document.getElementById('qp-answer-student');
+            const answerOption = document.getElementById('qp-answer-option');
+            const correctDiv = document.getElementById('qp-answer-correct');
+            
+            // 设置模式标签
+            modeLabel.innerText = qpMode === 'buzzer' ? '🏆 抢答回答' : '🎯 点名回答';
+            
+            // 设置学生姓名
+            studentName.innerText = voteLog.student_name;
+            
+            // 设置回答选项
+            answerOption.innerText = voteLog.option;
+            
+            // 设置正确/错误标识
+            if (voteLog.is_correct) {
+                correctDiv.innerHTML = '✅ 正确';
+                correctDiv.style.color = '#10b981';
+                resultDiv.style.background = 'linear-gradient(135deg, rgba(16,185,129,0.3), rgba(16,185,129,0.1))';
+            } else {
+                correctDiv.innerHTML = '❌ 错误';
+                correctDiv.style.color = '#ef4444';
+                resultDiv.style.background = 'linear-gradient(135deg, rgba(239,68,68,0.3), rgba(239,68,68,0.1))';
+            }
+            
+            // 显示结果区域
+            resultDiv.style.display = 'block';
+            
+            // 播放音效和特效
+            if (voteLog.is_correct) {
+                confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
+            }
+        }
         
         // ================== 弹幕功能 ==================
         let danmuSubscribed = false;
