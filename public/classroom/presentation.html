@@ -332,6 +332,7 @@
             <button class="ctrl-btn btn-vote" onclick="toggleVoteOverlay()">📊 答题</button>
             <button class="ctrl-btn btn-danmu" onclick="toggleDanmu()">💬 弹幕</button>
             <button class="ctrl-btn btn-buzzer" onclick="startBuzzer()">⚡ 抢答</button>
+            <button class="ctrl-btn" style="background:#f59e0b;" onclick="toggleLuckyOverlay()">🎰 点名</button>
             <button class="ctrl-btn" style="background:#64748b;" onclick="releaseControl()">⏸️ 释放</button>
             <button class="ctrl-btn btn-nav" onclick="nextSlide()">下一页 ➡️</button>
         </div>
@@ -339,7 +340,7 @@
         <!-- 快捷键提示 -->
         <div class="hotkey-hint">
             <div><kbd>←</kbd><kbd>→</kbd> 翻页</div>
-            <div><kbd>V</kbd> 答题 <kbd>D</kbd> 弹幕 <kbd>B</kbd> 抢答</div>
+            <div><kbd>V</kbd> 答题 <kbd>D</kbd> 弹幕 <kbd>B</kbd> 抢答 <kbd>L</kbd> 点名</div>
             <div><kbd>R</kbd> 释放控制 <kbd>F</kbd> 全屏 <kbd>ESC</kbd> 退出</div>
         </div>
     </div>
@@ -374,6 +375,42 @@
                 ➡️ 下一题
             </button>
         </div>
+    </div>
+    
+    <!-- 随机点名悬浮窗 -->
+    <div id="lucky-overlay" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); width:500px; background:linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d); border-radius:20px; padding:30px; box-shadow:0 20px 60px rgba(0,0,0,0.5); display:none; z-index:200; text-align:center;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <select id="lucky-class-select" onchange="switchLuckyClass()" style="padding:8px 15px; font-size:1rem; border-radius:20px; border:none; background:rgba(255,255,255,0.2); color:white; cursor:pointer;">
+            </select>
+            <div style="display:flex; gap:10px;">
+                <button onclick="toggleLuckyMute()" id="lucky-mute-btn" style="background:rgba(255,255,255,0.2); border:none; color:white; width:40px; height:40px; border-radius:50%; cursor:pointer; font-size:1.2rem;">🔊</button>
+                <button onclick="openLuckySettings()" style="background:rgba(255,255,255,0.2); border:none; color:white; width:40px; height:40px; border-radius:50%; cursor:pointer; font-size:1.2rem;">⚙️</button>
+                <button onclick="closeLuckyOverlay()" style="background:rgba(255,255,255,0.2); border:none; color:white; width:40px; height:40px; border-radius:50%; cursor:pointer; font-size:1.2rem;">✕</button>
+            </div>
+        </div>
+        <div id="lucky-display" style="font-size:5rem; font-weight:bold; color:white; text-shadow:0 5px 15px rgba(0,0,0,0.5); min-height:100px; display:flex; align-items:center; justify-content:center; margin:20px 0;">
+            准备点名
+        </div>
+        <button id="lucky-action-btn" onclick="toggleLuckyRoll()" style="padding:15px 50px; font-size:1.5rem; border:none; border-radius:50px; cursor:pointer; background:white; color:#333; box-shadow:0 10px 20px rgba(0,0,0,0.3); font-weight:bold;">
+            开始
+        </button>
+    </div>
+    
+    <!-- 点名设置面板 -->
+    <div id="lucky-settings-panel" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:white; padding:30px; border-radius:15px; color:#333; display:none; box-shadow:0 20px 50px rgba(0,0,0,0.5); z-index:300; width:350px; max-height:80vh; overflow-y:auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h3 style="margin:0;">🏫 班级名单管理</h3>
+            <button onclick="closeLuckySettings()" style="background:none; border:none; font-size:24px; cursor:pointer; color:#666;">×</button>
+        </div>
+        <div style="display:flex; gap:5px; margin-bottom:15px;">
+            <input type="text" id="lucky-new-class-name" placeholder="新班级名称" style="flex:1; padding:8px; border:1px solid #ccc; border-radius:5px;">
+            <button onclick="addLuckyClass()" style="padding:8px 12px; font-size:14px; border:none; border-radius:5px; cursor:pointer; background:#2563eb; color:white;">新建</button>
+        </div>
+        <hr style="border:none; border-top:1px solid #eee; margin:15px 0;">
+        <p style="margin:10px 0; font-size:0.9rem;">正在编辑：<strong id="lucky-editing-class">--</strong></p>
+        <textarea id="lucky-name-input" placeholder="请在此处粘贴名单，一行一个名字" style="width:100%; height:200px; padding:10px; border:1px solid #ccc; border-radius:5px; font-size:14px; box-sizing:border-box;"></textarea>
+        <button onclick="saveLuckyList()" style="margin-top:10px; padding:8px 12px; font-size:14px; border:none; border-radius:5px; cursor:pointer; background:#10b981; color:white; width:100%;">💾 保存名单</button>
+        <button onclick="deleteLuckyClass()" style="margin-top:10px; padding:8px 12px; font-size:14px; border:none; border-radius:5px; cursor:pointer; background:#ef4444; color:white; width:100%;">🗑️ 删除此班级</button>
     </div>
     
     <!-- 上传模态框 -->
@@ -749,7 +786,7 @@
         
         // ================== 键盘快捷键 ==================
         document.addEventListener('keydown', (e) => {
-            if (e.target.tagName === 'INPUT') return;
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             
             switch(e.key) {
                 case 'ArrowLeft':
@@ -775,6 +812,10 @@
                 case 'B':
                     startBuzzer();
                     break;
+                case 'l':
+                case 'L':
+                    toggleLuckyOverlay();
+                    break;
                 case 'f':
                 case 'F':
                     toggleFullscreen();
@@ -786,7 +827,10 @@
                 case 'Escape':
                     closeUploadModal();
                     document.getElementById('vote-overlay').style.display = 'none';
+                    document.getElementById('lucky-overlay').style.display = 'none';
+                    document.getElementById('lucky-settings-panel').style.display = 'none';
                     isVoteVisible = false;
+                    isLuckyVisible = false;
                     break;
             }
         });
@@ -808,6 +852,180 @@
             dropZone.classList.remove('dragover');
             handleFiles(e.dataTransfer.files);
         });
+        
+        // ================== 随机点名功能 ==================
+        let isLuckyVisible = false;
+        let luckyData = {};
+        let luckyCurrentClass = '';
+        let luckyNames = [];
+        let luckyTimer = null;
+        let isLuckyRunning = false;
+        let isLuckyMuted = false;
+        
+        // 音效
+        const luckyRollSound = new Audio("https://cdn.pixabay.com/audio/2022/03/10/audio_510344b080.mp3");
+        luckyRollSound.loop = true;
+        luckyRollSound.volume = 0.8;
+        const luckyWinSound = new Audio("https://cdn.pixabay.com/audio/2021/08/04/audio_0625c1539c.mp3");
+        luckyWinSound.volume = 1.0;
+        
+        function toggleLuckyOverlay() {
+            isLuckyVisible = !isLuckyVisible;
+            document.getElementById('lucky-overlay').style.display = isLuckyVisible ? 'block' : 'none';
+            if (isLuckyVisible) {
+                initLuckyData();
+            }
+        }
+        
+        function closeLuckyOverlay() {
+            isLuckyVisible = false;
+            document.getElementById('lucky-overlay').style.display = 'none';
+            if (isLuckyRunning) {
+                clearInterval(luckyTimer);
+                isLuckyRunning = false;
+                luckyRollSound.pause();
+            }
+        }
+        
+        function initLuckyData() {
+            const saved = localStorage.getItem('lucky_classes_v2');
+            if (saved) {
+                luckyData = JSON.parse(saved);
+            } else {
+                luckyData = { "演示班级": ["张三", "李四", "王五", "赵六", "孙七"] };
+            }
+            renderLuckySelect();
+        }
+        
+        function renderLuckySelect() {
+            const select = document.getElementById('lucky-class-select');
+            select.innerHTML = '';
+            const keys = Object.keys(luckyData);
+            if (keys.length === 0) {
+                luckyData["默认班级"] = [];
+                keys.push("默认班级");
+            }
+            keys.forEach(key => {
+                const opt = document.createElement('option');
+                opt.value = key;
+                opt.innerText = key;
+                select.appendChild(opt);
+            });
+            if (luckyCurrentClass && luckyData[luckyCurrentClass]) {
+                select.value = luckyCurrentClass;
+            } else {
+                select.value = keys[0];
+                luckyCurrentClass = keys[0];
+            }
+            switchLuckyClass();
+        }
+        
+        function switchLuckyClass() {
+            luckyCurrentClass = document.getElementById('lucky-class-select').value;
+            luckyNames = luckyData[luckyCurrentClass] || [];
+            document.getElementById('lucky-display').innerText = '准备点名';
+            document.getElementById('lucky-display').style.color = 'white';
+        }
+        
+        function toggleLuckyMute() {
+            isLuckyMuted = !isLuckyMuted;
+            document.getElementById('lucky-mute-btn').innerText = isLuckyMuted ? '🔇' : '🔊';
+            luckyRollSound.muted = isLuckyMuted;
+            luckyWinSound.muted = isLuckyMuted;
+        }
+        
+        function toggleLuckyRoll() {
+            if (!luckyNames || luckyNames.length === 0) {
+                alert(`班级 "${luckyCurrentClass}" 是空的！请点击⚙️添加名单。`);
+                return;
+            }
+            
+            const btn = document.getElementById('lucky-action-btn');
+            const display = document.getElementById('lucky-display');
+            
+            if (isLuckyRunning) {
+                // 停止
+                clearInterval(luckyTimer);
+                isLuckyRunning = false;
+                btn.innerText = '开始';
+                btn.style.background = 'white';
+                btn.style.color = '#333';
+                display.style.color = '#FFD700';
+                display.style.textShadow = '0 0 20px #FFD700';
+                
+                // 播放成功音效
+                if (!isLuckyMuted) {
+                    luckyRollSound.pause();
+                    luckyWinSound.currentTime = 0;
+                    luckyWinSound.play();
+                }
+            } else {
+                // 开始
+                display.style.color = 'white';
+                display.style.textShadow = '0 5px 15px rgba(0,0,0,0.5)';
+                isLuckyRunning = true;
+                btn.innerText = '停止';
+                btn.style.background = '#ff4757';
+                btn.style.color = 'white';
+                
+                // 播放滚动音效
+                if (!isLuckyMuted) {
+                    luckyRollSound.currentTime = 0;
+                    luckyRollSound.play().catch(e => console.log('等待用户交互'));
+                }
+                
+                luckyTimer = setInterval(() => {
+                    const randomIndex = Math.floor(Math.random() * luckyNames.length);
+                    display.innerText = luckyNames[randomIndex];
+                }, 50);
+            }
+        }
+        
+        function openLuckySettings() {
+            document.getElementById('lucky-settings-panel').style.display = 'block';
+            document.getElementById('lucky-editing-class').innerText = luckyCurrentClass;
+            document.getElementById('lucky-name-input').value = luckyNames.join('\n');
+        }
+        
+        function closeLuckySettings() {
+            document.getElementById('lucky-settings-panel').style.display = 'none';
+        }
+        
+        function addLuckyClass() {
+            const newName = document.getElementById('lucky-new-class-name').value.trim();
+            if (!newName) return alert('请输入班级名称！');
+            if (luckyData[newName]) return alert('这个班级已经存在了！');
+            luckyData[newName] = [];
+            luckyCurrentClass = newName;
+            saveLuckyData();
+            renderLuckySelect();
+            document.getElementById('lucky-new-class-name').value = '';
+            alert(`✅ 已创建 "${newName}"，请在下方粘贴名单`);
+        }
+        
+        function saveLuckyList() {
+            const rawText = document.getElementById('lucky-name-input').value;
+            const namesArr = rawText.split('\n').filter(n => n.trim() !== '');
+            if (namesArr.length === 0) return alert('名单不能为空！');
+            luckyData[luckyCurrentClass] = namesArr;
+            luckyNames = namesArr;
+            saveLuckyData();
+            alert(`✅ 已更新，共 ${namesArr.length} 人`);
+            closeLuckySettings();
+        }
+        
+        function deleteLuckyClass() {
+            if (!confirm(`⚠️ 确定要删除班级 "${luckyCurrentClass}" 吗？`)) return;
+            delete luckyData[luckyCurrentClass];
+            luckyCurrentClass = '';
+            saveLuckyData();
+            renderLuckySelect();
+            closeLuckySettings();
+        }
+        
+        function saveLuckyData() {
+            localStorage.setItem('lucky_classes_v2', JSON.stringify(luckyData));
+        }
         
         // ================== 页面初始化 ==================
         (function init() {
