@@ -103,13 +103,7 @@
             const sid = localStorage.getItem('my_id');
             if (!sid) return;
 
-            // 先检查本地缓存
-            if (hasSignedToday(sid)) {
-                showAlreadySigned();
-                return;
-            }
-
-            // 再检查数据库 (今天的记录)
+            // 检查数据库 (今天的记录) - 以数据库为准
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             
@@ -121,8 +115,12 @@
                 .limit(1);
 
             if (data && data.length > 0) {
-                saveSignRecord(sid); // 同步到本地缓存
+                // 数据库有记录，同步到本地缓存
+                saveSignRecord(sid);
                 showAlreadySigned(new Date(data[0].created_at));
+            } else {
+                // 数据库没有记录（可能被老师清除了），清除本地缓存，允许重新签到
+                localStorage.removeItem('sign_record');
             }
         }
 
