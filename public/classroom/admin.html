@@ -191,6 +191,23 @@
         .vote-btn.primary { background: #3b82f6; color: white; }
         .vote-btn.warning { background: #f59e0b; color: white; }
         .vote-btn.danger { background: #ef4444; color: white; }
+        
+        /* 模式选择按钮 */
+        .mode-btn {
+            padding: 10px 18px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 10px;
+            background: transparent;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .mode-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+        .mode-btn.active[data-mode="vote"] { background: #3b82f6; color: white; border-color: #3b82f6; }
+        .mode-btn.active[data-mode="buzzer"] { background: #ef4444; color: white; border-color: #ef4444; }
+        .mode-btn.active[data-mode="lucky"] { background: #f59e0b; color: white; border-color: #f59e0b; }
 
         /* 抢答管理样式 */
         .buzzer-display {
@@ -339,7 +356,7 @@
             <!-- 标签页导航 -->
             <div class="tab-nav">
                 <button class="tab-btn active" onclick="switchTab('sign')">📋 签到管理</button>
-                <button class="tab-btn" onclick="switchTab('vote')">📊 答题管理</button>
+                <button class="tab-btn" onclick="switchTab('vote')">📚 题库管理</button>
                 <button class="tab-btn" onclick="switchTab('buzzer')">⚡ 抢答管理</button>
             </div>
             
@@ -364,20 +381,39 @@
                     </table>
                 </div>
                 
-                <!-- 答题管理 -->
+                <!-- 题库管理 -->
                 <div class="tab-pane" id="tab-vote">
                     <div class="vote-header">
                         <div class="round-display">第 <span id="vote-round">1</span> 题</div>
-                        <div id="vote-status" style="color:#94a3b8;">准备中...</div>
+                        <div style="display:flex; align-items:center; gap:15px;">
+                            <div id="q-mode-badge" style="padding:5px 12px; border-radius:15px; font-size:0.85rem; font-weight:bold;">📊 答题</div>
+                            <div id="vote-status" style="color:#94a3b8;">准备中...</div>
+                        </div>
                     </div>
                     <div class="question-card">
                         <div class="q-title" id="q-title">正在加载题目...</div>
                         <div class="q-options" id="q-options"></div>
+                        <!-- 模式选择器 -->
+                        <div id="mode-selector" style="margin-top:15px; padding:15px; background:rgba(0,0,0,0.2); border-radius:10px;">
+                            <div style="font-size:0.85rem; color:#94a3b8; margin-bottom:10px;">选择互动模式：</div>
+                            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                                <button class="mode-btn active" data-mode="vote" onclick="setQuestionMode('vote')">
+                                    📊 答题模式
+                                </button>
+                                <button class="mode-btn" data-mode="buzzer" onclick="setQuestionMode('buzzer')">
+                                    ⚡ 抢答模式
+                                </button>
+                                <button class="mode-btn" data-mode="lucky" onclick="setQuestionMode('lucky')">
+                                    🎰 点名模式
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="chart-container">
+                    <div class="chart-container" id="chart-container">
                         <canvas id="voteChart"></canvas>
                     </div>
                     <div class="vote-controls">
+                        <button class="vote-btn" style="background:#10b981;" onclick="startCurrentQuestion()">▶️ 开始本题</button>
                         <button class="vote-btn warning" onclick="toggleVoteActive()">⏯️ 暂停/公布</button>
                         <button class="vote-btn primary" onclick="prevVoteRound()">⬅️ 上一题</button>
                         <button class="vote-btn primary" onclick="nextVoteRound()">➡️ 下一题</button>
@@ -410,7 +446,8 @@
             <div class="modal-title">📥 导入 Excel 题库</div>
             <p style="color:#666; font-size:0.9rem; margin-bottom:15px;">
                 表头需包含：轮次、题目、选项A、选项B、选项C、选项D、答案<br>
-                <span style="color:#999; font-size:0.8rem;">类型可选：single(单选)、multi(多选)、judge(判断)</span>
+                <span style="color:#999; font-size:0.8rem;">类型：single(单选)、multi(多选)、judge(判断)</span><br>
+                <span style="color:#8b5cf6; font-size:0.8rem;">模式：vote(答题)、buzzer(抢答)、lucky(点名) - 默认vote</span>
             </p>
             <label class="file-drop" id="drop-area" for="file-input">
                 <div style="font-size:2.5rem; margin-bottom:10px;">📄</div>
@@ -695,11 +732,83 @@
                         <div class="q-opt ${!isVoteActive && data.answer.includes('C') ? 'correct' : ''}" id="opt-C">C. ${data.option_c || ''}</div>
                         <div class="q-opt ${!isVoteActive && data.answer.includes('D') ? 'correct' : ''}" id="opt-D">D. ${data.option_d || ''}</div>
                     `;
+                    // 更新模式显示
+                    updateModeDisplay(data.mode || 'vote');
                 } else {
                     document.getElementById('q-title').innerText = `第 ${round} 题 (无数据)`;
                     document.getElementById('q-options').innerHTML = '';
+                    updateModeDisplay('vote');
                 }
             } catch (e) { console.error(e); }
+        }
+        
+        // 更新模式显示
+        function updateModeDisplay(mode) {
+            const badge = document.getElementById('q-mode-badge');
+            const modeConfig = {
+                'vote': { text: '📊 答题', bg: '#3b82f6' },
+                'buzzer': { text: '⚡ 抢答', bg: '#ef4444' },
+                'lucky': { text: '🎰 点名', bg: '#f59e0b' }
+            };
+            const config = modeConfig[mode] || modeConfig['vote'];
+            badge.innerText = config.text;
+            badge.style.background = config.bg;
+            badge.style.color = 'white';
+            
+            // 更新模式按钮状态
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === mode);
+            });
+            
+            // 根据模式显示/隐藏图表
+            const chartContainer = document.getElementById('chart-container');
+            chartContainer.style.display = mode === 'vote' ? 'block' : 'none';
+        }
+        
+        // 设置题目模式
+        async function setQuestionMode(mode) {
+            if (!currentQuestion) return;
+            try {
+                await supabaseClient.from('questions').update({ mode: mode }).eq('id', currentQuestion.id);
+                currentQuestion.mode = mode;
+                updateModeDisplay(mode);
+            } catch (e) { console.error(e); }
+        }
+        
+        // 开始当前题目（根据模式）
+        async function startCurrentQuestion() {
+            if (!currentQuestion) {
+                alert('当前没有题目');
+                return;
+            }
+            
+            const mode = currentQuestion.mode || 'vote';
+            
+            switch (mode) {
+                case 'vote':
+                    // 答题模式：更新全局状态让学生跳转到答题页
+                    await supabaseClient.from('global_state').update({ status: 'active', current_page: 'vote.html' }).eq('id', 1);
+                    await supabaseClient.from('vote_config').update({ current_round: voteRound, is_active: true }).eq('id', 1);
+                    updateStatusBadge('active', '答题进行中...');
+                    break;
+                    
+                case 'buzzer':
+                    // 抢答模式：跳转到抢答页并开始倒计时
+                    await supabaseClient.from('global_state').update({ status: 'active', current_page: 'buzzer.html' }).eq('id', 1);
+                    updateStatusBadge('active', '抢答进行中...');
+                    // 显示题目后开始抢答
+                    setTimeout(async () => {
+                        await supabaseClient.from('buzzer').update({ is_active: true, winner: null }).eq('id', 1);
+                    }, 1000);
+                    break;
+                    
+                case 'lucky':
+                    // 点名模式：随机选人回答
+                    await supabaseClient.from('global_state').update({ status: 'active', current_page: 'lucky.html' }).eq('id', 1);
+                    updateStatusBadge('active', '点名进行中...');
+                    alert('🎰 请在课件播放器中使用点名功能选择学生回答');
+                    break;
+            }
         }
 
         async function loadVoteChartData() {
@@ -835,7 +944,8 @@
                         option_c: row['选项C'] || '',
                         option_d: row['选项D'] || '',
                         answer: String(row['答案'] || '').toUpperCase(),
-                        type: row['类型'] || 'single'
+                        type: row['类型'] || 'single',
+                        mode: row['模式'] || 'vote'  // 新增：互动模式
                     }));
                     
                     await supabaseClient.from('questions').delete().neq('id', 0);
