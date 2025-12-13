@@ -796,7 +796,7 @@
             qpMode = mode;
             updateQPModeDisplay();
             if (qpQuestion) {
-                await supabaseClient.from('questions').update({ mode: mode }).eq('id', qpQuestion.id);
+                await supabaseClient.from('questions').update({ mode: mode }).eq('round', qpQuestion.round);
             }
         }
         
