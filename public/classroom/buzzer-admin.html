@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>👩‍🏫 抢答控制台</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- 🎉 Confetti 礼花特效库 -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -147,6 +149,9 @@
                 textStatus.innerText = "抢答结束";
                 soundWin.play().catch(()=>{});
                 btnStart.disabled = false;
+                
+                // 🎉 触发礼花庆祝获胜者
+                triggerWinnerConfetti();
             } 
             else if (data.is_active) {
                 // 🟢 正在进行
@@ -218,6 +223,51 @@
         // 辅助：睡眠函数
         function sleep(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
+        }
+        
+        // 🎉 获胜者礼花特效
+        function triggerWinnerConfetti() {
+            const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#FFD700'];
+            
+            // 从两侧发射
+            confetti({
+                particleCount: 50,
+                angle: 60,
+                spread: 55,
+                origin: { x: 0, y: 0.6 },
+                colors: colors
+            });
+            confetti({
+                particleCount: 50,
+                angle: 120,
+                spread: 55,
+                origin: { x: 1, y: 0.6 },
+                colors: colors
+            });
+            
+            // 中央大爆发
+            setTimeout(() => {
+                confetti({
+                    particleCount: 150,
+                    spread: 100,
+                    origin: { y: 0.5 },
+                    colors: colors
+                });
+            }, 300);
+            
+            // 持续发射
+            let count = 0;
+            const interval = setInterval(() => {
+                confetti({
+                    particleCount: 20,
+                    angle: Math.random() * 60 + 60,
+                    spread: 45,
+                    origin: { x: Math.random(), y: 0.6 },
+                    colors: colors
+                });
+                count++;
+                if (count > 10) clearInterval(interval);
+            }, 200);
         }
         
         // 初始化读取

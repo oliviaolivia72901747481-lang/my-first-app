@@ -8,6 +8,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <!-- 🎉 Confetti 礼花特效库 -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; padding: 20px; text-align: center; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; }
         .header { margin-bottom: 20px; width: 100%; max-width: 1000px; display: flex; justify-content: space-between; align-items: center; }
@@ -52,6 +54,21 @@
     <div style="margin-top:20px;">
         <button onclick="clearAll()" style="background:transparent; color:#999; border:1px solid #ddd; padding:8px 15px;" aria-label="重置课堂，清除所有数据">⚠️ 重置课堂</button>
         <button onclick="exportFullReport()" style="background:transparent; color:#10b981; border:1px solid #10b981; padding:8px 15px; margin-left: 10px; font-weight:bold;" aria-label="导出学情分析报告">📊 导出学情分析报告</button>
+    </div>
+    
+    <!-- 🎹 快捷键提示 -->
+    <div id="hotkey-hint" style="margin-top:20px; padding:15px; background:#f8fafc; border-radius:10px; color:#64748b; font-size:0.9rem;">
+        <strong>⌨️ 快捷键提示 (支持翻页笔):</strong><br>
+        <span style="display:inline-block; margin-top:8px;">
+            <kbd style="background:#e2e8f0; padding:3px 8px; border-radius:4px; margin:0 5px;">→</kbd> 或 <kbd style="background:#e2e8f0; padding:3px 8px; border-radius:4px; margin:0 5px;">PageDown</kbd> 下一题 &nbsp;|&nbsp;
+            <kbd style="background:#e2e8f0; padding:3px 8px; border-radius:4px; margin:0 5px;">←</kbd> 或 <kbd style="background:#e2e8f0; padding:3px 8px; border-radius:4px; margin:0 5px;">PageUp</kbd> 上一题 &nbsp;|&nbsp;
+            <kbd style="background:#e2e8f0; padding:3px 8px; border-radius:4px; margin:0 5px;">Space</kbd> 暂停/公布答案
+        </span>
+    </div>
+    
+    <!-- 🎉 正确率显示 -->
+    <div id="accuracy-display" style="margin-top:15px; font-size:1.5rem; font-weight:bold; color:#64748b; display:none;">
+        正确率: <span id="accuracy-value">0%</span>
     </div>
 
     <div id="import-modal" aria-modal="true" aria-labelledby="modal-title" role="dialog">
@@ -375,6 +392,156 @@
                 alert('上传文件失败，请稍后重试');
             }
         }
+
+        // ================== 🎉 礼花特效系统 ==================
+        let lastAccuracy = 0;
+        let confettiTriggered = false;
+        
+        // 计算正确率并触发礼花
+        async function calculateAccuracyAndCelebrate() {
+            try {
+                const { data } = await supabaseClient
+                    .from('vote_logs')
+                    .select('is_correct')
+                    .eq('round', currentRound);
+                
+                if (!data || data.length === 0) {
+                    document.getElementById('accuracy-display').style.display = 'none';
+                    return;
+                }
+                
+                const correctCount = data.filter(d => d.is_correct === true).length;
+                const accuracy = Math.round((correctCount / data.length) * 100);
+                
+                // 显示正确率
+                document.getElementById('accuracy-display').style.display = 'block';
+                document.getElementById('accuracy-value').innerText = `${accuracy}%`;
+                document.getElementById('accuracy-value').style.color = 
+                    accuracy >= 80 ? '#10b981' : 
+                    accuracy >= 60 ? '#f59e0b' : '#ef4444';
+                
+                // 🎉 正确率超过80%且答题结束时触发礼花
+                if (!isActive && accuracy >= 80 && !confettiTriggered) {
+                    triggerConfetti();
+                    confettiTriggered = true;
+                }
+                
+                lastAccuracy = accuracy;
+            } catch (error) {
+                console.error('计算正确率失败:', error);
+            }
+        }
+        
+        // 触发礼花特效
+        function triggerConfetti() {
+            // 多次发射，营造持续庆祝效果
+            const duration = 3000;
+            const end = Date.now() + duration;
+            
+            const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
+            
+            (function frame() {
+                confetti({
+                    particleCount: 5,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0 },
+                    colors: colors
+                });
+                confetti({
+                    particleCount: 5,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 1 },
+                    colors: colors
+                });
+                
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            }());
+            
+            // 中央大爆发
+            setTimeout(() => {
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: colors
+                });
+            }, 500);
+        }
+        
+        // 手动触发礼花 (测试用)
+        function manualConfetti() {
+            triggerConfetti();
+        }
+        
+        // ================== ⌨️ 键盘快捷键系统 ==================
+        document.addEventListener('keydown', function(e) {
+            // 如果正在输入框中，不响应快捷键
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                return;
+            }
+            
+            switch(e.key) {
+                case 'ArrowRight':
+                case 'PageDown':
+                    // → 或 PageDown: 下一题
+                    e.preventDefault();
+                    nextRound();
+                    break;
+                    
+                case 'ArrowLeft':
+                case 'PageUp':
+                    // ← 或 PageUp: 上一题
+                    e.preventDefault();
+                    prevRound();
+                    break;
+                    
+                case ' ':
+                    // 空格: 暂停/公布答案
+                    e.preventDefault();
+                    toggleActive();
+                    break;
+                    
+                case 'Escape':
+                    // ESC: 关闭弹窗
+                    closeImport();
+                    break;
+            }
+        });
+        
+        // 上一题功能
+        async function prevRound() {
+            if (currentRound <= 1) {
+                console.log('已经是第一题了');
+                return;
+            }
+            try {
+                await supabaseClient.from('vote_config').update({ 
+                    current_round: currentRound - 1, 
+                    is_active: true 
+                }).eq('id', 1);
+            } catch (error) {
+                console.error('上一题失败:', error);
+            }
+        }
+        
+        // 修改 updateState 以支持正确率计算
+        const originalUpdateState = updateState;
+        updateState = async function(config) {
+            confettiTriggered = false; // 重置礼花状态
+            await originalUpdateState(config);
+            await calculateAccuracyAndCelebrate();
+        };
+        
+        // 修改 loadChartData 以更新正确率
+        const originalLoadChartData = loadChartData;
+        loadChartData = async function() {
+            await originalLoadChartData();
+            await calculateAccuracyAndCelebrate();
+        };
 
         init();
     </script>
