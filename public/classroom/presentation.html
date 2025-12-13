@@ -884,7 +884,13 @@
             showAnswerRevealed = false; // 切换题目时隐藏答案
             // 清除新题目的答题记录，让学生可以重新回答
             await supabaseClient.from('vote_logs').delete().eq('round', qpRound);
-            await supabaseClient.from('vote_config').update({ current_round: qpRound, is_active: false }).eq('id', 1);
+            // 清除抢答/点名权限，下一题需要重新抢答
+            await supabaseClient.from('vote_config').update({ 
+                current_round: qpRound, 
+                is_active: false,
+                allowed_student: null,
+                answer_mode: 'vote'
+            }).eq('id', 1);
             loadQPQuestion();
         }
         
@@ -894,7 +900,13 @@
             showAnswerRevealed = false; // 切换题目时隐藏答案
             // 清除新题目的答题记录，让学生可以重新回答
             await supabaseClient.from('vote_logs').delete().eq('round', qpRound);
-            await supabaseClient.from('vote_config').update({ current_round: qpRound, is_active: false }).eq('id', 1);
+            // 清除抢答/点名权限，下一题需要重新抢答
+            await supabaseClient.from('vote_config').update({ 
+                current_round: qpRound, 
+                is_active: false,
+                allowed_student: null,
+                answer_mode: 'vote'
+            }).eq('id', 1);
             loadQPQuestion();
         }
         
