@@ -84,8 +84,20 @@
                 if (data.status === 'active' && data.current_page !== 'idle') {
                     // 🚀 收到指令，跳转！
                     document.getElementById('status-text').innerText = "正在跳转...";
+                    
+                    // 将 xxx.html 转换为正确的URL路径
+                    const pageMap = {
+                        'vote.html': '/vote',
+                        'danmu.html': '/danmu',
+                        'buzzer.html': '/buzzer',
+                        'sign.html': '/sign',
+                        'lucky.html': '/lucky'
+                    };
+                    
+                    const targetPage = pageMap[data.current_page] || `/classroom/${data.current_page}`;
+                    
                     // 这里的 replace 是为了防止学生按"后退"键退回来
-                    window.location.replace(data.current_page); 
+                    window.location.replace(targetPage); 
                 } else {
                     // 💤 闲置状态，保持在首页
                     console.log("课堂空闲中");
