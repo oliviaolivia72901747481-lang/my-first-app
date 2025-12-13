@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>课堂弹幕墙</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/common.js"></script>
+    <script src="js/navigation.js"></script>
+    <style>
+        /* 全屏布局 */
+        body { 
+            margin: 0; padding: 0; overflow: hidden; 
+            background-color: #222; 
+            font-family: 'Microsoft YaHei', sans-serif;
+            height: 100vh;
+            display: flex; flex-direction: column;
+        }
+
+        /* 弹幕区域 */
+        #screen-area { flex: 1; position: relative; width: 100%; overflow: hidden; }
+
+        /* 输入区域 */
+        #input-area {
+            height: 80px; background: #333;
+            display: flex; align-items: center; justify-content: center;
+            padding: 0 10px; z-index: 100;
+        }
+        input {
+            flex: 1; padding: 12px; font-size: 16px;
+            border-radius: 20px; border: none; outline: none; margin-right: 10px;
+        }
+        button {
+            background: #2563eb; color: white; border: none;
+            padding: 12px 25px; border-radius: 20px;
+            font-size: 16px; font-weight: bold; cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        /* 弹幕样式 */
+        .danmu-item {
+            position: absolute;
+            white-space: nowrap;
+            color: #fff; font-weight: bold; font-size: 28px;
+            text-shadow: 2px 2px 2px rgba(0,0,0,0.8);
+            left: 100%; will-change: transform;
+        }
+        
+        /* 身份提示 */
+        #user-status {
+            position: fixed; top: 10px; left: 10px;
+            color: #666; font-size: 12px; z-index: 200;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="user-status">检测身份中...</div>
+    <div id="screen-area"></div>
+
+    <div id="input-area">
+        <input type="text" id="msg-input" placeholder="发送弹幕 (请注意弹幕礼仪)" maxlength="30">
+        <button onclick="sendMsg()">🚀 发送</button>
+    </div>
+
+    <script>
+        // 使用公共配置
+        const supabaseClient = ClassroomCommon.createSupabaseClient();
+        const screen = document.getElementById('screen-area');
+        const input = document.getElementById('msg-input');
+        
+        // 1. 身份验证 (核心)
+        const userAuth = ClassroomCommon.checkUserAuth();
+        if (!userAuth) return; // 如果未签到会自动跳转
+        
+        const myName = userAuth.name;
+        const myId = userAuth.id;
+        document.getElementById('user-status').innerText = `当前用户: ${myName} (已隐藏)`;
+
+        // ================= 敏感词过滤系统 =================
+        // 敏感词库 (可根据需要扩展)
+        const sensitiveWords = [
+            // 侮辱性词汇
+            '笨蛋', '傻瓜', '白痴', '蠢货', '废物', '垃圾', '滚蛋', '混蛋',
+            // 脏话
+            '妈的', '他妈', '卧槽', '草泥马', '尼玛', '傻逼', '牛逼', '装逼',
+            // 其他不当词汇
+            '去死', '弱智', '脑残', '智障', '变态', '神经病',
+            // 拼音/谐音变体
+            'sb', 'nm', 'cnm', 'wtf', 'tmd'
+        ];
+
+        // 敏感词检测函数 (支持模糊匹配)
+        function containsSensitiveWord(text) {
+            const lowerText = text.toLowerCase();
+            // 移除空格和特殊字符后再检测，防止 "傻 瓜" 这种绕过方式
+            const cleanText = lowerText.replace(/[\s\.\-\_\*\#\@\!\？\。\，]/g, '');
+            
+            for (const word of sensitiveWords) {
+                if (cleanText.includes(word.toLowerCase())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // 发送频率限制 (防刷屏)
+        let lastSendTime = 0;
+        const SEND_COOLDOWN = 2000; // 2秒冷却时间
+
+        // 2. 发送消息 (实名上报)
+        async function sendMsg() {
+            const text = input.value.trim();
+            if (!text) return;
+
+            // 频率限制检查
+            const now = Date.now();
+            if (now - lastSendTime < SEND_COOLDOWN) {
+                alert("🚫 发送太快了，请稍后再试");
+                return;
+            }
+
+            // 长度检查
+            if (text.length > 50) {
+                alert("🚫 弹幕内容过长，请控制在50字以内");
+                return;
+            }
+
+            // 敏感词过滤
+            if (containsSensitiveWord(text)) {
+                alert("🚫 请文明发言，您的消息包含不当内容");
+                return;
+            }
+
+            input.value = ''; 
+            lastSendTime = now;
+
+            const { error } = await supabaseClient
+                .from('messages')
+                .insert([{ 
+                    content: text,
+                    student_name: myName, // 偷偷带上名字
+                    student_id: myId      // 偷偷带上学号
+                }])
+            
+            if (error) console.error('发送失败:', error);
+        }
+
+        // 3. 接收消息 (前台只显示文字，不显示名字)
+        supabaseClient
+            .channel('danmu-channel')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+                // payload.new 里面虽然有 student_name，但我们故意不显示
+                createDanmu(payload.new.content);
+            })
+            .subscribe()
+
+        // 4. 弹幕动画
+        function createDanmu(text) {
+            const div = document.createElement('div');
+            div.innerText = text;
+            div.className = 'danmu-item';
+            
+            const colors = ['#FFF', '#FFE4E1', '#7FFFD4', '#FFD700', '#00BFFF', '#FF69B4'];
+            div.style.color = colors[Math.floor(Math.random() * colors.length)];
+            
+            const randomTop = Math.floor(Math.random() * 80) + 5;
+            div.style.top = randomTop + '%';
+
+            screen.appendChild(div);
+
+            const duration = Math.floor(Math.random() * 5000) + 6000; // 稍微慢一点，6-11秒
+            const animation = div.animate([
+                { transform: 'translateX(0)' },
+                { transform: `translateX(-${window.innerWidth + 500}px)` }
+            ], { duration: duration, easing: 'linear' });
+
+            animation.onfinish = () => div.remove();
+        }
+        
+        // 回车发送
+        input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMsg(); });
+        
+        // 等待页面加载完成后初始化
+        window.addEventListener('load', function() {
+            // 启动全局控制监听
+            ClassroomCommon.initGlobalControlListener(supabaseClient);
+            
+            // 初始化底部导航
+            if (typeof NavigationComponent !== 'undefined') {
+                NavigationComponent.init();
+            }
+        });
+    </script>
+</body>
+</html>

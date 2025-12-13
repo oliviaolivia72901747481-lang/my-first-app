@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧课堂 · 学生端</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/common.js"></script>
+    <script src="js/navigation.js"></script>
+    <style>
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            margin: 0; height: 100vh; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: #f3f4f6; color: #333; text-align: center;
+        }
+        
+        /* 等待状态的样式 */
+        .wait-box {
+            background: white; padding: 40px; border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 80%; max-width: 400px;
+        }
+        .icon-spin { font-size: 4rem; margin-bottom: 20px; display: inline-block; animation: spin 3s infinite linear; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        
+        h2 { margin: 0 0 10px 0; color: #2563eb; }
+        p { color: #666; }
+
+        /* 快捷入口 (仅当老师未控制时显示) */
+        .quick-links { margin-top: 30px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        .link-btn {
+            text-decoration: none; color: #666; font-size: 0.9rem; padding: 5px 10px;
+            border: 1px solid #ddd; border-radius: 15px; background: white;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="wait-box">
+        <div class="icon-spin">⏳</div>
+        <h2>等待上课指令...</h2>
+        <p id="status-text">请保持此页面打开<br>老师开启功能后将自动跳转</p>
+        
+        <div class="quick-links">
+            <a href="sign.html" class="link-btn">补签到</a>
+            <a href="vote.html" class="link-btn">看错题</a>
+        </div>
+    </div>
+
+    <script>
+        // 等待所有库加载完成后初始化
+        window.addEventListener('load', function() {
+            // 检查依赖是否加载完成
+            if (typeof ClassroomCommon === 'undefined' || typeof NavigationComponent === 'undefined') {
+                console.error('Dependencies not loaded');
+                return;
+            }
+            
+            // 使用公共配置
+            const supabaseClient = ClassroomCommon.createSupabaseClient();
+            
+            if (!supabaseClient) {
+                console.error('Failed to create Supabase client');
+                return;
+            }
+
+            // 核心：监听全局状态
+            console.log("正在连接课堂中控...");
+
+            // 1. 实时监听
+            supabaseClient
+                .channel('global-control')
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'global_state' }, payload => {
+                    handleRedirect(payload.new);
+                })
+                .subscribe();
+
+            // 2. 初始化检查 (防止刷新后不知道去哪)
+            supabaseClient.from('global_state').select('*').eq('id', 1).single().then(({data}) => {
+                if(data) handleRedirect(data);
+            });
+
+            function handleRedirect(data) {
+                if (data.status === 'active' && data.current_page !== 'idle') {
+                    // 🚀 收到指令，跳转！
+                    document.getElementById('status-text').innerText = "正在跳转...";
+                    // 这里的 replace 是为了防止学生按"后退"键退回来
+                    window.location.replace(data.current_page); 
+                } else {
+                    // 💤 闲置状态，保持在首页
+                    console.log("课堂空闲中");
+                }
+            }
+            
+            // 初始化底部导航
+            NavigationComponent.init();
+        });
+    </script>
+</body>
+</html>

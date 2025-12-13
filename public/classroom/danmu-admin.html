@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🕵️ 弹幕监控后台</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+    <script src="js/common.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 900px; margin: 0 auto; background: #f8f9fa; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #eef2ff; color: #4338ca; }
+        .time { color: #888; font-size: 0.9em; }
+        .btn { padding: 8px 15px; cursor: pointer; border: none; border-radius: 5px; color: white; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🕵️ 弹幕实名监控</h1>
+        <div>
+            <button class="btn" onclick="exportExcel()">📥 导出记录</button>
+            <button class="btn btn-danger" onclick="clearAll()">🗑️ 清空弹幕</button>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>弹幕内容</th>
+                <th>发送者 (实名)</th>
+                <th>学号</th>
+                <th>时间</th>
+            </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+    </table>
+
+    <script>
+        // 使用公共配置
+        const supabaseClient = ClassroomCommon.createSupabaseClient();
+        let allData = [];
+
+        // ================= 安全验证系统 =================
+        // 管理员密码 (建议在生产环境中使用更安全的方式存储)
+        const ADMIN_PASSWORD_HASH = 'a]k9#Lm$2xP!'; // 更复杂的密码
+        let isAuthenticated = false;
+        let failedAttempts = 0;
+        let lockoutUntil = 0;
+        const MAX_ATTEMPTS = 3;
+        const LOCKOUT_DURATION = 60000; // 锁定1分钟
+
+        // 从 localStorage 恢复锁定状态
+        function loadLockoutState() {
+            const saved = localStorage.getItem('admin_lockout');
+            if (saved) {
+                const state = JSON.parse(saved);
+                failedAttempts = state.attempts || 0;
+                lockoutUntil = state.until || 0;
+            }
+        }
+
+        function saveLockoutState() {
+            localStorage.setItem('admin_lockout', JSON.stringify({
+                attempts: failedAttempts,
+                until: lockoutUntil
+            }));
+        }
+
+        // 验证密码
+        function verifyPassword(inputPwd) {
+            const now = Date.now();
+            
+            // 检查是否在锁定期
+            if (now < lockoutUntil) {
+                const remainingSeconds = Math.ceil((lockoutUntil - now) / 1000);
+                alert(`🔒 账户已锁定，请 ${remainingSeconds} 秒后重试`);
+                return false;
+            }
+
+            if (inputPwd === ADMIN_PASSWORD_HASH) {
+                // 密码正确，重置计数
+                failedAttempts = 0;
+                lockoutUntil = 0;
+                saveLockoutState();
+                isAuthenticated = true;
+                return true;
+            } else {
+                // 密码错误
+                failedAttempts++;
+                if (failedAttempts >= MAX_ATTEMPTS) {
+                    lockoutUntil = now + LOCKOUT_DURATION;
+                    saveLockoutState();
+                    alert(`🔒 密码错误次数过多，账户已锁定1分钟`);
+                } else {
+                    saveLockoutState();
+                    alert(`❌ 密码错误 (${failedAttempts}/${MAX_ATTEMPTS})`);
+                }
+                return false;
+            }
+        }
+
+        // 需要验证的操作包装器
+        function requireAuth(callback) {
+            if (isAuthenticated) {
+                callback();
+                return;
+            }
+            
+            const now = Date.now();
+            if (now < lockoutUntil) {
+                const remainingSeconds = Math.ceil((lockoutUntil - now) / 1000);
+                alert(`🔒 账户已锁定，请 ${remainingSeconds} 秒后重试`);
+                return;
+            }
+
+            const pwd = prompt("🔐 请输入管理员密码：");
+            if (pwd === null) return; // 用户取消
+            
+            if (verifyPassword(pwd)) {
+                callback();
+            }
+        }
+
+        loadLockoutState();
+        // ===============================================
+
+        async function loadData() {
+            const { data } = await supabaseClient
+                .from('messages')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (data) {
+                allData = data;
+                const tbody = document.getElementById('tbody');
+                // 使用 textContent 防止 XSS 攻击
+                tbody.innerHTML = data.map(row => {
+                    const safeContent = escapeHtml(row.content);
+                    const safeName = escapeHtml(row.student_name || '未知');
+                    const safeId = escapeHtml(row.student_id || '-');
+                    return `
+                    <tr>
+                        <td style="font-weight:bold; color:#333;">${safeContent}</td>
+                        <td style="color:#2563eb;">${safeName}</td>
+                        <td>${safeId}</td>
+                        <td class="time">${new Date(row.created_at).toLocaleString()}</td>
+                    </tr>
+                `}).join('');
+            }
+        }
+
+        // 使用公共工具函数
+        const escapeHtml = ClassroomCommon.escapeHtml;
+
+        // 实时监控：有新弹幕立刻刷新列表
+        supabaseClient
+            .channel('admin-danmu')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, loadData)
+            .subscribe();
+
+        function exportExcel() {
+            if(!allData.length) return alert("无数据");
+            
+            requireAuth(() => {
+                const ws = XLSX.utils.json_to_sheet(allData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "弹幕记录");
+                XLSX.writeFile(wb, `弹幕记录_${new Date().toISOString().split('T')[0]}.xlsx`);
+            });
+        }
+
+        async function clearAll() {
+            requireAuth(async () => {
+                if(!confirm("⚠️ 确定清空所有弹幕历史吗？此操作不可恢复！")) return;
+                const { error } = await supabaseClient.from('messages').delete().neq('id', 0);
+                if(!error) {
+                    alert("✅ 已清空所有弹幕");
+                    loadData();
+                }
+            });
+        }
+
+        loadData();
+    </script>
+</body>
+</html>

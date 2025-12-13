@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>课堂实时互动演示</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
+        }
+        .container {
+            text-align: center;
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 { margin-bottom: 0.5rem; color: #333; }
+        #count-display {
+            font-size: 6rem;
+            font-weight: bold;
+            color: #2563eb;
+            margin: 1rem 0;
+            transition: transform 0.1s;
+        }
+        /* 数字变化的动画效果 */
+        .pulse { transform: scale(1.2); }
+        
+        button {
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3);
+        }
+        button:active { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>课堂点赞器 👍</h1>
+        <div id="count-display">...</div>
+        <button onclick="addVote()">点赞 +1</button>
+    </div>
+
+    <script>
+        // ================= 配置区域 =================
+        // 请把你在 Supabase 设置页拿到的 URL 和 Key 填在这里
+        const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co' 
+        const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h'
+        // ===========================================
+
+        // 1. 修复点：左边的变量名改成 supabaseClient，避免和工具箱重名
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey)
+        const display = document.getElementById('count-display')
+        
+        let currentCount = 0
+
+        async function fetchInitialCount() {
+            // 2. 修复点：这里都要用 supabaseClient
+            const { data, error } = await supabaseClient
+                .from('counter')
+                .select('count')
+                .eq('id', 1)
+                .single()
+
+            if (data) {
+                currentCount = data.count
+                updateDisplay(currentCount)
+            } else if (error) {
+                console.error("读取错误:", error)
+            }
+        }
+
+        // 3. 修复点：这里也要改
+        supabaseClient
+            .channel('any')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'counter' }, payload => {
+                console.log('收到新数据:', payload.new)
+                currentCount = payload.new.count
+                updateDisplay(currentCount)
+                
+                display.classList.add('pulse')
+                setTimeout(() => display.classList.remove('pulse'), 100)
+            })
+            .subscribe()
+
+        async function addVote() {
+            const newCount = currentCount + 1
+            updateDisplay(newCount) 
+
+            // 4. 修复点：这里也要改
+            const { error } = await supabaseClient
+                .from('counter')
+                .update({ count: newCount })
+                .eq('id', 1)
+            
+            if (error) console.error('写入失败:', error)
+        }
+
+        function updateDisplay(num) {
+            display.innerText = num
+            currentCount = num
+        }
+
+        fetchInitialCount()
+    </script>
+</body>
+</html>

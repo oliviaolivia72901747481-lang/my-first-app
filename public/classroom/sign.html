@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📅 课堂签到</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/common.js"></script>
+    <script src="js/navigation.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; padding: 20px; background: #f0f9ff; text-align: center; }
+        .card { background: white; max-width: 400px; margin: 40px auto; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { color: #0284c7; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 15px; background: #0284c7; color: white; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; margin-top: 20px; }
+        button:disabled { background: #ccc; }
+        #msg { margin-top: 20px; color: #666; font-size: 14px; }
+    </style>
+</head>
+
+<body>
+
+    <div class="card">
+        <h2>👋 欢迎上课，请签到</h2>
+        
+        <div id="form-area">
+            <input type="text" id="s_name" placeholder="请输入姓名 (如: 张三)">
+            <input type="tel" id="s_id" placeholder="请输入学号 (如: 230101)">
+            <button id="btn-sign" onclick="doSign()">📍 点击签到</button>
+        </div>
+
+        <div id="success-area" style="display:none;">
+            <div class="check-icon">✅</div>
+            <h3>签到成功!</h3>
+            <p id="time-display"></p>
+        </div>
+        
+        <p id="msg"></p>
+    </div>
+
+    <script>
+        // 使用公共配置
+        const supabaseClient = ClassroomCommon.createSupabaseClient();
+        
+        const nameInput = document.getElementById('s_name');
+        const idInput = document.getElementById('s_id');
+        const btn = document.getElementById('btn-sign');
+        const msgEl = document.getElementById('msg');
+
+        // 1. 自动填充 (从浏览器缓存读取)
+        if(localStorage.getItem('my_name')) nameInput.value = localStorage.getItem('my_name');
+        if(localStorage.getItem('my_id')) idInput.value = localStorage.getItem('my_id');
+
+        // ================= 输入验证 =================
+        // 验证姓名 (2-20个字符，只允许中文、英文、空格)
+        function validateName(name) {
+            if (name.length < 2 || name.length > 20) {
+                return { valid: false, msg: "姓名长度应为2-20个字符" };
+            }
+            if (!/^[\u4e00-\u9fa5a-zA-Z\s]+$/.test(name)) {
+                return { valid: false, msg: "姓名只能包含中文、英文和空格" };
+            }
+            return { valid: true };
+        }
+
+        // 验证学号 (4-20位数字或字母)
+        function validateStudentId(sid) {
+            if (sid.length < 4 || sid.length > 20) {
+                return { valid: false, msg: "学号长度应为4-20位" };
+            }
+            if (!/^[a-zA-Z0-9]+$/.test(sid)) {
+                return { valid: false, msg: "学号只能包含数字和字母" };
+            }
+            return { valid: true };
+        }
+
+        // ================= 防重复签到 =================
+        // 使用公共工具函数
+        const getTodayKey = ClassroomCommon.getTodayKey;
+
+        // 检查今天是否已签到 (本地缓存)
+        function hasSignedToday(sid) {
+            const signRecord = localStorage.getItem('sign_record');
+            if (!signRecord) return false;
+            
+            try {
+                const record = JSON.parse(signRecord);
+                return record.date === getTodayKey() && record.student_id === sid;
+            } catch {
+                return false;
+            }
+        }
+
+        // 保存签到记录到本地
+        function saveSignRecord(sid) {
+            localStorage.setItem('sign_record', JSON.stringify({
+                date: getTodayKey(),
+                student_id: sid
+            }));
+        }
+
+        // 页面加载时检查是否已签到
+        async function checkExistingSign() {
+            const sid = localStorage.getItem('my_id');
+            if (!sid) return;
+
+            // 先检查本地缓存
+            if (hasSignedToday(sid)) {
+                showAlreadySigned();
+                return;
+            }
+
+            // 再检查数据库 (今天的记录)
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            const { data } = await supabaseClient
+                .from('attendance')
+                .select('created_at')
+                .eq('student_id', sid)
+                .gte('created_at', today.toISOString())
+                .limit(1);
+
+            if (data && data.length > 0) {
+                saveSignRecord(sid); // 同步到本地缓存
+                showAlreadySigned(new Date(data[0].created_at));
+            }
+        }
+
+        function showAlreadySigned(signTime) {
+            document.getElementById('form-area').style.display = 'none';
+            document.getElementById('success-area').style.display = 'block';
+            document.getElementById('success-area').innerHTML = `
+                <div class="check-icon">✅</div>
+                <h3>今日已签到</h3>
+                <p id="time-display">${signTime ? signTime.toLocaleTimeString() : '已记录'}</p>
+                <p style="color:#666; font-size:12px; margin-top:10px;">无需重复签到</p>
+            `;
+        }
+
+        // 2. 签到逻辑
+        async function doSign() {
+            const name = nameInput.value.trim();
+            const sid = idInput.value.trim();
+
+            // 基础验证
+            if(!name || !sid) {
+                msgEl.innerText = "⚠️ 姓名和学号不能为空！";
+                msgEl.style.color = "#ef4444";
+                return;
+            }
+
+            // 姓名验证
+            const nameCheck = validateName(name);
+            if (!nameCheck.valid) {
+                msgEl.innerText = "⚠️ " + nameCheck.msg;
+                msgEl.style.color = "#ef4444";
+                return;
+            }
+
+            // 学号验证
+            const sidCheck = validateStudentId(sid);
+            if (!sidCheck.valid) {
+                msgEl.innerText = "⚠️ " + sidCheck.msg;
+                msgEl.style.color = "#ef4444";
+                return;
+            }
+
+            // 检查今天是否已签到
+            if (hasSignedToday(sid)) {
+                showAlreadySigned();
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "提交中...";
+            msgEl.innerText = "";
+
+            // 保存到本地，下次不用输
+            localStorage.setItem('my_name', name);
+            localStorage.setItem('my_id', sid);
+
+            // 检查数据库中今天是否已签到
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            const { data: existing } = await supabaseClient
+                .from('attendance')
+                .select('id')
+                .eq('student_id', sid)
+                .gte('created_at', today.toISOString())
+                .limit(1);
+
+            if (existing && existing.length > 0) {
+                saveSignRecord(sid);
+                showAlreadySigned();
+                return;
+            }
+
+            // 执行签到
+            const { error } = await supabaseClient
+                .from('attendance')
+                .insert([{ student_name: name, student_id: sid }])
+
+            if (error) {
+                msgEl.innerText = "❌ 签到失败: " + error.message;
+                msgEl.style.color = "#ef4444";
+                btn.disabled = false;
+                btn.innerText = "📍 点击签到";
+            } else {
+                // 保存签到记录
+                saveSignRecord(sid);
+                
+                // UI 切换
+                document.getElementById('form-area').style.display = 'none';
+                document.getElementById('success-area').style.display = 'block';
+                
+                const now = new Date();
+                document.getElementById('time-display').innerText = now.toLocaleTimeString();
+            }
+        }
+
+        // 等待页面加载完成后初始化
+        window.addEventListener('load', function() {
+            // 页面加载时检查签到状态
+            checkExistingSign();
+            
+            // 启动全局控制监听
+            ClassroomCommon.initGlobalControlListener(supabaseClient);
+            
+            // 初始化底部导航
+            if (typeof NavigationComponent !== 'undefined') {
+                NavigationComponent.init();
+            }
+        });
+    </script>   
+</body>
+</html>

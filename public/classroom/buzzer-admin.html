@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>👩‍🏫 抢答控制台</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            background: #f0f2f5;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            overflow: hidden;
+        }
+
+        h1 { color: #333; margin-bottom: 10px; }
+        
+        /* 获胜者/倒计时显示区 */
+        #winner-display {
+            font-size: 6rem;
+            font-weight: bold;
+            color: #2563eb;
+            min-height: 180px; /* 加高一点，防止动画溢出 */
+            margin: 20px 0;
+            text-shadow: 0 5px 10px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 💥 倒计时动画特效 */
+        .pop-in {
+            animation: popIn 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.5); opacity: 1; }
+            100% { transform: scale(1); opacity: 0; } /*最后淡出，为下一个数字腾地*/
+        }
+
+        /* GO的特效 */
+        .go-anim {
+            animation: goAnim 0.5s ease-out forwards;
+            color: #e74c3c !important;
+        }
+        @keyframes goAnim {
+            0% { transform: scale(0.5); opacity: 0; }
+            80% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* 控制按钮 */
+        .controls { display: flex; gap: 20px; }
+        
+        button {
+            padding: 20px 50px;
+            font-size: 1.5rem;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: transform 0.1s;
+            box-shadow: 0 5px 0 rgba(0,0,0,0.2);
+            font-weight: bold;
+        }
+        button:active { transform: translateY(5px); box-shadow: none; }
+
+        #btn-start { background: #27ae60; color: white; }
+        #btn-reset { background: #95a5a6; color: white; }
+        
+        /* 状态指示灯 */
+        .status-dot {
+            width: 20px; height: 20px; border-radius: 50%;
+            background: #ccc; display: inline-block;
+            margin-bottom: 5px;
+        }
+        .status-dot.active { background: #27ae60; box-shadow: 0 0 10px #27ae60; }
+    </style>
+</head>
+<body>
+
+    <h1>🚀 课堂抢答系统</h1>
+    <div id="status-label"><span class="status-dot" id="dot"></span> <span id="text-status">准备中</span></div>
+
+    <div id="winner-display">Ready?</div>
+
+    <div class="controls">
+        <button id="btn-reset" onclick="resetGame()">🔄 重置 (归零)</button>
+        <button id="btn-start" onclick="startCountdown()">▶️ 开始抢答</button>
+    </div>
+
+    <script>
+        // ================= 配置区域 =================
+        const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co' 
+        const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h'
+        // ===========================================
+
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey)
+        
+        const winnerDisplay = document.getElementById('winner-display');
+        const dot = document.getElementById('dot');
+        const textStatus = document.getElementById('text-status');
+        const btnStart = document.getElementById('btn-start');
+        
+        // 🎵 胜利音效 (Base64)
+        const audioWinSrc = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWgAAAA0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAAAAAAA0gAAABBAAAACQAAAAA";
+        const soundWin = new Audio(audioWinSrc);
+
+        // 🎹 Web Audio API 生成倒计时音效 (不需要外部文件，不依赖网速)
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playTone(frequency, duration, type = 'sine') {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.value = frequency;
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            // 声音渐隐，防止爆音
+            gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        // 监听状态
+        supabaseClient
+            .channel('admin-room')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'buzzer' }, payload => {
+                updateUI(payload.new);
+            })
+            .subscribe();
+
+        function updateUI(data) {
+            if (data.winner) {
+                // 🏆 抢答结束
+                winnerDisplay.className = ""; // 移除动画
+                winnerDisplay.innerText = data.winner + " 🏆";
+                winnerDisplay.style.color = "#2563eb";
+                
+                dot.className = "status-dot";
+                textStatus.innerText = "抢答结束";
+                soundWin.play().catch(()=>{});
+                btnStart.disabled = false;
+            } 
+            else if (data.is_active) {
+                // 🟢 正在进行
+                dot.className = "status-dot active";
+                textStatus.innerText = "正在进行";
+            } 
+            else {
+                // ⚪ 重置状态
+                // 如果不是正在倒计时（通过文字判断），就显示Ready
+                if(!winnerDisplay.innerText.includes("!")) {
+                    winnerDisplay.innerText = "Ready?";
+                    winnerDisplay.style.color = "#2563eb";
+                }
+                dot.className = "status-dot";
+                textStatus.innerText = "等待开始";
+                btnStart.disabled = false;
+            }
+        }
+
+        // 1. 重置
+        async function resetGame() {
+            winnerDisplay.className = "";
+            winnerDisplay.innerText = "Ready?";
+            winnerDisplay.style.color = "#2563eb";
+            await supabaseClient.from('buzzer').update({ is_active: false, winner: null }).eq('id', 1);
+        }
+
+        // 2. 核心：带动画的倒计时
+        async function startCountdown() {
+            // 激活音频上下文 (解决浏览器自动播放限制)
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            btnStart.disabled = true; // 防止重复点击
+            
+            // 倒计时 3
+            playTone(600, 0.1); // 频率600Hz，短促
+            showAnimText("3");
+            await sleep(800);
+
+            // 倒计时 2
+            playTone(600, 0.1);
+            showAnimText("2");
+            await sleep(800);
+
+            // 倒计时 1
+            playTone(600, 0.1);
+            showAnimText("1");
+            await sleep(800);
+
+            // GO!!!
+            playTone(1200, 0.4, 'square'); // 频率1200Hz，响亮
+            winnerDisplay.className = "go-anim"; // 切换到GO的动画
+            winnerDisplay.innerText = "GO!!!";
+            
+            // 🚀 发送指令给数据库
+            await supabaseClient.from('buzzer').update({ is_active: true, winner: null }).eq('id', 1);
+        }
+
+        // 辅助：显示动画文字
+        function showAnimText(text) {
+            // 这里用了一个小技巧：先移除class再添加，触发重绘，从而重播动画
+            winnerDisplay.className = ""; 
+            void winnerDisplay.offsetWidth; // 触发重绘
+            winnerDisplay.className = "pop-in";
+            winnerDisplay.innerText = text;
+            winnerDisplay.style.color = "#e74c3c";
+        }
+
+        // 辅助：睡眠函数
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+        
+        // 初始化读取
+        supabaseClient.from('buzzer').select('*').eq('id', 1).single().then(({data}) => {
+            if(data) updateUI(data);
+        });
+
+    </script>
+</body>
+</html>

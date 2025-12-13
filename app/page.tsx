@@ -10,9 +10,20 @@ export default function Home() {
         这是我的第一个全栈网页，现已部署到全球！!!
       </p>
       
-      <button className="mt-8 px-6 py-3 bg-white text-black rounded-full font-bold hover:bg-gray-200 transition">
-        点我没反应（因为还没写后端逻辑）
-      </button>
+      <div className="mt-8 flex gap-4">
+        <a 
+          href="/classroom" 
+          className="px-6 py-3 bg-blue-500 text-white rounded-full font-bold hover:bg-blue-600 transition"
+        >
+          🎓 进入智慧课堂
+        </a>
+        <a 
+          href="/classroom/admin.html" 
+          className="px-6 py-3 bg-green-500 text-white rounded-full font-bold hover:bg-green-600 transition"
+        >
+          👨‍🏫 教师控制台
+        </a>
+      </div>
     </main>
   );
 }
