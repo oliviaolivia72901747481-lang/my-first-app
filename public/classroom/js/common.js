@@ -43,13 +43,20 @@ function startGlobalListening(supabaseClient) {
         .subscribe();
 }
 
-// 页面路径映射表
+// 页面路径映射表 - 支持两种格式
 const PAGE_MAP = {
+    // 文件名格式 (presentation.html 使用)
     'vote.html': '/vote',
     'danmu.html': '/danmu',
     'buzzer.html': '/buzzer',
     'sign.html': '/sign',
-    'lucky.html': '/lucky'
+    'lucky.html': '/lucky',
+    // URL路径格式 (admin.html 使用) - 直接映射
+    '/vote': '/vote',
+    '/danmu': '/danmu',
+    '/buzzer': '/buzzer',
+    '/sign': '/sign',
+    '/lucky': '/lucky'
 };
 
 function handleGlobalStateChange(data) {
@@ -57,8 +64,22 @@ function handleGlobalStateChange(data) {
     
     // 1. 老师开启了某个功能
     if (data.status === 'active' && data.current_page !== 'idle') {
-        // 将数据库中的文件名转换为正确的URL路径
-        const targetPage = PAGE_MAP[data.current_page] || `/classroom/${data.current_page}`;
+        // 将数据库中的值转换为正确的URL路径
+        let targetPage = data.current_page;
+        
+        // 如果在映射表中，使用映射值
+        if (PAGE_MAP[data.current_page]) {
+            targetPage = PAGE_MAP[data.current_page];
+        } 
+        // 如果是 .html 文件名但不在映射表中，添加 /classroom/ 前缀
+        else if (data.current_page.endsWith('.html')) {
+            targetPage = `/classroom/${data.current_page}`;
+        }
+        // 如果已经是 / 开头的路径，直接使用
+        // 否则添加 / 前缀
+        else if (!data.current_page.startsWith('/')) {
+            targetPage = `/${data.current_page}`;
+        }
         
         // 如果当前不在老师指定的页面，就强制跳转
         if (currentPath !== targetPage) {

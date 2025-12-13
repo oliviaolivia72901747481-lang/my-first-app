@@ -85,16 +85,37 @@
                     // 🚀 收到指令，跳转！
                     document.getElementById('status-text').innerText = "正在跳转...";
                     
-                    // 将 xxx.html 转换为正确的URL路径
+                    // 页面路径映射表 - 支持两种格式
                     const pageMap = {
+                        // 文件名格式 (presentation.html 使用)
                         'vote.html': '/vote',
                         'danmu.html': '/danmu',
                         'buzzer.html': '/buzzer',
                         'sign.html': '/sign',
-                        'lucky.html': '/lucky'
+                        'lucky.html': '/lucky',
+                        // URL路径格式 (admin.html 使用) - 直接映射
+                        '/vote': '/vote',
+                        '/danmu': '/danmu',
+                        '/buzzer': '/buzzer',
+                        '/sign': '/sign',
+                        '/lucky': '/lucky'
                     };
                     
-                    const targetPage = pageMap[data.current_page] || `/classroom/${data.current_page}`;
+                    let targetPage = data.current_page;
+                    
+                    // 如果在映射表中，使用映射值
+                    if (pageMap[data.current_page]) {
+                        targetPage = pageMap[data.current_page];
+                    } 
+                    // 如果是 .html 文件名但不在映射表中，添加 /classroom/ 前缀
+                    else if (data.current_page.endsWith('.html')) {
+                        targetPage = `/classroom/${data.current_page}`;
+                    }
+                    // 如果已经是 / 开头的路径，直接使用
+                    // 否则添加 / 前缀
+                    else if (!data.current_page.startsWith('/')) {
+                        targetPage = `/${data.current_page}`;
+                    }
                     
                     // 这里的 replace 是为了防止学生按"后退"键退回来
                     window.location.replace(targetPage); 
