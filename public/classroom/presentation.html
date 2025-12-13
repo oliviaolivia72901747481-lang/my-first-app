@@ -335,6 +335,7 @@
             <button class="ctrl-btn btn-vote" onclick="toggleVoteOverlay()">📊 答题</button>
             <button class="ctrl-btn btn-danmu" onclick="toggleDanmu()">💬 弹幕</button>
             <button class="ctrl-btn btn-buzzer" onclick="startBuzzer()">⚡ 抢答</button>
+            <button class="ctrl-btn" style="background:#64748b;" onclick="releaseControl()">⏸️ 释放</button>
             <button class="ctrl-btn btn-nav" onclick="nextSlide()">下一页 ➡️</button>
         </div>
         
@@ -342,7 +343,7 @@
         <div class="hotkey-hint">
             <div><kbd>←</kbd><kbd>→</kbd> 翻页</div>
             <div><kbd>V</kbd> 答题 <kbd>D</kbd> 弹幕 <kbd>B</kbd> 抢答</div>
-            <div><kbd>F</kbd> 全屏 <kbd>ESC</kbd> 退出</div>
+            <div><kbd>R</kbd> 释放控制 <kbd>F</kbd> 全屏 <kbd>ESC</kbd> 退出</div>
         </div>
     </div>
     
@@ -554,15 +555,21 @@
             }
         }
         
-        function showVoteOverlay(round) {
+        async function showVoteOverlay(round) {
             voteRound = round || voteRound;
             document.getElementById('vote-round').innerText = voteRound;
             document.getElementById('vote-overlay').style.display = 'block';
             isVoteVisible = true;
             loadVoteData();
             
-            // 同步到数据库
-            supabaseClient.from('vote_config').update({ 
+            // 🔥 关键：更新全局状态，让学生端跳转到答题页面
+            await supabaseClient.from('global_state').update({ 
+                status: 'active', 
+                current_page: 'vote.html' 
+            }).eq('id', 1);
+            
+            // 同步答题配置
+            await supabaseClient.from('vote_config').update({ 
                 current_round: voteRound, 
                 is_active: true 
             }).eq('id', 1);
@@ -623,23 +630,47 @@
             .subscribe();
         
         // ================== 弹幕功能 ==================
+        let danmuSubscribed = false;
+        
         function toggleDanmu() {
             isDanmuEnabled = !isDanmuEnabled;
             if (isDanmuEnabled) {
                 enableDanmu();
             }
+            // 更新按钮状态
+            updateDanmuButton();
         }
         
-        function enableDanmu() {
+        function updateDanmuButton() {
+            const btn = document.querySelector('.btn-danmu');
+            if (btn) {
+                btn.style.opacity = isDanmuEnabled ? '1' : '0.6';
+                btn.innerHTML = isDanmuEnabled ? '💬 弹幕 ✓' : '💬 弹幕';
+            }
+        }
+        
+        async function enableDanmu() {
             isDanmuEnabled = true;
-            // 订阅弹幕
-            supabaseClient.channel('presentation-danmu')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
-                    if (isDanmuEnabled) {
-                        createDanmu(payload.new.content);
-                    }
-                })
-                .subscribe();
+            
+            // 🔥 关键：更新全局状态，让学生端跳转到弹幕页面
+            await supabaseClient.from('global_state').update({ 
+                status: 'active', 
+                current_page: 'danmu.html' 
+            }).eq('id', 1);
+            
+            // 只订阅一次
+            if (!danmuSubscribed) {
+                supabaseClient.channel('presentation-danmu')
+                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+                        if (isDanmuEnabled) {
+                            createDanmu(payload.new.content);
+                        }
+                    })
+                    .subscribe();
+                danmuSubscribed = true;
+            }
+            
+            updateDanmuButton();
         }
         
         function createDanmu(text) {
@@ -659,6 +690,12 @@
         
         // ================== 抢答功能 ==================
         async function startBuzzer() {
+            // 🔥 关键：更新全局状态，让学生端跳转到抢答页面
+            await supabaseClient.from('global_state').update({ 
+                status: 'active', 
+                current_page: 'buzzer.html' 
+            }).eq('id', 1);
+            
             // 重置并启动抢答
             await supabaseClient.from('buzzer').update({ 
                 is_active: true, 
@@ -667,6 +704,20 @@
             
             // 打开抢答控制台
             window.open('/buzzer-admin', '_blank', 'width=800,height=600');
+        }
+        
+        // ================== 释放控制 ==================
+        async function releaseControl() {
+            // 释放学生端控制，让学生回到首页
+            await supabaseClient.from('global_state').update({ 
+                status: 'idle', 
+                current_page: 'idle' 
+            }).eq('id', 1);
+            
+            isDanmuEnabled = false;
+            isVoteVisible = false;
+            document.getElementById('vote-overlay').style.display = 'none';
+            updateDanmuButton();
         }
         
         // ================== 模态框 ==================
@@ -719,6 +770,10 @@
                 case 'F':
                     toggleFullscreen();
                     break;
+                case 'r':
+                case 'R':
+                    releaseControl();
+                    break;
                 case 'Escape':
                     closeUploadModal();
                     document.getElementById('vote-overlay').style.display = 'none';
@@ -744,6 +799,22 @@
             dropZone.classList.remove('dragover');
             handleFiles(e.dataTransfer.files);
         });
+        
+        // ================== 页面初始化 ==================
+        (function init() {
+            // 🔥 关键：页面加载时就订阅弹幕频道，确保弹幕能实时显示
+            supabaseClient.channel('presentation-danmu-init')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+                    if (isDanmuEnabled) {
+                        createDanmu(payload.new.content);
+                    }
+                })
+                .subscribe();
+            danmuSubscribed = true;
+            
+            console.log('🎬 课件播放器已初始化');
+            console.log('📡 弹幕频道已订阅');
+        })();
     </script>
 </body>
 </html>
