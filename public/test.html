@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>功能测试页面</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/common.js"></script>
+    <script src="js/navigation.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 10px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background: #d1fae5; color: #047857; }
+        .error { background: #fee2e2; color: #dc2626; }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; background: #2563eb; color: white; }
+    </style>
+</head>
+<body>
+    <h1>🧪 教学辅助软件功能测试</h1>
+    
+    <div class="test-section">
+        <h3>1. 依赖库加载测试</h3>
+        <div id="lib-test-result"></div>
+        <button onclick="testLibraries()">测试库加载</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>2. Supabase 连接测试</h3>
+        <div id="supabase-test-result"></div>
+        <button onclick="testSupabase()">测试数据库连接</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>3. 导航组件测试</h3>
+        <div id="nav-test-result"></div>
+        <button onclick="testNavigation()">测试导航组件</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>4. 工具函数测试</h3>
+        <div id="utils-test-result"></div>
+        <button onclick="testUtils()">测试工具函数</button>
+    </div>
+
+    <script>
+        window.addEventListener('load', function() {
+            console.log('测试页面加载完成');
+            
+            // 自动运行基础测试
+            setTimeout(() => {
+                testLibraries();
+                testNavigation();
+                testUtils();
+            }, 500);
+        });
+
+        function showResult(elementId, message, isSuccess = true) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="test-result ${isSuccess ? 'success' : 'error'}">${message}</div>`;
+        }
+
+        function testLibraries() {
+            let results = [];
+            
+            // 测试 Supabase
+            if (typeof supabase !== 'undefined') {
+                results.push('✅ Supabase 库加载成功');
+            } else {
+                results.push('❌ Supabase 库加载失败');
+            }
+            
+            // 测试 ClassroomCommon
+            if (typeof ClassroomCommon !== 'undefined') {
+                results.push('✅ ClassroomCommon 加载成功');
+            } else {
+                results.push('❌ ClassroomCommon 加载失败');
+            }
+            
+            // 测试 NavigationComponent
+            if (typeof NavigationComponent !== 'undefined') {
+                results.push('✅ NavigationComponent 加载成功');
+            } else {
+                results.push('❌ NavigationComponent 加载失败');
+            }
+            
+            const allSuccess = !results.some(r => r.includes('❌'));
+            showResult('lib-test-result', results.join('<br>'), allSuccess);
+        }
+
+        async function testSupabase() {
+            try {
+                if (typeof ClassroomCommon === 'undefined') {
+                    showResult('supabase-test-result', '❌ ClassroomCommon 未加载', false);
+                    return;
+                }
+                
+                const client = ClassroomCommon.createSupabaseClient();
+                if (!client) {
+                    showResult('supabase-test-result', '❌ 无法创建 Supabase 客户端', false);
+                    return;
+                }
+                
+                // 尝试连接测试
+                const { data, error } = await client.from('global_state').select('id').limit(1);
+                
+                if (error) {
+                    showResult('supabase-test-result', `❌ 数据库连接失败: ${error.message}`, false);
+                } else {
+                    showResult('supabase-test-result', '✅ 数据库连接成功', true);
+                }
+            } catch (err) {
+                showResult('supabase-test-result', `❌ 测试异常: ${err.message}`, false);
+            }
+        }
+
+        function testNavigation() {
+            try {
+                if (typeof NavigationComponent === 'undefined') {
+                    showResult('nav-test-result', '❌ NavigationComponent 未加载', false);
+                    return;
+                }
+                
+                // 测试初始化
+                NavigationComponent.init();
+                
+                // 检查是否创建了导航栏
+                const nav = document.querySelector('.bottom-nav');
+                if (nav) {
+                    showResult('nav-test-result', '✅ 导航组件初始化成功，导航栏已创建', true);
+                } else {
+                    showResult('nav-test-result', '⚠️ 导航组件加载成功，但未创建导航栏（可能因为页面类型）', true);
+                }
+            } catch (err) {
+                showResult('nav-test-result', `❌ 导航组件测试失败: ${err.message}`, false);
+            }
+        }
+
+        function testUtils() {
+            try {
+                if (typeof ClassroomCommon === 'undefined') {
+                    showResult('utils-test-result', '❌ ClassroomCommon 未加载', false);
+                    return;
+                }
+                
+                let results = [];
+                
+                // 测试 escapeHtml
+                const testHtml = '<script>alert("test")</script>';
+                const escaped = ClassroomCommon.escapeHtml(testHtml);
+                if (escaped.includes('&lt;') && escaped.includes('&gt;')) {
+                    results.push('✅ HTML 转义功能正常');
+                } else {
+                    results.push('❌ HTML 转义功能异常');
+                }
+                
+                // 测试 getTodayKey
+                const todayKey = ClassroomCommon.getTodayKey();
+                if (todayKey && todayKey.includes('-')) {
+                    results.push('✅ 日期函数正常');
+                } else {
+                    results.push('❌ 日期函数异常');
+                }
+                
+                // 测试 formatTime
+                const formatted = ClassroomCommon.formatTime(new Date().toISOString());
+                if (formatted && formatted.length > 0) {
+                    results.push('✅ 时间格式化功能正常');
+                } else {
+                    results.push('❌ 时间格式化功能异常');
+                }
+                
+                const allSuccess = !results.some(r => r.includes('❌'));
+                showResult('utils-test-result', results.join('<br>'), allSuccess);
+                
+            } catch (err) {
+                showResult('utils-test-result', `❌ 工具函数测试失败: ${err.message}`, false);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -48,39 +48,53 @@
     </div>
 
     <script>
-        // 使用公共配置
-        const supabaseClient = ClassroomCommon.createSupabaseClient();
-
-        // 核心：监听全局状态
-        console.log("正在连接课堂中控...");
-
-        // 1. 实时监听
-        supabaseClient
-            .channel('global-control')
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'global_state' }, payload => {
-                handleRedirect(payload.new);
-            })
-            .subscribe();
-
-        // 2. 初始化检查 (防止刷新后不知道去哪)
-        supabaseClient.from('global_state').select('*').eq('id', 1).single().then(({data}) => {
-            if(data) handleRedirect(data);
-        });
-
-        function handleRedirect(data) {
-            if (data.status === 'active' && data.current_page !== 'idle') {
-                // 🚀 收到指令，跳转！
-                document.getElementById('status-text').innerText = "正在跳转...";
-                // 这里的 replace 是为了防止学生按“后退”键退回来
-                window.location.replace(data.current_page); 
-            } else {
-                // 💤 闲置状态，保持在首页
-                console.log("课堂空闲中");
+        // 等待所有库加载完成后初始化
+        window.addEventListener('load', function() {
+            // 检查依赖是否加载完成
+            if (typeof ClassroomCommon === 'undefined' || typeof NavigationComponent === 'undefined') {
+                console.error('Dependencies not loaded');
+                return;
             }
-        }
-        
-        // 初始化底部导航
-        NavigationComponent.init();
+            
+            // 使用公共配置
+            const supabaseClient = ClassroomCommon.createSupabaseClient();
+            
+            if (!supabaseClient) {
+                console.error('Failed to create Supabase client');
+                return;
+            }
+
+            // 核心：监听全局状态
+            console.log("正在连接课堂中控...");
+
+            // 1. 实时监听
+            supabaseClient
+                .channel('global-control')
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'global_state' }, payload => {
+                    handleRedirect(payload.new);
+                })
+                .subscribe();
+
+            // 2. 初始化检查 (防止刷新后不知道去哪)
+            supabaseClient.from('global_state').select('*').eq('id', 1).single().then(({data}) => {
+                if(data) handleRedirect(data);
+            });
+
+            function handleRedirect(data) {
+                if (data.status === 'active' && data.current_page !== 'idle') {
+                    // 🚀 收到指令，跳转！
+                    document.getElementById('status-text').innerText = "正在跳转...";
+                    // 这里的 replace 是为了防止学生按"后退"键退回来
+                    window.location.replace(data.current_page); 
+                } else {
+                    // 💤 闲置状态，保持在首页
+                    console.log("课堂空闲中");
+                }
+            }
+            
+            // 初始化底部导航
+            NavigationComponent.init();
+        });
     </script>
 </body>
 </html>

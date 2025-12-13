@@ -257,13 +257,18 @@
             document.querySelectorAll('.vote-btn').forEach(b => b.disabled = false); 
         }
 
-        init();
-        
-        // 启动全局控制监听
-        ClassroomCommon.initGlobalControlListener(supabaseClient);
-        
-        // 初始化底部导航
-        NavigationComponent.init();
+        // 等待页面加载完成后初始化
+        window.addEventListener('load', function() {
+            init();
+            
+            // 启动全局控制监听
+            ClassroomCommon.initGlobalControlListener(supabaseClient);
+            
+            // 初始化底部导航
+            if (typeof NavigationComponent !== 'undefined') {
+                NavigationComponent.init();
+            }
+        });
     </script>
 </body>
 </html>

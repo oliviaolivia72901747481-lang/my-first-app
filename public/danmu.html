@@ -182,11 +182,16 @@
         // 回车发送
         input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMsg(); });
         
-        // 启动全局控制监听
-        ClassroomCommon.initGlobalControlListener(supabaseClient);
-        
-        // 初始化底部导航
-        NavigationComponent.init();
+        // 等待页面加载完成后初始化
+        window.addEventListener('load', function() {
+            // 启动全局控制监听
+            ClassroomCommon.initGlobalControlListener(supabaseClient);
+            
+            // 初始化底部导航
+            if (typeof NavigationComponent !== 'undefined') {
+                NavigationComponent.init();
+            }
+        });
     </script>
 </body>
 </html>
