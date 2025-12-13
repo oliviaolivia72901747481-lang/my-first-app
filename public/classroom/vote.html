@@ -80,6 +80,11 @@
         document.getElementById('user-name').innerText = myName;
 
         async function init() {
+            // 初始状态：禁用按钮，等待老师开始
+            disableButtons();
+            document.getElementById('status-msg').innerText = "⏳ 等待老师开始...";
+            document.getElementById('status-msg').style.color = "#94a3b8";
+            
             const { data: config } = await supabaseClient.from('vote_config').select('*').eq('id', 1).maybeSingle();
             if (config) handleRoundChange(config);
 
@@ -103,24 +108,28 @@
             document.querySelectorAll('.vote-btn').forEach(b => b.classList.remove('selected'));
             
             await loadQuestion(currentRound);
-            await checkIfIVoted();
+            
+            // 先检查是否已答题
+            const hasVoted = await checkIfIVoted();
+            if (hasVoted) return; // 已答题，不需要继续检查权限
 
+            // 检查答题状态和权限
             if (!isRoundActive) {
                 disableButtons();
-                document.getElementById('status-msg').innerText = "⛔ 答题结束";
-                document.getElementById('status-msg').style.color = "#ef4444";
+                document.getElementById('status-msg').innerText = "⏳ 等待老师开始...";
+                document.getElementById('status-msg').style.color = "#94a3b8";
                 document.getElementById('submit-multi').style.display = 'none';
             } else {
-                // 检查是否有权回答
+                // 答题已开始，检查是否有权回答
                 checkAnswerPermission();
             }
         }
         
         function checkAnswerPermission() {
-            // 如果是普通答题模式，所有人都可以回答
-            if (answerMode === 'vote' || !allowedStudent) {
-                document.getElementById('status-msg').innerText = "请作答";
-                document.getElementById('status-msg').style.color = "#666";
+            // 如果是普通答题模式(vote)且没有指定学生，所有人都可以回答
+            if (answerMode === 'vote' && !allowedStudent) {
+                document.getElementById('status-msg').innerText = "📝 请作答";
+                document.getElementById('status-msg').style.color = "#10b981";
                 enableButtons();
                 return;
             }
@@ -220,10 +229,9 @@
                 document.getElementById('multi-hint').style.display = 'none';
                 document.getElementById('status-msg').innerText = `✅ 你已选: ${data.option}`;
                 document.getElementById('status-msg').style.color = "#10b981";
-            } else if (isRoundActive) {
-                // 检查是否有权回答
-                checkAnswerPermission();
+                return true; // 已投票
             }
+            return false; // 未投票
         }
 
             // 初始化答题功能
