@@ -334,6 +334,7 @@
             <button class="ctrl-btn btn-buzzer" onclick="startBuzzer()">⚡ 抢答</button>
             <button class="ctrl-btn" style="background:#f59e0b;" onclick="toggleLuckyOverlay()">🎰 点名</button>
             <button class="ctrl-btn" style="background:#64748b;" onclick="releaseControl()">⏸️ 释放</button>
+            <button class="ctrl-btn" style="background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);" onclick="endClass()">🔔 下课</button>
             <button class="ctrl-btn btn-nav" onclick="nextSlide()">下一页 ➡️</button>
         </div>
         
@@ -764,6 +765,62 @@
             isVoteVisible = false;
             document.getElementById('vote-overlay').style.display = 'none';
             updateDanmuButton();
+        }
+        
+        // ================== 下课功能 ==================
+        async function endClass() {
+            if (!confirm('⚠️ 确定要下课吗？\n\n这将会：\n• 释放学生端控制\n• 重置答题轮次\n• 关闭抢答功能\n• 清空今日答题记录')) {
+                return;
+            }
+            
+            const clearAttendance = confirm('是否清空今日签到记录？\n\n点击"确定"清空，点击"取消"保留');
+            
+            try {
+                // 1. 释放全局控制
+                await supabaseClient.from('global_state').update({
+                    current_page: 'idle',
+                    status: 'idle'
+                }).eq('id', 1);
+                
+                // 2. 重置答题配置
+                await supabaseClient.from('vote_config').update({
+                    current_round: 1,
+                    is_active: false
+                }).eq('id', 1);
+                
+                // 3. 关闭抢答
+                await supabaseClient.from('buzzer').update({
+                    is_active: false,
+                    winner: null
+                }).eq('id', 1);
+                
+                // 4. 清空今日答题记录
+                const today = new Date().toISOString().split('T')[0];
+                await supabaseClient.from('vote_logs').delete().gte('created_at', today);
+                
+                // 5. 可选：清空今日签到记录
+                if (clearAttendance) {
+                    await supabaseClient.from('attendance').delete().gte('created_at', today);
+                }
+                
+                // 重置本地状态
+                isDanmuEnabled = false;
+                isVoteVisible = false;
+                voteRound = 1;
+                document.getElementById('vote-overlay').style.display = 'none';
+                document.getElementById('vote-round').innerText = '1';
+                updateDanmuButton();
+                
+                // 关闭点名面板
+                if (isLuckyVisible) {
+                    closeLuckyOverlay();
+                }
+                
+                alert('✅ 下课成功！所有功能已重置。');
+            } catch (err) {
+                console.error('下课操作失败:', err);
+                alert('❌ 操作失败: ' + err.message);
+            }
         }
         
         // ================== 模态框 ==================
