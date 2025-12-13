@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>👨‍🏫 课堂中控</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- 二维码生成库 (qrcodejs) -->
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
@@ -17,151 +17,110 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 30px;
+            padding: 40px 20px;
         }
         
-        h1 { 
-            font-size: 2.5rem; 
-            font-weight: 300; 
-            margin-bottom: 10px;
-        }
-        
-        .subtitle {
-            color: #94a3b8;
-            margin-bottom: 40px;
-            font-size: 1.1rem;
-        }
+        h1 { font-size: 2.5rem; font-weight: 300; margin-bottom: 10px; }
+        .subtitle { color: #94a3b8; margin-bottom: 30px; font-size: 1.1rem; }
         
         .main-container {
             display: flex;
-            gap: 40px;
-            align-items: flex-start;
+            gap: 50px;
+            align-items: stretch;
             flex-wrap: wrap;
             justify-content: center;
-            max-width: 1200px;
+            max-width: 1400px;
+            width: 100%;
         }
         
-        /* 二维码区域 */
+        /* 二维码区域 - 放大 */
         .qr-section {
             background: white;
-            border-radius: 20px;
-            padding: 30px;
+            border-radius: 25px;
+            padding: 40px;
             text-align: center;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+            min-width: 380px;
         }
         
-        .qr-title {
-            color: #1e293b;
-            font-size: 1.3rem;
-            font-weight: bold;
-            margin-bottom: 15px;
-        }
-        
-        #qr-code {
-            margin: 15px auto;
-        }
-        
-        #qr-code canvas {
-            border-radius: 10px;
-        }
-        
-        .qr-url {
-            color: #64748b;
-            font-size: 0.9rem;
-            margin-top: 10px;
-            word-break: break-all;
-            max-width: 250px;
-        }
+        .qr-title { color: #1e293b; font-size: 1.5rem; font-weight: bold; margin-bottom: 20px; }
+        #qr-code { margin: 20px auto; }
+        #qr-code img, #qr-code canvas { border-radius: 15px; }
+        .qr-url { color: #64748b; font-size: 1rem; margin-top: 15px; word-break: break-all; }
         
         .student-count {
-            margin-top: 15px;
-            padding: 10px 20px;
-            background: #f1f5f9;
-            border-radius: 10px;
+            margin-top: 20px;
+            padding: 15px 25px;
+            background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%);
+            border-radius: 15px;
             color: #1e293b;
         }
+        .count-label { font-size: 0.9rem; color: #64748b; }
+        .count-number { font-size: 3rem; font-weight: bold; color: #2563eb; }
         
-        .count-number {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #2563eb;
-        }
-        
-        /* 功能卡片区域 */
-        .cards-section {
+        /* 右侧功能区 */
+        .right-section {
             display: flex;
             flex-direction: column;
             gap: 20px;
+            flex: 1;
+            max-width: 500px;
         }
         
+        /* 功能卡片 */
         .card {
             background: rgba(255,255,255,0.1);
             border: 2px solid transparent;
             border-radius: 20px;
-            padding: 30px 40px;
+            padding: 25px 30px;
             cursor: pointer;
             transition: all 0.3s;
             display: flex;
             align-items: center;
             gap: 20px;
-            min-width: 350px;
         }
         
         .card:hover {
             background: rgba(255,255,255,0.15);
-            transform: translateY(-3px);
+            transform: translateX(5px);
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
         
         .card.active {
             border-color: #10b981;
             background: rgba(16, 185, 129, 0.2);
-            box-shadow: 0 0 30px rgba(16, 185, 129, 0.3);
         }
         
-        .card-icon {
-            font-size: 3.5rem;
-        }
+        .card-icon { font-size: 2.5rem; }
+        .card-content { text-align: left; flex: 1; }
+        .card-title { font-size: 1.3rem; font-weight: bold; margin-bottom: 3px; }
+        .card-desc { color: #94a3b8; font-size: 0.9rem; }
         
-        .card-content {
-            text-align: left;
-        }
-        
-        .card-title {
-            font-size: 1.5rem;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        
-        .card-desc {
-            color: #94a3b8;
-            font-size: 0.95rem;
-        }
-        
-        /* 课件播放器卡片特殊样式 */
         .card-presentation {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border: none;
         }
+        .card-presentation:hover { background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%); }
+        .card-presentation .card-desc { color: rgba(255,255,255,0.8); }
         
-        .card-presentation:hover {
-            background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+        .card-import {
+            background: rgba(139, 92, 246, 0.2);
+            border: 2px dashed #8b5cf6;
         }
-        
-        .card-presentation .card-desc {
-            color: rgba(255,255,255,0.8);
-        }
+        .card-import:hover { background: rgba(139, 92, 246, 0.3); }
         
         /* 底部控制 */
         .bottom-controls {
-            margin-top: 40px;
+            margin-top: 30px;
             display: flex;
             gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
         }
         
         .ctrl-btn {
-            padding: 12px 30px;
-            font-size: 1rem;
+            padding: 12px 25px;
+            font-size: 0.95rem;
             border: none;
             border-radius: 10px;
             cursor: pointer;
@@ -169,43 +128,84 @@
             transition: all 0.2s;
         }
         
-        .btn-release {
-            background: #ef4444;
-            color: white;
-        }
-        
-        .btn-release:hover {
-            background: #dc2626;
-        }
-        
+        .btn-release { background: #ef4444; color: white; }
+        .btn-release:hover { background: #dc2626; }
         .btn-secondary {
             background: rgba(255,255,255,0.1);
             color: white;
             border: 1px solid rgba(255,255,255,0.2);
         }
+        .btn-secondary:hover { background: rgba(255,255,255,0.2); }
         
-        .btn-secondary:hover {
-            background: rgba(255,255,255,0.2);
+        /* 导入模态框 */
+        #import-modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
         }
         
-        /* 状态指示 */
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            width: 90%;
+            max-width: 550px;
+            color: #333;
+            text-align: center;
+        }
+        
+        .modal-title { font-size: 1.5rem; margin-bottom: 10px; }
+        .modal-desc { color: #666; font-size: 0.9rem; margin-bottom: 20px; }
+        
+        .file-drop-area {
+            border: 3px dashed #ccc;
+            border-radius: 15px;
+            padding: 50px 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #fafafa;
+        }
+        .file-drop-area:hover { border-color: #8b5cf6; background: #f5f3ff; }
+        .file-drop-area.dragover { border-color: #8b5cf6; background: #f5f3ff; }
+        
+        .modal-btns { margin-top: 25px; display: flex; gap: 15px; justify-content: center; }
+        .modal-btn {
+            padding: 12px 30px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .modal-btn-cancel { background: #e5e7eb; color: #333; }
+        .modal-btn-confirm { background: #8b5cf6; color: white; }
+        
+        input[type=file] { display: none; }
+        
+        /* 状态条 */
         .status-bar {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            padding: 10px;
-            background: rgba(0,0,0,0.5);
+            top: 0; left: 0; right: 0;
+            padding: 8px;
+            background: rgba(0,0,0,0.6);
             text-align: center;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             z-index: 100;
         }
+        .status-active { color: #10b981; }
+        .status-idle { color: #94a3b8; }
         
-        .status-active {
-            color: #10b981;
-        }
-        
-        .status-idle {
+        /* 题库信息 */
+        .question-info {
+            margin-top: 10px;
+            padding: 10px 15px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            font-size: 0.85rem;
             color: #94a3b8;
         }
     </style>
@@ -225,14 +225,14 @@
             <div id="qr-code"></div>
             <div class="qr-url" id="qr-url"></div>
             <div class="student-count">
-                <div>今日签到</div>
+                <div class="count-label">今日签到</div>
                 <div class="count-number" id="student-count">0</div>
-                <div style="font-size:0.8rem; color:#64748b;">人</div>
+                <div class="count-label">人</div>
             </div>
         </div>
         
-        <!-- 功能卡片 -->
-        <div class="cards-section">
+        <!-- 右侧功能区 -->
+        <div class="right-section">
             <div class="card" id="card-sign" onclick="activateSign()">
                 <div class="card-icon">📝</div>
                 <div class="card-content">
@@ -248,6 +248,18 @@
                     <div class="card-desc">PPT + 答题 + 弹幕 + 抢答 + 点名</div>
                 </div>
             </div>
+            
+            <div class="card card-import" onclick="openImportModal()">
+                <div class="card-icon">📥</div>
+                <div class="card-content">
+                    <div class="card-title">导入题库</div>
+                    <div class="card-desc">上传 Excel 文件导入答题题目</div>
+                </div>
+            </div>
+            
+            <div class="question-info">
+                📊 当前题库：<span id="question-count">0</span> 道题目
+            </div>
         </div>
     </div>
     
@@ -256,13 +268,36 @@
         <button class="ctrl-btn btn-secondary" onclick="window.open('/sign-admin')">📋 签到管理</button>
         <button class="ctrl-btn btn-secondary" onclick="window.open('/vote-admin')">📊 答题管理</button>
     </div>
+    
+    <!-- 导入模态框 -->
+    <div id="import-modal">
+        <div class="modal-content">
+            <div class="modal-title">📥 导入 Excel 题库</div>
+            <div class="modal-desc">
+                请上传 .xlsx 文件，表头需包含：轮次、题目、选项A、选项B、选项C、选项D、答案<br>
+                <span style="color:#999; font-size:0.8rem;">类型可选：single(单选)、multi(多选)、judge(判断)</span>
+            </div>
+            
+            <label class="file-drop-area" id="drop-area" for="file-input">
+                <div style="font-size:3rem; margin-bottom:10px;">📄</div>
+                <div id="file-name">点击选择文件或拖拽到此处</div>
+                <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFileSelect(this)">
+            </label>
+            
+            <div class="modal-btns">
+                <button class="modal-btn modal-btn-cancel" onclick="closeImportModal()">取消</button>
+                <button class="modal-btn modal-btn-confirm" onclick="uploadExcel()">确认导入</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co';
         const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h';
         const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+        let selectedFile = null;
         
-        // 生成二维码
+        // 生成二维码 - 放大到 280px
         function generateQRCode() {
             const studentUrl = window.location.origin + '/classroom';
             document.getElementById('qr-url').innerText = studentUrl;
@@ -273,18 +308,17 @@
             try {
                 new QRCode(container, {
                     text: studentUrl,
-                    width: 200,
-                    height: 200,
+                    width: 280,
+                    height: 280,
                     colorDark: '#1e293b',
                     colorLight: '#ffffff',
                     correctLevel: QRCode.CorrectLevel.H
                 });
             } catch (e) {
                 console.error('二维码生成失败:', e);
-                // 备用方案：显示链接
-                container.innerHTML = `<div style="padding:20px; background:#f1f5f9; border-radius:10px; color:#1e293b;">
-                    <p style="margin-bottom:10px;">📱 请访问:</p>
-                    <a href="${studentUrl}" style="color:#2563eb; word-break:break-all;">${studentUrl}</a>
+                container.innerHTML = `<div style="padding:30px; background:#f1f5f9; border-radius:15px; color:#1e293b;">
+                    <p style="margin-bottom:10px; font-size:1.2rem;">📱 请访问:</p>
+                    <a href="${studentUrl}" style="color:#2563eb; font-size:1.1rem;">${studentUrl}</a>
                 </div>`;
             }
         }
@@ -297,18 +331,27 @@
                     .from('attendance')
                     .select('*', { count: 'exact', head: true })
                     .gte('created_at', today);
-                
                 document.getElementById('student-count').innerText = count || 0;
             } catch (e) {
                 console.error('获取签到人数失败:', e);
             }
         }
         
+        // 获取题库数量
+        async function loadQuestionCount() {
+            try {
+                const { count } = await supabaseClient
+                    .from('questions')
+                    .select('*', { count: 'exact', head: true });
+                document.getElementById('question-count').innerText = count || 0;
+            } catch (e) {
+                console.error('获取题库数量失败:', e);
+            }
+        }
+        
         // 实时监听签到
         supabaseClient.channel('admin-attendance')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendance' }, () => {
-                loadStudentCount();
-            })
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendance' }, loadStudentCount)
             .subscribe();
         
         // 激活签到模式
@@ -323,16 +366,13 @@
                 status: 'active'
             }).eq('id', 1);
             
-            // 打开签到管理页面
             window.open('/sign-admin', '_blank');
         }
         
-        // 打开课件播放器
         function openPresentation() {
             window.open('/presentation', '_blank');
         }
         
-        // 释放控制
         async function releaseControl() {
             document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
             document.getElementById('current-status').innerText = '自由活动';
@@ -344,12 +384,89 @@
             }).eq('id', 1);
         }
         
+        // ========== 题库导入功能 ==========
+        function openImportModal() {
+            document.getElementById('import-modal').style.display = 'flex';
+        }
+        
+        function closeImportModal() {
+            document.getElementById('import-modal').style.display = 'none';
+            document.getElementById('file-name').innerText = '点击选择文件或拖拽到此处';
+            selectedFile = null;
+        }
+        
+        function handleFileSelect(input) {
+            if (input.files.length > 0) {
+                selectedFile = input.files[0];
+                document.getElementById('file-name').innerText = '✅ ' + selectedFile.name;
+            }
+        }
+        
+        async function uploadExcel() {
+            if (!selectedFile) {
+                alert('请先选择文件');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                    
+                    const dbData = json.map(row => ({
+                        round: row['轮次'],
+                        title: row['题目'],
+                        option_a: row['选项A'] || '',
+                        option_b: row['选项B'] || '',
+                        option_c: row['选项C'] || '',
+                        option_d: row['选项D'] || '',
+                        answer: String(row['答案'] || '').toUpperCase(),
+                        type: row['类型'] || 'single'
+                    }));
+                    
+                    // 清空旧题库并导入新题库
+                    await supabaseClient.from('questions').delete().neq('id', 0);
+                    const { error } = await supabaseClient.from('questions').insert(dbData);
+                    
+                    if (error) throw error;
+                    
+                    alert(`✅ 导入成功！共 ${dbData.length} 道题目`);
+                    closeImportModal();
+                    loadQuestionCount();
+                } catch (err) {
+                    console.error('导入失败:', err);
+                    alert('导入失败: ' + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(selectedFile);
+        }
+        
+        // 拖拽上传
+        const dropArea = document.getElementById('drop-area');
+        dropArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropArea.classList.add('dragover');
+        });
+        dropArea.addEventListener('dragleave', () => {
+            dropArea.classList.remove('dragover');
+        });
+        dropArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                selectedFile = e.dataTransfer.files[0];
+                document.getElementById('file-name').innerText = '✅ ' + selectedFile.name;
+            }
+        });
+        
         // 初始化
         async function init() {
             generateQRCode();
             loadStudentCount();
+            loadQuestionCount();
             
-            // 读取当前状态
             const { data } = await supabaseClient
                 .from('global_state')
                 .select('*')
