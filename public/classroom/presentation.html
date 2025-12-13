@@ -547,11 +547,23 @@
         let voteRound = 1;
         let isVoteActive = true;
         
-        function toggleVoteOverlay() {
+        async function toggleVoteOverlay() {
             isVoteVisible = !isVoteVisible;
             document.getElementById('vote-overlay').style.display = isVoteVisible ? 'block' : 'none';
             if (isVoteVisible) {
                 loadVoteData();
+                
+                // 🔥 关键：更新全局状态，让学生端跳转到答题页面
+                await supabaseClient.from('global_state').update({ 
+                    status: 'active', 
+                    current_page: 'vote.html' 
+                }).eq('id', 1);
+                
+                // 同步答题配置
+                await supabaseClient.from('vote_config').update({ 
+                    current_round: voteRound, 
+                    is_active: true 
+                }).eq('id', 1);
             }
         }
         
