@@ -57,20 +57,25 @@
     <div id="status-msg"></div>
 
     <script>
-        // 主初始化函数
-        function initVote() {
-            // 使用公共配置和身份验证
-            const supabaseClient = ClassroomCommon.createSupabaseClient();
-            const userAuth = ClassroomCommon.checkUserAuth();
-            if (!userAuth) return; // 如果未签到会自动跳转
-            
-            const myName = userAuth.name;
-            const myId = userAuth.id;
+        // 全局变量 (需要在onclick中访问)
+        let supabaseClient = null;
+        let myName = '';
+        let myId = '';
         let currentRound = 1;
         let isRoundActive = true;
         let currentQuestion = null;
         let questionType = 'single'; // 题目类型: single(单选), multi(多选), judge(判断)
         let selectedOptions = []; // 多选题已选选项
+        
+        // 主初始化函数
+        function initVote() {
+            // 使用公共配置和身份验证
+            supabaseClient = ClassroomCommon.createSupabaseClient();
+            const userAuth = ClassroomCommon.checkUserAuth();
+            if (!userAuth) return; // 如果未签到会自动跳转
+            
+            myName = userAuth.name;
+            myId = userAuth.id;
 
         document.getElementById('user-name').innerText = myName;
 
@@ -176,6 +181,35 @@
             document.getElementById('q-options').innerHTML = '';
         }
 
+        async function checkIfIVoted() {
+            const { data } = await supabaseClient.from('vote_logs').select('option').eq('student_id', myId).eq('round', currentRound).maybeSingle();
+            if (data) {
+                disableButtons();
+                document.getElementById('submit-multi').style.display = 'none';
+                document.getElementById('multi-hint').style.display = 'none';
+                document.getElementById('status-msg').innerText = `✅ 你已选: ${data.option}`;
+                document.getElementById('status-msg').style.color = "#10b981";
+            } else if (isRoundActive) {
+                enableButtons();
+            }
+        }
+
+            // 初始化答题功能
+            init();
+            
+            // 启动全局控制监听
+            ClassroomCommon.initGlobalControlListener(supabaseClient);
+            
+            // 初始化底部导航
+            if (typeof NavigationComponent !== 'undefined') {
+                NavigationComponent.init();
+            }
+        }
+        
+        // 等待页面加载完成后初始化
+        window.addEventListener('load', initVote);
+        
+        // 全局函数 (需要从HTML onclick调用)
         function handleOptionClick(option) {
             if (!isRoundActive) return alert("已停止作答");
             
@@ -203,20 +237,7 @@
             const answer = selectedOptions.sort().join('');
             await submitVote(answer);
         }
-
-        async function checkIfIVoted() {
-            const { data } = await supabaseClient.from('vote_logs').select('option').eq('student_id', myId).eq('round', currentRound).maybeSingle();
-            if (data) {
-                disableButtons();
-                document.getElementById('submit-multi').style.display = 'none';
-                document.getElementById('multi-hint').style.display = 'none';
-                document.getElementById('status-msg').innerText = `✅ 你已选: ${data.option}`;
-                document.getElementById('status-msg').style.color = "#10b981";
-            } else if (isRoundActive) {
-                enableButtons();
-            }
-        }
-
+        
         async function submitVote(option) {
             if (!isRoundActive) return alert("已停止作答");
             disableButtons();
@@ -255,24 +276,10 @@
         function disableButtons() { 
             document.querySelectorAll('.vote-btn').forEach(b => b.disabled = true); 
         }
+        
         function enableButtons() { 
             document.querySelectorAll('.vote-btn').forEach(b => b.disabled = false); 
         }
-
-            // 初始化答题功能
-            init();
-            
-            // 启动全局控制监听
-            ClassroomCommon.initGlobalControlListener(supabaseClient);
-            
-            // 初始化底部导航
-            if (typeof NavigationComponent !== 'undefined') {
-                NavigationComponent.init();
-            }
-        }
-        
-        // 等待页面加载完成后初始化
-        window.addEventListener('load', initVote);
     </script>
 </body>
 </html>

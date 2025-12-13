@@ -50,6 +50,10 @@ const nextConfig: NextConfig = {
         destination: '/classroom/buzzer-admin.html',
       },
       {
+        source: '/lucky',
+        destination: '/classroom/lucky.html',
+      },
+      {
         source: '/classroom',
         destination: '/classroom/index.html',
       },
