@@ -852,14 +852,15 @@
             const oldPlayer = document.getElementById('media-player');
             if (oldPlayer) oldPlayer.remove();
             
-            // 创建视频播放器
+            // 创建视频播放器容器（放在presentation-container中，而不是slide-background）
+            const container = document.querySelector('.presentation-container');
             const video = document.createElement('video');
             video.id = 'media-player';
             video.src = src;
             video.controls = true;
             video.autoplay = false;
             video.style.cssText = 'width:100%; height:100%; position:absolute; top:0; left:0; background:#000; z-index:5; object-fit:contain;';
-            bg.appendChild(video);
+            container.appendChild(video);
             
             // 确保视频加载后可以播放
             video.load();
@@ -879,7 +880,8 @@
             const oldPlayer = document.getElementById('media-player');
             if (oldPlayer) oldPlayer.remove();
             
-            // 创建音频播放器容器
+            // 创建音频播放器容器（放在presentation-container中）
+            const parentContainer = document.querySelector('.presentation-container');
             const container = document.createElement('div');
             container.id = 'media-player';
             container.style.cssText = 'width:100%; height:100%; position:absolute; top:0; left:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); z-index:5;';
@@ -891,7 +893,7 @@
                 </audio>
                 <div style="margin-top:20px; color:white; font-size:1.2rem;">正在播放音频</div>
             `;
-            bg.appendChild(container);
+            parentContainer.appendChild(container);
             
             document.getElementById('current-page').innerText = '1';
             document.getElementById('total-pages').innerText = '1';
@@ -935,7 +937,8 @@
             // 移除旧的媒体播放器
             const oldPlayer = document.getElementById('media-player');
             if (oldPlayer) oldPlayer.remove();
-            // 检查是否已有iframe
+            // 检查是否已有iframe（放在presentation-container中）
+            const container = document.querySelector('.presentation-container');
             let iframe = document.getElementById('content-iframe');
             if (!iframe) {
                 iframe = document.createElement('iframe');
@@ -943,7 +946,7 @@
                 iframe.style.cssText = 'width:100%; height:100%; border:none; position:absolute; top:0; left:0; z-index:5;';
                 iframe.setAttribute('allowfullscreen', 'true');
                 iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture');
-                bg.appendChild(iframe);
+                container.appendChild(iframe);
             }
             iframe.src = url;
             iframe.style.display = 'block';
