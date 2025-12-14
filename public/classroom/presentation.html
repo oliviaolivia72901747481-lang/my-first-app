@@ -560,11 +560,13 @@
             <h2 style="margin-bottom:10px;">📤 加载课件</h2>
             
             <!-- 课件类型标签页 -->
-            <div style="display:flex; gap:5px; margin-bottom:20px; justify-content:center;">
-                <button class="content-tab active" data-type="image" onclick="switchContentTab('image')" style="padding:10px 20px; border:none; border-radius:8px; cursor:pointer; font-weight:bold; background:#3b82f6; color:white;">🖼️ 图片</button>
-                <button class="content-tab" data-type="url" onclick="switchContentTab('url')" style="padding:10px 20px; border:none; border-radius:8px; cursor:pointer; font-weight:bold; background:#e5e7eb; color:#333;">🌐 网页</button>
-                <button class="content-tab" data-type="pdf" onclick="switchContentTab('pdf')" style="padding:10px 20px; border:none; border-radius:8px; cursor:pointer; font-weight:bold; background:#e5e7eb; color:#333;">📄 PDF</button>
-                <button class="content-tab" data-type="video" onclick="switchContentTab('video')" style="padding:10px 20px; border:none; border-radius:8px; cursor:pointer; font-weight:bold; background:#e5e7eb; color:#333;">🎬 视频</button>
+            <div style="display:flex; gap:5px; margin-bottom:20px; justify-content:center; flex-wrap:wrap;">
+                <button class="content-tab active" data-type="image" onclick="switchContentTab('image')" style="padding:8px 15px; border:none; border-radius:8px; cursor:pointer; font-weight:bold; background:#3b82f6; color:white; font-size:0.9rem;">🖼️ 图片</button>
+                <button class="content-tab" data-type="video" onclick="switchContentTab('video')" style="padding:8px 15px; border:none; border-radius:8px; cursor:pointer; font-weight:bold; background:#e5e7eb; color:#333; font-size:0.9rem;">🎬 视频</button>
+                <button class="content-tab" data-type="audio" onclick="switchContentTab('audio')" style="padding:8px 15px; border:none; border-radius:8px; cursor:pointer; font-weight:bold; background:#e5e7eb; color:#333; font-size:0.9rem;">🎵 音频</button>
+                <button class="content-tab" data-type="pdf" onclick="switchContentTab('pdf')" style="padding:8px 15px; border:none; border-radius:8px; cursor:pointer; font-weight:bold; background:#e5e7eb; color:#333; font-size:0.9rem;">📄 PDF</button>
+                <button class="content-tab" data-type="office" onclick="switchContentTab('office')" style="padding:8px 15px; border:none; border-radius:8px; cursor:pointer; font-weight:bold; background:#e5e7eb; color:#333; font-size:0.9rem;">📊 Office</button>
+                <button class="content-tab" data-type="url" onclick="switchContentTab('url')" style="padding:8px 15px; border:none; border-radius:8px; cursor:pointer; font-weight:bold; background:#e5e7eb; color:#333; font-size:0.9rem;">🌐 网页</button>
             </div>
             
             <!-- 图片上传区 -->
@@ -606,10 +608,56 @@
             
             <!-- 视频区 -->
             <div id="content-video" class="content-panel" style="display:none;">
-                <p style="color:#666; margin-bottom:15px;">输入视频链接（支持YouTube、Bilibili、MP4直链等）</p>
+                <p style="color:#666; margin-bottom:15px;">上传本地视频或输入在线视频链接</p>
+                <div style="display:flex; gap:10px; margin-bottom:15px;">
+                    <button onclick="document.getElementById('video-file-input').click()" style="flex:1; padding:15px; border:2px dashed #ddd; border-radius:10px; cursor:pointer; background:white;">
+                        📁 选择本地视频
+                    </button>
+                    <input type="file" id="video-file-input" accept="video/*" style="display:none;" onchange="handleVideoFile(this.files[0])">
+                </div>
+                <div style="text-align:center; color:#999; margin:10px 0;">或</div>
                 <input type="url" id="video-url-input" placeholder="https://www.youtube.com/watch?v=..." style="width:100%; padding:15px; border:2px solid #ddd; border-radius:10px; font-size:16px; box-sizing:border-box;">
+                <div id="video-preview" style="margin-top:15px; display:none; padding:10px; background:#f0f0f0; border-radius:8px;">
+                    <span id="video-filename">🎬 已选择文件</span>
+                </div>
                 <div style="margin-top:10px; color:#999; font-size:0.85rem;">
-                    💡 支持：YouTube、Bilibili、优酷、MP4直链等
+                    💡 本地支持：MP4、WebM、OGG | 在线支持：YouTube、Bilibili、优酷
+                </div>
+            </div>
+            
+            <!-- 音频区 -->
+            <div id="content-audio" class="content-panel" style="display:none;">
+                <p style="color:#666; margin-bottom:15px;">上传本地音频文件</p>
+                <div style="display:flex; gap:10px; margin-bottom:15px;">
+                    <button onclick="document.getElementById('audio-file-input').click()" style="flex:1; padding:15px; border:2px dashed #ddd; border-radius:10px; cursor:pointer; background:white;">
+                        📁 选择音频文件
+                    </button>
+                    <input type="file" id="audio-file-input" accept="audio/*" style="display:none;" onchange="handleAudioFile(this.files[0])">
+                </div>
+                <div id="audio-preview" style="margin-top:15px; display:none; padding:10px; background:#f0f0f0; border-radius:8px;">
+                    <span id="audio-filename">🎵 已选择文件</span>
+                </div>
+                <div style="margin-top:10px; color:#999; font-size:0.85rem;">
+                    💡 支持：MP3、WAV、OGG、AAC 等格式
+                </div>
+            </div>
+            
+            <!-- Office文档区 -->
+            <div id="content-office" class="content-panel" style="display:none;">
+                <p style="color:#666; margin-bottom:15px;">上传Office文档（PPT、Word、Excel）或输入在线链接</p>
+                <div style="display:flex; gap:10px; margin-bottom:15px;">
+                    <button onclick="document.getElementById('office-file-input').click()" style="flex:1; padding:15px; border:2px dashed #ddd; border-radius:10px; cursor:pointer; background:white;">
+                        📁 选择Office文件
+                    </button>
+                    <input type="file" id="office-file-input" accept=".ppt,.pptx,.doc,.docx,.xls,.xlsx" style="display:none;" onchange="handleOfficeFile(this.files[0])">
+                </div>
+                <div style="text-align:center; color:#999; margin:10px 0;">或</div>
+                <input type="url" id="office-url-input" placeholder="https://example.com/presentation.pptx" style="width:100%; padding:15px; border:2px solid #ddd; border-radius:10px; font-size:16px; box-sizing:border-box;">
+                <div id="office-preview" style="margin-top:15px; display:none; padding:10px; background:#f0f0f0; border-radius:8px;">
+                    <span id="office-filename">📊 已选择文件</span>
+                </div>
+                <div style="margin-top:10px; color:#999; font-size:0.85rem;">
+                    💡 支持：PPT/PPTX、DOC/DOCX、XLS/XLSX（通过Office Online预览）
                 </div>
             </div>
             
@@ -675,6 +723,34 @@
             reader.readAsDataURL(file);
         }
         
+        // 本地视频文件
+        let videoDataUrl = null;
+        function handleVideoFile(file) {
+            if (!file) return;
+            videoDataUrl = URL.createObjectURL(file);
+            document.getElementById('video-preview').style.display = 'block';
+            document.getElementById('video-filename').innerText = '🎬 ' + file.name;
+        }
+        
+        // 本地音频文件
+        let audioDataUrl = null;
+        function handleAudioFile(file) {
+            if (!file) return;
+            audioDataUrl = URL.createObjectURL(file);
+            document.getElementById('audio-preview').style.display = 'block';
+            document.getElementById('audio-filename').innerText = '🎵 ' + file.name;
+        }
+        
+        // Office文件
+        let officeFile = null;
+        function handleOfficeFile(file) {
+            if (!file) return;
+            officeFile = file;
+            document.getElementById('office-preview').style.display = 'block';
+            const icon = file.name.match(/\.ppt/i) ? '📊' : file.name.match(/\.doc/i) ? '📝' : '📈';
+            document.getElementById('office-filename').innerText = icon + ' ' + file.name;
+        }
+        
         // 应用内容（统一入口）
         function applyContent() {
             switch (contentType) {
@@ -689,6 +765,12 @@
                     break;
                 case 'video':
                     applyVideo();
+                    break;
+                case 'audio':
+                    applyAudio();
+                    break;
+                case 'office':
+                    applyOffice();
                     break;
             }
         }
@@ -720,13 +802,97 @@
         
         // 应用视频
         function applyVideo() {
-            let url = document.getElementById('video-url-input').value.trim();
-            if (!url) { alert('请输入视频链接'); return; }
-            
-            // 转换视频链接为嵌入格式
-            const embedUrl = convertToEmbedUrl(url);
-            showIframeContent(embedUrl);
+            const urlInput = document.getElementById('video-url-input').value.trim();
+            if (videoDataUrl) {
+                // 使用本地视频文件
+                showVideoPlayer(videoDataUrl);
+            } else if (urlInput) {
+                // 转换视频链接为嵌入格式
+                const embedUrl = convertToEmbedUrl(urlInput);
+                showIframeContent(embedUrl);
+            } else {
+                alert('请选择视频文件或输入视频链接');
+                return;
+            }
             closeUploadModal();
+        }
+        
+        // 应用音频
+        function applyAudio() {
+            if (!audioDataUrl) { alert('请选择音频文件'); return; }
+            showAudioPlayer(audioDataUrl);
+            closeUploadModal();
+        }
+        
+        // 应用Office文档
+        function applyOffice() {
+            const urlInput = document.getElementById('office-url-input').value.trim();
+            if (officeFile) {
+                // 本地Office文件需要上传到服务器才能预览，这里提示用户
+                alert('本地Office文件暂不支持直接预览，请将文件上传到云端后使用链接方式。\n\n建议：将PPT导出为图片或PDF格式使用。');
+                return;
+            } else if (urlInput) {
+                // 使用Office Online Viewer
+                const viewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(urlInput)}`;
+                showIframeContent(viewerUrl);
+            } else {
+                alert('请输入Office文档链接');
+                return;
+            }
+            closeUploadModal();
+        }
+        
+        // 显示视频播放器
+        function showVideoPlayer(src) {
+            const bg = document.getElementById('slide-background');
+            bg.style.backgroundImage = 'none';
+            hideIframeContent();
+            
+            // 移除旧的播放器
+            const oldPlayer = document.getElementById('media-player');
+            if (oldPlayer) oldPlayer.remove();
+            
+            // 创建视频播放器
+            const video = document.createElement('video');
+            video.id = 'media-player';
+            video.src = src;
+            video.controls = true;
+            video.autoplay = false;
+            video.style.cssText = 'width:100%; height:100%; position:absolute; top:0; left:0; background:#000;';
+            bg.appendChild(video);
+            
+            document.getElementById('current-page').innerText = '1';
+            document.getElementById('total-pages').innerText = '1';
+            slides = [];
+        }
+        
+        // 显示音频播放器
+        function showAudioPlayer(src) {
+            const bg = document.getElementById('slide-background');
+            bg.style.backgroundImage = 'none';
+            hideIframeContent();
+            
+            // 移除旧的播放器
+            const oldPlayer = document.getElementById('media-player');
+            if (oldPlayer) oldPlayer.remove();
+            
+            // 创建音频播放器容器
+            const container = document.createElement('div');
+            container.id = 'media-player';
+            container.style.cssText = 'width:100%; height:100%; position:absolute; top:0; left:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);';
+            
+            container.innerHTML = `
+                <div style="font-size:8rem; margin-bottom:30px;">🎵</div>
+                <audio controls autoplay style="width:80%; max-width:500px;">
+                    <source src="${src}" type="audio/mpeg">
+                </audio>
+                <div style="margin-top:20px; color:white; font-size:1.2rem;">正在播放音频</div>
+            `;
+            bg.appendChild(container);
+            
+            document.getElementById('current-page').innerText = '1';
+            document.getElementById('total-pages').innerText = '1';
+            slides = [];
         }
         
         // 转换视频链接为嵌入格式
