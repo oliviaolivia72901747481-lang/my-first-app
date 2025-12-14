@@ -3528,7 +3528,8 @@
                 AIAssistant.configure({
                     apiKey: config.apiKey,
                     apiEndpoint: config.apiEndpoint,
-                    model: config.model
+                    model: config.model,
+                    provider: config.provider || 'openai'
                 });
             }
         }
@@ -3546,7 +3547,8 @@
             AIAssistant.configure({
                 apiKey: config.apiKey,
                 apiEndpoint: config.apiEndpoint,
-                model: config.model
+                model: config.model,
+                provider: config.provider
             });
             
             showAIConfigStatus('✅ 配置已保存', 'success');

@@ -13,8 +13,11 @@ const AIAssistant = {
         apiKey: '',
         apiEndpoint: 'https://api.openai.com/v1/chat/completions',
         model: 'gpt-3.5-turbo',
+        provider: 'openai', // openai, deepseek, anthropic, custom
         timeout: 30000, // 30秒超时
-        maxRetries: 2
+        maxRetries: 2,
+        useProxy: true, // 使用代理解决CORS问题
+        proxyEndpoint: '/api/ai-proxy'
     },
 
     /**
@@ -44,7 +47,9 @@ const AIAssistant = {
      * @param {string} options.apiKey - API密钥
      * @param {string} [options.apiEndpoint] - API端点
      * @param {string} [options.model] - 模型名称
+     * @param {string} [options.provider] - 提供商 (openai, deepseek, anthropic, custom)
      * @param {number} [options.timeout] - 超时时间（毫秒）
+     * @param {boolean} [options.useProxy] - 是否使用代理
      */
     configure(options) {
         if (options.apiKey) {
@@ -56,8 +61,14 @@ const AIAssistant = {
         if (options.model) {
             this.config.model = options.model;
         }
+        if (options.provider) {
+            this.config.provider = options.provider;
+        }
         if (options.timeout && typeof options.timeout === 'number') {
             this.config.timeout = options.timeout;
+        }
+        if (typeof options.useProxy === 'boolean') {
+            this.config.useProxy = options.useProxy;
         }
     },
 
@@ -267,30 +278,55 @@ const AIAssistant = {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
 
+        const messages = [
+            {
+                role: 'system',
+                content: '你是一位专业的教育工作者和题目设计专家。请严格按照要求的JSON格式返回结果。'
+            },
+            {
+                role: 'user',
+                content: prompt
+            }
+        ];
+
         try {
-            const response = await fetch(this.config.apiEndpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.config.apiKey}`
-                },
-                body: JSON.stringify({
-                    model: this.config.model,
-                    messages: [
-                        {
-                            role: 'system',
-                            content: '你是一位专业的教育工作者和题目设计专家。请严格按照要求的JSON格式返回结果。'
-                        },
-                        {
-                            role: 'user',
-                            content: prompt
-                        }
-                    ],
-                    temperature: options.temperature || 0.7,
-                    max_tokens: options.maxTokens || 2000
-                }),
-                signal: controller.signal
-            });
+            let response;
+            
+            // 使用代理解决CORS问题
+            if (this.config.useProxy) {
+                response = await fetch(this.config.proxyEndpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        provider: this.config.provider,
+                        apiKey: this.config.apiKey,
+                        model: this.config.model,
+                        messages: messages,
+                        temperature: options.temperature || 0.7,
+                        max_tokens: options.maxTokens || 2000,
+                        endpoint: this.config.apiEndpoint // 用于自定义端点
+                    }),
+                    signal: controller.signal
+                });
+            } else {
+                // 直接调用API（可能会有CORS问题）
+                response = await fetch(this.config.apiEndpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${this.config.apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: this.config.model,
+                        messages: messages,
+                        temperature: options.temperature || 0.7,
+                        max_tokens: options.maxTokens || 2000
+                    }),
+                    signal: controller.signal
+                });
+            }
 
             clearTimeout(timeoutId);
 
