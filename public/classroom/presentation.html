@@ -2132,7 +2132,7 @@
                 // 获取总积分排行
                 const { data, error } = await supabaseClient
                     .from('student_points')
-                    .select('*')
+                    .select('student_id, student_name, total_points')
                     .order('total_points', { ascending: false })
                     .limit(15);
                 
@@ -2143,7 +2143,7 @@
                     return;
                 }
                 
-                // 获取今日积分
+                // 从 points_log 获取今日积分
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 const { data: todayLogs } = await supabaseClient
@@ -2151,7 +2151,6 @@
                     .select('student_id, points')
                     .gte('created_at', today.toISOString());
                 
-                // 计算每个学生的今日积分
                 const todayPoints = {};
                 if (todayLogs) {
                     todayLogs.forEach(log => {

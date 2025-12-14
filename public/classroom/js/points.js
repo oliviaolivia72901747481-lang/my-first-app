@@ -59,10 +59,10 @@ const PointsSystem = {
                 // 继续尝试更新总积分
             }
 
-            // 2. 更新学生总积分和当日积分（使用upsert）
+            // 2. 更新学生总积分（使用upsert）
             const { data: current, error: selectError } = await supabase
                 .from('student_points')
-                .select('total_points, today_points, last_points_date')
+                .select('total_points')
                 .eq('student_id', studentId)
                 .maybeSingle();
 
@@ -71,36 +71,27 @@ const PointsSystem = {
                 return { success: false, error: selectError, points: points };
             }
 
-            const today = new Date().toISOString().split('T')[0];
-            const lastDate = current?.last_points_date;
-            
-            // 如果是新的一天，重置当日积分
-            let todayPoints = (current?.today_points || 0);
-            if (lastDate !== today) {
-                todayPoints = 0;
-            }
-            
             const newTotal = (current?.total_points || 0) + points;
-            const newTodayPoints = todayPoints + points;
+
+            // 尝试更新（兼容新旧表结构）
+            const updateData = {
+                student_id: studentId,
+                student_name: studentName,
+                total_points: newTotal,
+                updated_at: new Date().toISOString()
+            };
 
             const { error: updateError } = await supabase
                 .from('student_points')
-                .upsert({
-                    student_id: studentId,
-                    student_name: studentName,
-                    total_points: newTotal,
-                    today_points: newTodayPoints,
-                    last_points_date: today,
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'student_id' });
+                .upsert(updateData, { onConflict: 'student_id' });
 
             if (updateError) {
                 console.error('❌ 总积分更新失败:', updateError);
                 return { success: false, error: updateError, points: points };
             }
 
-            console.log(`✅ 积分添加成功: ${studentName} 今日+${newTodayPoints} 总计${newTotal}积分`);
-            return { success: true, points: points, total: newTotal, today: newTodayPoints };
+            console.log(`✅ 积分添加成功: ${studentName} 总计${newTotal}积分`);
+            return { success: true, points: points, total: newTotal };
         } catch (e) {
             console.error('❌ 积分操作异常:', e);
             return { success: false, error: e, points: points };
