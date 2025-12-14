@@ -447,6 +447,7 @@
             <button class="ctrl-btn" style="background:#10b981;" onclick="toggleQuestionPanel()">📚 题库</button>
             <button class="ctrl-btn btn-danmu" onclick="toggleDanmu()">💬 弹幕</button>
             <button class="ctrl-btn" style="background:#f59e0b;" onclick="toggleLuckyOverlay()">🎰 点名</button>
+            <button class="ctrl-btn" style="background:#ef4444;" onclick="clearContent()" id="clear-content-btn">🗑️ 清除</button>
             <button class="ctrl-btn" style="background:#64748b;" onclick="releaseControl()">⏸️ 释放</button>
             <button class="ctrl-btn" style="background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);" onclick="endClass()">🔔 下课</button>
             <button class="ctrl-btn btn-nav" onclick="nextSlide()">下一页 ➡️</button>
@@ -456,7 +457,7 @@
         <div class="hotkey-hint">
             <div><kbd>←</kbd><kbd>→</kbd> 翻页</div>
             <div><kbd>Q</kbd> 题库 <kbd>D</kbd> 弹幕 <kbd>L</kbd> 点名</div>
-            <div><kbd>R</kbd> 释放控制 <kbd>F</kbd> 全屏 <kbd>ESC</kbd> 退出</div>
+            <div><kbd>C</kbd> 清除内容 <kbd>F</kbd> 全屏 <kbd>ESC</kbd> 退出</div>
         </div>
     </div>
     
@@ -608,20 +609,10 @@
             
             <!-- 视频区 -->
             <div id="content-video" class="content-panel" style="display:none;">
-                <p style="color:#666; margin-bottom:15px;">上传本地视频或输入在线视频链接</p>
-                <div style="display:flex; gap:10px; margin-bottom:15px;">
-                    <button onclick="document.getElementById('video-file-input').click()" style="flex:1; padding:15px; border:2px dashed #ddd; border-radius:10px; cursor:pointer; background:white;">
-                        📁 选择本地视频
-                    </button>
-                    <input type="file" id="video-file-input" accept="video/*" style="display:none;" onchange="handleVideoFile(this.files[0])">
-                </div>
-                <div style="text-align:center; color:#999; margin:10px 0;">或</div>
-                <input type="url" id="video-url-input" placeholder="https://www.youtube.com/watch?v=..." style="width:100%; padding:15px; border:2px solid #ddd; border-radius:10px; font-size:16px; box-sizing:border-box;">
-                <div id="video-preview" style="margin-top:15px; display:none; padding:10px; background:#f0f0f0; border-radius:8px;">
-                    <span id="video-filename">🎬 已选择文件</span>
-                </div>
+                <p style="color:#666; margin-bottom:15px;">输入在线视频链接</p>
+                <input type="url" id="video-url-input" placeholder="https://www.youtube.com/watch?v=... 或 https://www.bilibili.com/video/BV..." style="width:100%; padding:15px; border:2px solid #ddd; border-radius:10px; font-size:16px; box-sizing:border-box;">
                 <div style="margin-top:10px; color:#999; font-size:0.85rem;">
-                    💡 本地支持：MP4、WebM、OGG | 在线支持：YouTube、Bilibili、优酷
+                    💡 支持：YouTube、Bilibili、优酷、MP4直链
                 </div>
             </div>
             
@@ -723,15 +714,6 @@
             reader.readAsDataURL(file);
         }
         
-        // 本地视频文件
-        let videoDataUrl = null;
-        function handleVideoFile(file) {
-            if (!file) return;
-            videoDataUrl = URL.createObjectURL(file);
-            document.getElementById('video-preview').style.display = 'block';
-            document.getElementById('video-filename').innerText = '🎬 ' + file.name;
-        }
-        
         // 本地音频文件
         let audioDataUrl = null;
         function handleAudioFile(file) {
@@ -803,17 +785,13 @@
         // 应用视频
         function applyVideo() {
             const urlInput = document.getElementById('video-url-input').value.trim();
-            if (videoDataUrl) {
-                // 使用本地视频文件
-                showVideoPlayer(videoDataUrl);
-            } else if (urlInput) {
-                // 转换视频链接为嵌入格式
-                const embedUrl = convertToEmbedUrl(urlInput);
-                showIframeContent(embedUrl);
-            } else {
-                alert('请选择视频文件或输入视频链接');
+            if (!urlInput) {
+                alert('请输入视频链接');
                 return;
             }
+            // 转换视频链接为嵌入格式
+            const embedUrl = convertToEmbedUrl(urlInput);
+            showIframeContent(embedUrl);
             closeUploadModal();
         }
         
@@ -840,49 +818,6 @@
                 return;
             }
             closeUploadModal();
-        }
-        
-        // 显示视频播放器
-        function showVideoPlayer(src) {
-            const bg = document.getElementById('slide-background');
-            bg.style.backgroundImage = 'none';
-            hideIframeContent();
-            
-            // 移除旧的播放器
-            const oldPlayer = document.getElementById('media-player');
-            if (oldPlayer) oldPlayer.remove();
-            
-            // 创建视频播放器容器（放在presentation-container中）
-            const container = document.querySelector('.presentation-container');
-            
-            // 创建一个包装div来确保视频正确显示
-            const wrapper = document.createElement('div');
-            wrapper.id = 'media-player';
-            wrapper.style.cssText = 'width:100%; height:100%; position:absolute; top:0; left:0; background:#000; z-index:5; display:flex; align-items:center; justify-content:center;';
-            
-            const video = document.createElement('video');
-            video.src = src;
-            video.controls = true;
-            video.autoplay = false;
-            video.playsInline = true;
-            video.style.cssText = 'max-width:100%; max-height:100%; width:auto; height:auto;';
-            
-            // 添加错误处理
-            video.onerror = function(e) {
-                console.error('视频加载错误:', e);
-                alert('视频加载失败，请检查文件格式');
-            };
-            
-            video.onloadeddata = function() {
-                console.log('视频加载成功，尺寸:', video.videoWidth, 'x', video.videoHeight);
-            };
-            
-            wrapper.appendChild(video);
-            container.appendChild(wrapper);
-            
-            document.getElementById('current-page').innerText = '1';
-            document.getElementById('total-pages').innerText = '1';
-            slides = [];
         }
         
         // 显示音频播放器
@@ -982,6 +917,41 @@
             // 同时移除媒体播放器
             const mediaPlayer = document.getElementById('media-player');
             if (mediaPlayer) mediaPlayer.remove();
+        }
+        
+        // 清除所有内容
+        function clearContent() {
+            // 清除背景图
+            const bg = document.getElementById('slide-background');
+            bg.style.backgroundImage = 'none';
+            
+            // 隐藏iframe
+            hideIframeContent();
+            
+            // 移除媒体播放器
+            const mediaPlayer = document.getElementById('media-player');
+            if (mediaPlayer) mediaPlayer.remove();
+            
+            // 清空幻灯片数组
+            slides = [];
+            currentSlide = 0;
+            
+            // 重置页码
+            document.getElementById('current-page').innerText = '0';
+            document.getElementById('total-pages').innerText = '0';
+            
+            // 清空预览
+            document.getElementById('slide-preview').innerHTML = '';
+            
+            // 重置上传表单中的数据
+            pdfDataUrl = null;
+            audioDataUrl = null;
+            officeFile = null;
+            document.getElementById('pdf-preview').style.display = 'none';
+            document.getElementById('audio-preview').style.display = 'none';
+            document.getElementById('office-preview').style.display = 'none';
+            
+            console.log('✅ 内容已清除');
         }
         
         // ================== 幻灯片管理 ==================
@@ -1598,6 +1568,10 @@
                 case 'r':
                 case 'R':
                     releaseControl();
+                    break;
+                case 'c':
+                case 'C':
+                    clearContent();
                     break;
                 case 'Escape':
                     closeUploadModal();
