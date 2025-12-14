@@ -67,6 +67,8 @@
         let currentQuestion = null;
         let questionType = 'single'; // 题目类型: single(单选), multi(多选), judge(判断)
         let selectedOptions = []; // 多选题已选选项
+        let answerMode = 'vote'; // 答题模式: vote(普通), buzzer(抢答), lucky(点名)
+        let allowedStudent = null; // 允许回答的学生
         
         // 主初始化函数
         function initVote() {
@@ -92,10 +94,6 @@
             supabaseClient.channel('student-vote').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'vote_config' }, payload => handleRoundChange(payload.new)).subscribe();
         }
 
-        // 新增：答题模式和允许回答的学生
-        let answerMode = 'vote';
-        let allowedStudent = null;
-        
         async function handleRoundChange(config) {
             currentRound = config.current_round;
             isRoundActive = config.is_active;
@@ -307,11 +305,19 @@
                 // 添加答题积分
                 let pointsMsg = '';
                 if (typeof PointsSystem !== 'undefined') {
-                    const result = await PointsSystem.addAnswerPoints(
-                        supabaseClient, myId, myName, isCorrect, answerMode, currentRound
-                    );
-                    if (result.success) {
-                        pointsMsg = ` (+${result.points}积分)`;
+                    try {
+                        const result = await PointsSystem.addAnswerPoints(
+                            supabaseClient, myId, myName, isCorrect, answerMode, currentRound
+                        );
+                        if (result.success) {
+                            pointsMsg = ` (+${result.points}积分)`;
+                        } else if (result.points) {
+                            // 即使失败也显示应得积分（可能是表未创建）
+                            pointsMsg = ` (+${result.points}积分*)`;
+                            console.warn('积分添加可能失败，请检查数据库表是否已创建');
+                        }
+                    } catch (e) {
+                        console.error('积分系统错误:', e);
                     }
                 }
                 

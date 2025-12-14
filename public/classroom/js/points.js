@@ -38,6 +38,8 @@ const PointsSystem = {
      */
     async addPoints(supabase, studentId, studentName, points, type, reason, metadata = {}) {
         try {
+            console.log(`🎯 添加积分: ${studentName}(${studentId}) +${points} [${type}] ${reason}`);
+            
             // 1. 插入积分记录
             const { error: logError } = await supabase.from('points_log').insert([{
                 student_id: studentId,
@@ -49,16 +51,25 @@ const PointsSystem = {
             }]);
 
             if (logError) {
-                console.error('积分记录插入失败:', logError);
-                return { success: false, error: logError };
+                console.error('❌ 积分记录插入失败:', logError);
+                // 如果表不存在，尝试只更新总积分
+                if (logError.code === '42P01') {
+                    console.warn('⚠️ points_log 表不存在，请执行 SQL 创建表');
+                }
+                // 继续尝试更新总积分
             }
 
             // 2. 更新学生总积分（使用upsert）
-            const { data: current } = await supabase
+            const { data: current, error: selectError } = await supabase
                 .from('student_points')
                 .select('total_points')
                 .eq('student_id', studentId)
                 .maybeSingle();
+
+            if (selectError && selectError.code === '42P01') {
+                console.error('❌ student_points 表不存在，请执行 SQL 创建表');
+                return { success: false, error: selectError, points: points };
+            }
 
             const newTotal = (current?.total_points || 0) + points;
 
@@ -72,14 +83,15 @@ const PointsSystem = {
                 }, { onConflict: 'student_id' });
 
             if (updateError) {
-                console.error('总积分更新失败:', updateError);
-                return { success: false, error: updateError };
+                console.error('❌ 总积分更新失败:', updateError);
+                return { success: false, error: updateError, points: points };
             }
 
+            console.log(`✅ 积分添加成功: ${studentName} 现有 ${newTotal} 积分`);
             return { success: true, points: points, total: newTotal };
         } catch (e) {
-            console.error('积分操作异常:', e);
-            return { success: false, error: e };
+            console.error('❌ 积分操作异常:', e);
+            return { success: false, error: e, points: points };
         }
     },
 

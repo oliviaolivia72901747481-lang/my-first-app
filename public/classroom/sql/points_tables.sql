@@ -32,9 +32,21 @@ CREATE INDEX IF NOT EXISTS idx_points_log_student_id ON points_log(student_id);
 CREATE INDEX IF NOT EXISTS idx_points_log_created_at ON points_log(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_points_log_type ON points_log(type);
 
--- 4. 启用实时订阅
-ALTER PUBLICATION supabase_realtime ADD TABLE student_points;
-ALTER PUBLICATION supabase_realtime ADD TABLE points_log;
+-- 4. 启用实时订阅（如果已添加会报错，可忽略）
+-- 注意：如果报错 "already member of publication"，说明已经添加过了，可以跳过
+DO $$
+BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE student_points;
+EXCEPTION WHEN duplicate_object THEN
+    RAISE NOTICE 'student_points already in publication';
+END $$;
+
+DO $$
+BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE points_log;
+EXCEPTION WHEN duplicate_object THEN
+    RAISE NOTICE 'points_log already in publication';
+END $$;
 
 -- 5. 添加 RLS 策略
 ALTER TABLE student_points ENABLE ROW LEVEL SECURITY;
