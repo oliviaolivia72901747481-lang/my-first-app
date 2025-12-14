@@ -138,12 +138,14 @@
     - **Property 7, 8, 9, 10: Filter Correctness**
     - **Validates: Requirements 2.5, 3.5, 4.5, 6.5**
 
-- [ ] 7. Update question import and add functionality
-  - [ ] 7.1 Update import modal with task selector
+- [x] 7. Update question import and add functionality
+
+  - [x] 7.1 Update import modal with task selector
     - Replace category selector with cascading course → project → task selector
     - Update CSV import to use task_id
     - _Requirements: 5.1, 5.2_
-  - [ ] 7.2 Update single question add/edit modal
+  - [x] 7.2 Update single question add/edit modal
+
     - Add cascading selector for task selection
     - Update save function to use task_id
     - _Requirements: 5.3, 5.4_

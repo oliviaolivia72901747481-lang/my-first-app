@@ -176,10 +176,27 @@
                 <button onclick="closeImportModal()" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">✕</button>
             </div>
             
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
+            <!-- 三级层级选择器：课程 → 项目 → 任务 -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px;">
                 <div>
-                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">选择分类</label>
-                    <select id="import-category" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;"></select>
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">选择课程 *</label>
+                    <select id="import-course" onchange="updateImportProjectSelect()" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                        <option value="">请选择课程</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">选择项目 *</label>
+                    <select id="import-project" onchange="updateImportTaskSelect()" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                        <option value="">请先选择课程</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px;">
+                <div>
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">选择任务 *</label>
+                    <select id="import-task" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                        <option value="">请先选择项目</option>
+                    </select>
                 </div>
                 <div>
                     <label style="display:block; margin-bottom:8px; color:#94a3b8;">题目类型</label>
@@ -204,7 +221,7 @@
                 <div id="preview-list" style="max-height:200px; overflow-y:auto; background:rgba(0,0,0,0.2); border-radius:8px; padding:10px; margin-bottom:15px;"></div>
                 <div style="display:flex; gap:15px; align-items:center; margin-bottom:15px;">
                     <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
-                        <input type="checkbox" id="clear-before-import"> 清空该分类现有题目
+                        <input type="checkbox" id="clear-before-import"> 清空该任务现有题目
                     </label>
                     <label style="display:flex; align-items:center; gap:5px;">
                         起始序号: <input type="number" id="start-round" value="1" min="1" style="width:80px; padding:5px; border-radius:5px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
@@ -489,7 +506,7 @@
             <h2 style="margin-bottom:20px;" id="question-modal-title">➕ 添加题目</h2>
             <input type="hidden" id="edit-question-id">
             
-            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px; margin-bottom:15px;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px;">
                 <div>
                     <label style="display:block; margin-bottom:8px; color:#94a3b8;">题目序号</label>
                     <input type="number" id="q-round" min="1" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
@@ -503,9 +520,27 @@
                         <option value="fillblank">填空题</option>
                     </select>
                 </div>
+            </div>
+            
+            <!-- 三级层级选择器：课程 → 项目 → 任务 -->
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px; margin-bottom:15px;">
                 <div>
-                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">所属分类</label>
-                    <select id="q-category" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;"></select>
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">所属课程 *</label>
+                    <select id="q-course" onchange="updateQuestionProjectSelect()" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                        <option value="">请选择课程</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">所属项目 *</label>
+                    <select id="q-project" onchange="updateQuestionTaskSelect()" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                        <option value="">请先选择课程</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">所属任务 *</label>
+                    <select id="q-task" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                        <option value="">请先选择项目</option>
+                    </select>
                 </div>
             </div>
             
@@ -1715,14 +1750,8 @@
         }
         
         function updateCategorySelects() {
-            const selects = ['import-category', 'q-category'];
-            selects.forEach(id => {
-                const select = document.getElementById(id);
-                if (select) {
-                    select.innerHTML = '<option value="">未分类</option>' + 
-                        categories.map(c => `<option value="${c.category_id}">${c.name}</option>`).join('');
-                }
-            });
+            // Note: import-category and q-category have been replaced with cascading task selectors
+            // This function is kept for backward compatibility with category management
         }
         
         function openAddCategory() {
@@ -1943,7 +1972,6 @@
             document.getElementById('edit-question-id').value = '';
             document.getElementById('q-round').value = nextRound;
             document.getElementById('q-type').value = 'single';
-            document.getElementById('q-category').value = currentCategory !== 'all' ? currentCategory : '';
             document.getElementById('q-title').value = '';
             document.getElementById('q-opt-a').value = '';
             document.getElementById('q-opt-b').value = '';
@@ -1954,8 +1982,95 @@
             document.getElementById('q-difficulty').value = '1';
             document.getElementById('q-explanation').value = '';
             
+            // 初始化题目弹窗的课程选择器
+            updateQuestionCourseSelect();
+            
+            // 根据当前选择的层级预设课程、项目和任务
+            const qCourseSelect = document.getElementById('q-course');
+            const qProjectSelect = document.getElementById('q-project');
+            const qTaskSelect = document.getElementById('q-task');
+            
+            if (currentFilterType === 'task' && currentFilterId !== 'all') {
+                const task = tasks.find(t => t.task_id === currentFilterId);
+                if (task) {
+                    const project = projects.find(p => p.project_id === task.project_id);
+                    if (project) {
+                        qCourseSelect.value = project.course_id;
+                        updateQuestionProjectSelect();
+                        qProjectSelect.value = task.project_id;
+                        updateQuestionTaskSelect();
+                        qTaskSelect.value = currentFilterId;
+                    }
+                }
+            } else if (currentFilterType === 'project' && currentFilterId !== 'all') {
+                const project = projects.find(p => p.project_id === currentFilterId);
+                if (project) {
+                    qCourseSelect.value = project.course_id;
+                    updateQuestionProjectSelect();
+                    qProjectSelect.value = currentFilterId;
+                    updateQuestionTaskSelect();
+                }
+            } else if (currentFilterType === 'course' && currentFilterId !== 'all') {
+                qCourseSelect.value = currentFilterId;
+                updateQuestionProjectSelect();
+            } else {
+                qProjectSelect.innerHTML = '<option value="">请先选择课程</option>';
+                qTaskSelect.innerHTML = '<option value="">请先选择项目</option>';
+            }
+            
             updateQuestionForm();
             document.getElementById('question-modal').style.display = 'flex';
+        }
+        
+        // 更新题目弹窗的课程选择器
+        function updateQuestionCourseSelect() {
+            const qCourseSelect = document.getElementById('q-course');
+            if (qCourseSelect) {
+                qCourseSelect.innerHTML = '<option value="">请选择课程</option>' + 
+                    courses.map(c => `<option value="${c.course_id}">${c.name}</option>`).join('');
+            }
+        }
+        
+        // 更新题目弹窗的项目选择器
+        function updateQuestionProjectSelect() {
+            const courseId = document.getElementById('q-course').value;
+            const qProjectSelect = document.getElementById('q-project');
+            const qTaskSelect = document.getElementById('q-task');
+            
+            if (!courseId) {
+                qProjectSelect.innerHTML = '<option value="">请先选择课程</option>';
+                qTaskSelect.innerHTML = '<option value="">请先选择项目</option>';
+                return;
+            }
+            
+            const courseProjects = projects.filter(p => p.course_id === courseId);
+            if (courseProjects.length === 0) {
+                qProjectSelect.innerHTML = '<option value="">该课程下暂无项目</option>';
+                qTaskSelect.innerHTML = '<option value="">请先选择项目</option>';
+            } else {
+                qProjectSelect.innerHTML = '<option value="">请选择项目</option>' + 
+                    courseProjects.map(p => `<option value="${p.project_id}">${p.name}</option>`).join('');
+                qTaskSelect.innerHTML = '<option value="">请先选择项目</option>';
+            }
+        }
+        
+        // 更新题目弹窗的任务选择器
+        function updateQuestionTaskSelect() {
+            const projectId = document.getElementById('q-project').value;
+            const qTaskSelect = document.getElementById('q-task');
+            
+            if (!projectId) {
+                qTaskSelect.innerHTML = '<option value="">请先选择项目</option>';
+                return;
+            }
+            
+            const projectTasks = tasks.filter(t => t.project_id === projectId);
+            if (projectTasks.length === 0) {
+                qTaskSelect.innerHTML = '<option value="">该项目下暂无任务</option>';
+            } else {
+                qTaskSelect.innerHTML = '<option value="">请选择任务</option>' + 
+                    projectTasks.map(t => `<option value="${t.task_id}">${t.name}</option>`).join('');
+            }
         }
         
         async function editQuestion(round) {
@@ -1966,7 +2081,6 @@
             document.getElementById('edit-question-id').value = q.id;
             document.getElementById('q-round').value = q.round;
             document.getElementById('q-type').value = q.question_type || 'single';
-            document.getElementById('q-category').value = q.category_id || '';
             document.getElementById('q-title').value = q.title;
             document.getElementById('q-opt-a').value = q.option_a || '';
             document.getElementById('q-opt-b').value = q.option_b || '';
@@ -1976,6 +2090,31 @@
             document.getElementById('q-tag').value = q.knowledge_tag || '';
             document.getElementById('q-difficulty').value = q.difficulty || 1;
             document.getElementById('q-explanation').value = q.explanation || '';
+            
+            // 初始化题目弹窗的课程选择器
+            updateQuestionCourseSelect();
+            
+            // 根据题目的task_id设置课程、项目和任务选择器
+            const qCourseSelect = document.getElementById('q-course');
+            const qProjectSelect = document.getElementById('q-project');
+            const qTaskSelect = document.getElementById('q-task');
+            
+            if (q.task_id) {
+                const task = tasks.find(t => t.task_id === q.task_id);
+                if (task) {
+                    const project = projects.find(p => p.project_id === task.project_id);
+                    if (project) {
+                        qCourseSelect.value = project.course_id;
+                        updateQuestionProjectSelect();
+                        qProjectSelect.value = task.project_id;
+                        updateQuestionTaskSelect();
+                        qTaskSelect.value = q.task_id;
+                    }
+                }
+            } else {
+                qProjectSelect.innerHTML = '<option value="">请先选择课程</option>';
+                qTaskSelect.innerHTML = '<option value="">请先选择项目</option>';
+            }
             
             updateQuestionForm();
             document.getElementById('question-modal').style.display = 'flex';
@@ -2016,7 +2155,7 @@
         async function saveQuestion() {
             const round = parseInt(document.getElementById('q-round').value);
             const type = document.getElementById('q-type').value;
-            const categoryId = document.getElementById('q-category').value || null;
+            const taskId = document.getElementById('q-task').value;
             const title = document.getElementById('q-title').value.trim();
             const answer = document.getElementById('q-answer').value.trim().toUpperCase();
             const tag = document.getElementById('q-tag').value.trim() || null;
@@ -2028,10 +2167,16 @@
                 return;
             }
             
+            // 验证必须选择任务
+            if (!taskId) {
+                alert('请选择所属任务');
+                return;
+            }
+            
             const data = {
                 round,
                 question_type: type,
-                category_id: categoryId,
+                task_id: taskId,
                 title,
                 option_a: document.getElementById('q-opt-a')?.value || null,
                 option_b: document.getElementById('q-opt-b')?.value || null,
@@ -2052,7 +2197,8 @@
             }
             
             closeQuestionModal();
-            loadQuestions();
+            await loadHierarchy();
+            await loadQuestions();
             alert('✅ 保存成功');
         }
         
@@ -2073,7 +2219,93 @@
             document.getElementById('import-modal').style.display = 'flex';
             document.getElementById('import-preview').style.display = 'none';
             pendingImport = [];
-            updateCategorySelects();
+            
+            // 初始化导入弹窗的课程选择器
+            updateImportCourseSelect();
+            
+            // 根据当前选择的层级预设课程、项目和任务
+            const importCourseSelect = document.getElementById('import-course');
+            const importProjectSelect = document.getElementById('import-project');
+            const importTaskSelect = document.getElementById('import-task');
+            
+            if (currentFilterType === 'task' && currentFilterId !== 'all') {
+                const task = tasks.find(t => t.task_id === currentFilterId);
+                if (task) {
+                    const project = projects.find(p => p.project_id === task.project_id);
+                    if (project) {
+                        importCourseSelect.value = project.course_id;
+                        updateImportProjectSelect();
+                        importProjectSelect.value = task.project_id;
+                        updateImportTaskSelect();
+                        importTaskSelect.value = currentFilterId;
+                    }
+                }
+            } else if (currentFilterType === 'project' && currentFilterId !== 'all') {
+                const project = projects.find(p => p.project_id === currentFilterId);
+                if (project) {
+                    importCourseSelect.value = project.course_id;
+                    updateImportProjectSelect();
+                    importProjectSelect.value = currentFilterId;
+                    updateImportTaskSelect();
+                }
+            } else if (currentFilterType === 'course' && currentFilterId !== 'all') {
+                importCourseSelect.value = currentFilterId;
+                updateImportProjectSelect();
+            } else {
+                importProjectSelect.innerHTML = '<option value="">请先选择课程</option>';
+                importTaskSelect.innerHTML = '<option value="">请先选择项目</option>';
+            }
+        }
+        
+        // 更新导入弹窗的课程选择器
+        function updateImportCourseSelect() {
+            const importCourseSelect = document.getElementById('import-course');
+            if (importCourseSelect) {
+                importCourseSelect.innerHTML = '<option value="">请选择课程</option>' + 
+                    courses.map(c => `<option value="${c.course_id}">${c.name}</option>`).join('');
+            }
+        }
+        
+        // 更新导入弹窗的项目选择器
+        function updateImportProjectSelect() {
+            const courseId = document.getElementById('import-course').value;
+            const importProjectSelect = document.getElementById('import-project');
+            const importTaskSelect = document.getElementById('import-task');
+            
+            if (!courseId) {
+                importProjectSelect.innerHTML = '<option value="">请先选择课程</option>';
+                importTaskSelect.innerHTML = '<option value="">请先选择项目</option>';
+                return;
+            }
+            
+            const courseProjects = projects.filter(p => p.course_id === courseId);
+            if (courseProjects.length === 0) {
+                importProjectSelect.innerHTML = '<option value="">该课程下暂无项目</option>';
+                importTaskSelect.innerHTML = '<option value="">请先选择项目</option>';
+            } else {
+                importProjectSelect.innerHTML = '<option value="">请选择项目</option>' + 
+                    courseProjects.map(p => `<option value="${p.project_id}">${p.name}</option>`).join('');
+                importTaskSelect.innerHTML = '<option value="">请先选择项目</option>';
+            }
+        }
+        
+        // 更新导入弹窗的任务选择器
+        function updateImportTaskSelect() {
+            const projectId = document.getElementById('import-project').value;
+            const importTaskSelect = document.getElementById('import-task');
+            
+            if (!projectId) {
+                importTaskSelect.innerHTML = '<option value="">请先选择项目</option>';
+                return;
+            }
+            
+            const projectTasks = tasks.filter(t => t.project_id === projectId);
+            if (projectTasks.length === 0) {
+                importTaskSelect.innerHTML = '<option value="">该项目下暂无任务</option>';
+            } else {
+                importTaskSelect.innerHTML = '<option value="">请选择任务</option>' + 
+                    projectTasks.map(t => `<option value="${t.task_id}">${t.name}</option>`).join('');
+            }
         }
         
         function closeImportModal() {
@@ -2191,20 +2423,26 @@
                 return;
             }
             
-            const categoryId = document.getElementById('import-category').value || null;
+            const taskId = document.getElementById('import-task').value;
             const clearBefore = document.getElementById('clear-before-import').checked;
             const startRound = parseInt(document.getElementById('start-round').value) || 1;
             
-            // 如果需要清空
-            if (clearBefore && categoryId) {
-                await supabaseClient.from('questions').delete().eq('category_id', categoryId);
+            // 验证必须选择任务
+            if (!taskId) {
+                alert('请选择目标任务');
+                return;
             }
             
-            // 添加序号和分类
+            // 如果需要清空该任务下的现有题目
+            if (clearBefore) {
+                await supabaseClient.from('questions').delete().eq('task_id', taskId);
+            }
+            
+            // 添加序号和任务ID
             const questionsToInsert = pendingImport.map((q, i) => ({
                 ...q,
                 round: startRound + i,
-                category_id: categoryId
+                task_id: taskId
             }));
             
             const { error } = await supabaseClient.from('questions').upsert(questionsToInsert, { onConflict: 'round' });
@@ -2216,8 +2454,8 @@
             
             alert(`✅ 成功导入 ${questionsToInsert.length} 道题目`);
             closeImportModal();
-            loadQuestions();
-            loadCategories();
+            await loadHierarchy();
+            await loadQuestions();
         }
         
         // ================== 格式说明 ==================
