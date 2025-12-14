@@ -296,15 +296,152 @@
         }
         .tool-btn:hover { background: rgba(255,255,255,0.1); color: white; }
         .tool-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; }
+        /* 登录页面样式 */
+        .login-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        .login-card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .login-card h2 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+            color: white;
+        }
+        .login-card p {
+            color: #94a3b8;
+            margin-bottom: 30px;
+            font-size: 0.9rem;
+        }
+        .login-input {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 12px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 1rem;
+            margin-bottom: 15px;
+            outline: none;
+            transition: all 0.3s;
+        }
+        .login-input:focus {
+            border-color: #3b82f6;
+            background: rgba(255,255,255,0.15);
+        }
+        .login-input::placeholder {
+            color: #64748b;
+        }
+        .login-btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            color: white;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4);
+        }
+        .login-error {
+            color: #ef4444;
+            font-size: 0.9rem;
+            margin-top: 15px;
+            display: none;
+        }
+        .admin-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255,255,255,0.1);
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+        .admin-info:hover {
+            background: rgba(255,255,255,0.15);
+        }
+        .admin-avatar {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+        }
+        .admin-name {
+            font-size: 0.9rem;
+            color: white;
+        }
+        .logout-btn {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin-left: 10px;
+        }
+        .logout-btn:hover {
+            background: rgba(239, 68, 68, 0.3);
+        }
     </style>
 </head>
 
 <body>
+    <!-- 登录页面 -->
+    <div class="login-overlay" id="login-overlay">
+        <div class="login-card">
+            <div style="font-size:4rem; margin-bottom:20px;">🔐</div>
+            <h2>智慧课堂中控台</h2>
+            <p>请输入管理员密码登录</p>
+            <input type="password" class="login-input" id="admin-password" placeholder="请输入管理员密码" onkeypress="if(event.key==='Enter')doLogin()">
+            <button class="login-btn" onclick="doLogin()">🚀 登录</button>
+            <div class="login-error" id="login-error">❌ 密码错误，请重试</div>
+            <div style="margin-top:30px; padding-top:20px; border-top:1px solid rgba(255,255,255,0.1);">
+                <p style="color:#64748b; font-size:0.8rem; margin-bottom:10px;">默认密码：admin123</p>
+                <button onclick="openPasswordSettings()" style="background:transparent; border:1px solid rgba(255,255,255,0.2); color:#94a3b8; padding:8px 15px; border-radius:8px; cursor:pointer; font-size:0.85rem;">⚙️ 修改密码</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 顶部状态栏 -->
     <div class="top-bar">
         <h1>🎓 智慧课堂中控台</h1>
-        <div class="status-badge idle" id="status-badge">
-            <span id="current-status">自由活动</span>
+        <div style="display:flex; align-items:center; gap:15px;">
+            <div class="status-badge idle" id="status-badge">
+                <span id="current-status">自由活动</span>
+            </div>
+            <div class="admin-info" id="admin-info" style="display:none;">
+                <div class="admin-avatar">👨‍🏫</div>
+                <span class="admin-name" id="admin-name">管理员</span>
+                <button class="logout-btn" onclick="doLogout()">退出</button>
+            </div>
         </div>
     </div>
     
@@ -428,9 +565,108 @@
         let isVoteActive = true;
         let currentQuestion = null;
         let voteChart = null;
+        let isLoggedIn = false;
+        
+        // ================== 管理员登录功能 ==================
+        const DEFAULT_PASSWORD = 'admin123';
+        const PASSWORD_KEY = 'classroom_admin_password';
+        const LOGIN_KEY = 'classroom_admin_logged_in';
+        const LOGIN_EXPIRY_KEY = 'classroom_admin_login_expiry';
+        
+        function getAdminPassword() {
+            return localStorage.getItem(PASSWORD_KEY) || DEFAULT_PASSWORD;
+        }
+        
+        function setAdminPassword(newPassword) {
+            localStorage.setItem(PASSWORD_KEY, newPassword);
+        }
+        
+        function checkLoginStatus() {
+            const loggedIn = sessionStorage.getItem(LOGIN_KEY);
+            const expiry = sessionStorage.getItem(LOGIN_EXPIRY_KEY);
+            
+            if (loggedIn === 'true' && expiry) {
+                const expiryTime = parseInt(expiry);
+                if (Date.now() < expiryTime) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        function doLogin() {
+            const password = document.getElementById('admin-password').value;
+            const errorEl = document.getElementById('login-error');
+            
+            if (password === getAdminPassword()) {
+                // 登录成功，设置4小时过期
+                sessionStorage.setItem(LOGIN_KEY, 'true');
+                sessionStorage.setItem(LOGIN_EXPIRY_KEY, (Date.now() + 4 * 60 * 60 * 1000).toString());
+                isLoggedIn = true;
+                
+                document.getElementById('login-overlay').style.display = 'none';
+                document.getElementById('admin-info').style.display = 'flex';
+                errorEl.style.display = 'none';
+                
+                // 初始化主界面
+                initMainInterface();
+            } else {
+                errorEl.style.display = 'block';
+                document.getElementById('admin-password').value = '';
+                document.getElementById('admin-password').focus();
+            }
+        }
+        
+        function doLogout() {
+            if (!confirm('确定要退出登录吗？')) return;
+            
+            sessionStorage.removeItem(LOGIN_KEY);
+            sessionStorage.removeItem(LOGIN_EXPIRY_KEY);
+            isLoggedIn = false;
+            
+            document.getElementById('login-overlay').style.display = 'flex';
+            document.getElementById('admin-info').style.display = 'none';
+            document.getElementById('admin-password').value = '';
+        }
+        
+        function openPasswordSettings() {
+            const currentPwd = prompt('请输入当前密码：');
+            if (currentPwd !== getAdminPassword()) {
+                alert('❌ 当前密码错误');
+                return;
+            }
+            
+            const newPwd = prompt('请输入新密码（至少6位）：');
+            if (!newPwd || newPwd.length < 6) {
+                alert('❌ 密码长度至少6位');
+                return;
+            }
+            
+            const confirmPwd = prompt('请再次输入新密码：');
+            if (newPwd !== confirmPwd) {
+                alert('❌ 两次输入的密码不一致');
+                return;
+            }
+            
+            setAdminPassword(newPwd);
+            alert('✅ 密码修改成功！');
+        }
         
         // ================== 初始化 ==================
-        async function init() {
+        function init() {
+            // 检查登录状态
+            if (checkLoginStatus()) {
+                isLoggedIn = true;
+                document.getElementById('login-overlay').style.display = 'none';
+                document.getElementById('admin-info').style.display = 'flex';
+                initMainInterface();
+            } else {
+                document.getElementById('login-overlay').style.display = 'flex';
+                document.getElementById('admin-password').focus();
+            }
+        }
+        
+        async function initMainInterface() {
             generateQRCode();
             loadStudentCount();
             loadQuestionCount();
@@ -440,9 +676,13 @@
             loadBuzzerState();
             
             // 检查全局状态
-            const { data } = await supabaseClient.from('global_state').select('*').eq('id', 1).single();
-            if (data && data.status === 'active') {
-                updateStatusBadge('active', '系统运行中...');
+            try {
+                const { data } = await supabaseClient.from('global_state').select('*').eq('id', 1).single();
+                if (data && data.status === 'active') {
+                    updateStatusBadge('active', '系统运行中...');
+                }
+            } catch (e) {
+                console.error('加载全局状态失败:', e);
             }
             
             // 实时监听
