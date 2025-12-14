@@ -120,15 +120,18 @@
     - **Property 6: Cascade Delete - Task Level**
     - **Validates: Requirements 4.4**
 
-- [ ] 6. Update question filtering by hierarchy
-  - [ ] 6.1 Implement filter by course
+- [x] 6. Update question filtering by hierarchy
+
+
+
+  - [x] 6.1 Implement filter by course
     - Filter questions where task.project.course matches selected course
     - Update loadQuestions() to handle course filter
     - _Requirements: 2.5_
-  - [ ] 6.2 Implement filter by project
+  - [x] 6.2 Implement filter by project
     - Filter questions where task.project matches selected project
     - _Requirements: 3.5_
-  - [ ] 6.3 Implement filter by task
+  - [x] 6.3 Implement filter by task
     - Filter questions where task matches selected task
     - _Requirements: 4.5, 6.4_
   - [ ]* 6.4 Write property test for filtering
