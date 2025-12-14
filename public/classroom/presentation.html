@@ -1734,32 +1734,89 @@
                 const { data: pointsLogs } = await supabaseClient.from('points_log').select('*').gte('created_at', today);
                 const { data: studentPoints } = await supabaseClient.from('student_points').select('*');
                 
-                // 构建导出数据
-                const exportData = {
-                    exportTime: new Date().toISOString(),
-                    date: today,
-                    summary: {
-                        attendanceCount: attendance?.length || 0,
-                        answerCount: voteLogs?.length || 0,
-                        correctCount: voteLogs?.filter(v => v.is_correct).length || 0,
-                        totalPoints: pointsLogs?.reduce((sum, p) => sum + p.points, 0) || 0
-                    },
-                    attendance: attendance || [],
-                    voteLogs: voteLogs || [],
-                    pointsLogs: pointsLogs || [],
-                    studentPoints: studentPoints || []
-                };
+                // 汇总学生数据
+                const studentMap = {};
                 
-                // 下载JSON文件
-                const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                // 从签到记录获取学生信息
+                (attendance || []).forEach(a => {
+                    if (!studentMap[a.student_id]) {
+                        studentMap[a.student_id] = {
+                            student_id: a.student_id,
+                            student_name: a.student_name,
+                            signed: true,
+                            sign_time: a.created_at,
+                            answer_count: 0,
+                            correct_count: 0,
+                            today_points: 0,
+                            total_points: 0
+                        };
+                    }
+                });
+                
+                // 从答题记录统计
+                (voteLogs || []).forEach(v => {
+                    if (studentMap[v.student_id]) {
+                        studentMap[v.student_id].answer_count++;
+                        if (v.is_correct) studentMap[v.student_id].correct_count++;
+                    }
+                });
+                
+                // 从积分记录统计今日积分
+                (pointsLogs || []).forEach(p => {
+                    if (studentMap[p.student_id]) {
+                        studentMap[p.student_id].today_points += p.points;
+                    }
+                });
+                
+                // 从总积分表获取总积分
+                (studentPoints || []).forEach(s => {
+                    if (studentMap[s.student_id]) {
+                        studentMap[s.student_id].total_points = s.total_points;
+                    }
+                });
+                
+                // 转换为数组并排序
+                const students = Object.values(studentMap).sort((a, b) => b.total_points - a.total_points);
+                
+                // 生成Excel CSV内容（带BOM以支持中文）
+                const BOM = '\uFEFF';
+                const headers = ['排名', '学号', '姓名', '签到时间', '答题次数', '正确次数', '正确率', '今日积分', '总积分'];
+                const rows = students.map((s, i) => [
+                    i + 1,
+                    s.student_id,
+                    s.student_name,
+                    s.sign_time ? new Date(s.sign_time).toLocaleString('zh-CN') : '',
+                    s.answer_count,
+                    s.correct_count,
+                    s.answer_count > 0 ? Math.round(s.correct_count / s.answer_count * 100) + '%' : '0%',
+                    s.today_points,
+                    s.total_points
+                ]);
+                
+                // 添加汇总行
+                const totalAnswers = students.reduce((sum, s) => sum + s.answer_count, 0);
+                const totalCorrect = students.reduce((sum, s) => sum + s.correct_count, 0);
+                const totalTodayPts = students.reduce((sum, s) => sum + s.today_points, 0);
+                rows.push([]);
+                rows.push(['汇总', '', `共${students.length}人`, '', totalAnswers, totalCorrect, 
+                    totalAnswers > 0 ? Math.round(totalCorrect / totalAnswers * 100) + '%' : '0%', 
+                    totalTodayPts, '']);
+                
+                // 转换为CSV格式
+                const csvContent = BOM + [headers, ...rows].map(row => 
+                    row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+                ).join('\n');
+                
+                // 下载CSV文件（Excel可直接打开）
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `课堂数据_${timestamp}.json`;
+                a.download = `课堂数据_${timestamp}.csv`;
                 a.click();
                 URL.revokeObjectURL(url);
                 
-                alert('✅ 数据导出成功！');
+                alert('✅ 数据导出成功！\n\n文件已保存为CSV格式，可用Excel直接打开。');
             } catch (e) {
                 console.error('导出失败:', e);
                 alert('❌ 导出失败: ' + e.message);
