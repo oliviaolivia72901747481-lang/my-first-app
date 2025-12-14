@@ -617,7 +617,7 @@
             
             <!-- 积分排行榜标题 -->
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <span style="font-size:1rem; font-weight:bold; color:white;">🏆 积分排行榜</span>
+                <span style="font-size:1rem; font-weight:bold; color:white;">🏆 本节课排行</span>
                 <button onclick="refreshSidebarLeaderboard()" style="background:rgba(255,255,255,0.1); border:none; color:white; padding:4px 8px; border-radius:5px; cursor:pointer; font-size:0.75rem;">🔄</button>
             </div>
             
@@ -2689,50 +2689,65 @@
             }
             
             try {
-                // 获取总积分排行
-                const { data, error } = await supabaseClient
-                    .from('student_points')
-                    .select('student_id, student_name, total_points')
-                    .order('total_points', { ascending: false })
-                    .limit(15);
-                
-                if (error) throw error;
-                
-                if (!data || data.length === 0) {
-                    list.innerHTML = '<div style="text-align:center; color:#666; padding:20px;">暂无数据</div>';
-                    return;
-                }
-                
-                // 从 points_log 获取今日积分
+                // 从 points_log 获取今日（本节课）积分
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
-                const { data: todayLogs } = await supabaseClient
+                const { data: todayLogs, error: logsError } = await supabaseClient
                     .from('points_log')
-                    .select('student_id, points')
+                    .select('student_id, student_name, points')
                     .gte('created_at', today.toISOString());
                 
+                if (logsError) throw logsError;
+                
+                // 汇总今日积分
                 const todayPoints = {};
+                const studentNames = {};
                 if (todayLogs) {
                     todayLogs.forEach(log => {
                         todayPoints[log.student_id] = (todayPoints[log.student_id] || 0) + log.points;
+                        studentNames[log.student_id] = log.student_name;
+                    });
+                }
+                
+                // 转换为数组并按今日积分排序
+                const todayRanking = Object.keys(todayPoints).map(studentId => ({
+                    student_id: studentId,
+                    student_name: studentNames[studentId],
+                    today_points: todayPoints[studentId]
+                })).sort((a, b) => b.today_points - a.today_points).slice(0, 15);
+                
+                if (todayRanking.length === 0) {
+                    list.innerHTML = '<div style="text-align:center; color:#666; padding:20px;">本节课暂无积分记录</div>';
+                    return;
+                }
+                
+                // 获取总积分（用于显示）
+                const { data: totalData } = await supabaseClient
+                    .from('student_points')
+                    .select('student_id, total_points');
+                
+                const totalPointsMap = {};
+                if (totalData) {
+                    totalData.forEach(s => {
+                        totalPointsMap[s.student_id] = s.total_points;
                     });
                 }
                 
                 // 检测积分变化，添加高亮动画
                 const changedIds = [];
-                data.forEach(student => {
+                todayRanking.forEach(student => {
                     const old = lastLeaderboardData.find(s => s.student_id === student.student_id);
-                    if (old && old.total_points !== student.total_points) {
+                    if (old && old.today_points !== student.today_points) {
                         changedIds.push(student.student_id);
                     }
                 });
-                lastLeaderboardData = data;
+                lastLeaderboardData = todayRanking;
                 
-                list.innerHTML = data.map((student, index) => {
+                list.innerHTML = todayRanking.map((student, index) => {
                     const rank = index + 1;
                     const topClass = rank <= 3 ? `top-${rank}` : '';
                     const highlightClass = changedIds.includes(student.student_id) ? 'highlight' : '';
-                    const todayPts = todayPoints[student.student_id] || 0;
+                    const totalPts = totalPointsMap[student.student_id] || student.today_points;
                     let medal = '';
                     if (rank === 1) medal = '🥇';
                     else if (rank === 2) medal = '🥈';
@@ -2743,11 +2758,11 @@
                             <div class="rank-pos">${medal || rank}</div>
                             <div class="rank-info">
                                 <div class="rank-name">${student.student_name}</div>
-                                ${todayPts > 0 ? `<div class="rank-today">今日 +${todayPts}</div>` : ''}
+                                <div class="rank-today" style="color:#94a3b8;">总积分: ${totalPts}</div>
                             </div>
                             <div class="rank-points-wrap">
-                                <div class="rank-total">${student.total_points}</div>
-                                <div class="rank-today-pts">总积分</div>
+                                <div class="rank-total" style="color:#10b981;">+${student.today_points}</div>
+                                <div class="rank-today-pts">本节课</div>
                             </div>
                         </div>
                     `;
