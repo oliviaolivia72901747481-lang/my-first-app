@@ -2065,7 +2065,19 @@
                 }
             }
             
-            const { error } = await supabaseClient.from('questions').upsert(data, { onConflict: 'round' });
+            // 检查是否是编辑现有题目
+            const existingQuestion = questions.find(q => q.round === round);
+            let error;
+            
+            if (existingQuestion) {
+                // 更新现有题目
+                const result = await supabaseClient.from('questions').update(data).eq('round', round);
+                error = result.error;
+            } else {
+                // 插入新题目
+                const result = await supabaseClient.from('questions').insert(data);
+                error = result.error;
+            }
             
             if (error) {
                 alert('保存失败: ' + error.message);
@@ -2337,10 +2349,32 @@
                 task_id: taskId
             }));
             
-            const { error } = await supabaseClient.from('questions').upsert(questionsToInsert, { onConflict: 'round' });
+            // 逐个插入或更新题目
+            let successCount = 0;
+            let errorMsg = null;
             
-            if (error) {
-                alert('导入失败: ' + error.message);
+            for (const q of questionsToInsert) {
+                // 检查是否存在相同round的题目
+                const { data: existing } = await supabaseClient.from('questions').select('round').eq('round', q.round).maybeSingle();
+                
+                let result;
+                if (existing) {
+                    // 更新现有题目
+                    result = await supabaseClient.from('questions').update(q).eq('round', q.round);
+                } else {
+                    // 插入新题目
+                    result = await supabaseClient.from('questions').insert(q);
+                }
+                
+                if (result.error) {
+                    errorMsg = result.error.message;
+                    break;
+                }
+                successCount++;
+            }
+            
+            if (errorMsg) {
+                alert(`导入部分失败: ${errorMsg}\n已成功导入 ${successCount} 道题目`);
                 return;
             }
             
