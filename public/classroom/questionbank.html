@@ -3688,15 +3688,20 @@
                 return;
             }
             
-            // 获取下一个可用序号
-            const { data: maxRoundData } = await supabaseClient
+            // 获取该任务下最大的序号
+            const { data: existingQuestions } = await supabaseClient
                 .from('questions')
                 .select('round')
                 .eq('task_id', taskId)
+                .not('round', 'is', null)
                 .order('round', { ascending: false })
                 .limit(1);
             
-            let nextRound = maxRoundData && maxRoundData.length > 0 ? maxRoundData[0].round + 1 : 1;
+            // 计算下一个可用序号
+            let nextRound = 1;
+            if (existingQuestions && existingQuestions.length > 0 && existingQuestions[0].round) {
+                nextRound = existingQuestions[0].round + 1;
+            }
             
             // 准备插入数据
             const questionsToInsert = generatedQuestions.map((q, i) => ({
