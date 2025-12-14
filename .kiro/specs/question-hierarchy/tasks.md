@@ -153,13 +153,22 @@
     - **Property 12: Import Task Association**
     - **Validates: Requirements 5.1, 5.2**
 
-- [ ] 8. Implement question count updates
-  - [ ] 8.1 Create count update functions
+- [x] 8. Implement question count updates
+
+
+
+
+
+  - [x] 8.1 Create count update functions
+
+
     - Function to update task question_count
     - Function to update project question_count (aggregate from tasks)
     - Function to update course question_count (aggregate from projects)
     - _Requirements: 7.4_
-  - [ ] 8.2 Integrate count updates into CRUD operations
+  - [x] 8.2 Integrate count updates into CRUD operations
+
+
     - Call count updates after question add/delete
     - Call count updates after task/project/course delete
     - _Requirements: 7.1, 7.2, 7.3, 7.4_

@@ -704,25 +704,14 @@
             updateCourseSelects();
         }
         
-        // 更新课程的项目数量和题目数量
+        // 更新课程的项目数量和题目数量（使用新的统一函数）
         async function updateCourseStats(courseId) {
-            const courseProjects = projects.filter(p => p.course_id === courseId);
-            const projectCount = courseProjects.length;
-            const courseProjectIds = courseProjects.map(p => p.project_id);
-            const courseTaskIds = tasks.filter(t => courseProjectIds.includes(t.project_id)).map(t => t.task_id);
-            const questionCount = questions.filter(q => courseTaskIds.includes(q.task_id)).length;
-            
-            await supabaseClient.from('courses').update({
-                project_count: projectCount,
-                question_count: questionCount
-            }).eq('course_id', courseId);
+            await updateCourseQuestionCount(courseId);
         }
         
         // 更新所有课程的统计数据
         async function updateAllCourseStats() {
-            for (const course of courses) {
-                await updateCourseStats(course.course_id);
-            }
+            await updateAllHierarchyCounts();
         }
         
         function renderCourseSelect() {
@@ -1036,6 +1025,10 @@
             
             closeProjectModal();
             await loadHierarchy();
+            
+            // 更新课程的项目数量
+            await updateCourseQuestionCount(courseId);
+            
             alert('✅ 保存成功');
         }
         
@@ -1095,17 +1088,9 @@
             container.innerHTML = html;
         }
         
-        // 更新项目的任务数量和题目数量
+        // 更新项目的任务数量和题目数量（使用新的统一函数）
         async function updateProjectStats(projectId) {
-            const projectTasks = tasks.filter(t => t.project_id === projectId);
-            const taskCount = projectTasks.length;
-            const projectTaskIds = projectTasks.map(t => t.task_id);
-            const questionCount = questions.filter(q => projectTaskIds.includes(q.task_id)).length;
-            
-            await supabaseClient.from('projects').update({
-                task_count: taskCount,
-                question_count: questionCount
-            }).eq('project_id', projectId);
+            await updateProjectQuestionCount(projectId);
         }
         
         // 删除项目（级联删除任务和题目）
@@ -1168,6 +1153,11 @@
                 // 重新加载数据
                 await loadHierarchy();
                 await loadQuestions();
+                
+                // 更新课程的题目数量
+                if (course) {
+                    await updateCourseQuestionCount(course.course_id);
+                }
                 
                 // 刷新项目列表弹窗（如果打开的话）
                 if (document.getElementById('projects-list-modal').style.display === 'flex') {
@@ -1317,6 +1307,14 @@
             
             closeTaskModal();
             await loadHierarchy();
+            
+            // 更新项目和课程的任务/题目数量
+            await updateProjectQuestionCount(projectId);
+            const project = projects.find(p => p.project_id === projectId);
+            if (project) {
+                await updateCourseQuestionCount(project.course_id);
+            }
+            
             alert('✅ 保存成功');
         }
         
@@ -1383,13 +1381,121 @@
             container.innerHTML = html;
         }
         
+        // ================== 题目数量更新函数 ==================
         // 更新任务的题目数量
-        async function updateTaskStats(taskId) {
+        async function updateTaskQuestionCount(taskId) {
+            if (!taskId) return;
             const questionCount = questions.filter(q => q.task_id === taskId).length;
             
-            await supabaseClient.from('tasks').update({
+            const { error } = await supabaseClient.from('tasks').update({
                 question_count: questionCount
             }).eq('task_id', taskId);
+            
+            if (error) {
+                console.error('更新任务题目数量失败:', error);
+            }
+            
+            // 同时更新本地缓存
+            const task = tasks.find(t => t.task_id === taskId);
+            if (task) {
+                task.question_count = questionCount;
+            }
+        }
+        
+        // 更新项目的题目数量（从任务聚合）
+        async function updateProjectQuestionCount(projectId) {
+            if (!projectId) return;
+            
+            // 获取该项目下所有任务的题目数量总和
+            const projectTaskIds = tasks.filter(t => t.project_id === projectId).map(t => t.task_id);
+            const questionCount = questions.filter(q => projectTaskIds.includes(q.task_id)).length;
+            const taskCount = projectTaskIds.length;
+            
+            const { error } = await supabaseClient.from('projects').update({
+                question_count: questionCount,
+                task_count: taskCount
+            }).eq('project_id', projectId);
+            
+            if (error) {
+                console.error('更新项目题目数量失败:', error);
+            }
+            
+            // 同时更新本地缓存
+            const project = projects.find(p => p.project_id === projectId);
+            if (project) {
+                project.question_count = questionCount;
+                project.task_count = taskCount;
+            }
+        }
+        
+        // 更新课程的题目数量（从项目聚合）
+        async function updateCourseQuestionCount(courseId) {
+            if (!courseId) return;
+            
+            // 获取该课程下所有项目的题目数量总和
+            const courseProjectIds = projects.filter(p => p.course_id === courseId).map(p => p.project_id);
+            const courseTaskIds = tasks.filter(t => courseProjectIds.includes(t.project_id)).map(t => t.task_id);
+            const questionCount = questions.filter(q => courseTaskIds.includes(q.task_id)).length;
+            const projectCount = courseProjectIds.length;
+            
+            const { error } = await supabaseClient.from('courses').update({
+                question_count: questionCount,
+                project_count: projectCount
+            }).eq('course_id', courseId);
+            
+            if (error) {
+                console.error('更新课程题目数量失败:', error);
+            }
+            
+            // 同时更新本地缓存
+            const course = courses.find(c => c.course_id === courseId);
+            if (course) {
+                course.question_count = questionCount;
+                course.project_count = projectCount;
+            }
+        }
+        
+        // 更新整个层级链的题目数量（从任务到项目到课程）
+        async function updateHierarchyQuestionCounts(taskId) {
+            if (!taskId) return;
+            
+            // 1. 更新任务的题目数量
+            await updateTaskQuestionCount(taskId);
+            
+            // 2. 找到任务所属的项目并更新
+            const task = tasks.find(t => t.task_id === taskId);
+            if (task && task.project_id) {
+                await updateProjectQuestionCount(task.project_id);
+                
+                // 3. 找到项目所属的课程并更新
+                const project = projects.find(p => p.project_id === task.project_id);
+                if (project && project.course_id) {
+                    await updateCourseQuestionCount(project.course_id);
+                }
+            }
+        }
+        
+        // 更新所有层级的题目数量（用于批量操作后）
+        async function updateAllHierarchyCounts() {
+            // 更新所有任务的题目数量
+            for (const task of tasks) {
+                await updateTaskQuestionCount(task.task_id);
+            }
+            
+            // 更新所有项目的题目数量
+            for (const project of projects) {
+                await updateProjectQuestionCount(project.project_id);
+            }
+            
+            // 更新所有课程的题目数量
+            for (const course of courses) {
+                await updateCourseQuestionCount(course.course_id);
+            }
+        }
+        
+        // 保留旧函数名以兼容现有代码
+        async function updateTaskStats(taskId) {
+            await updateTaskQuestionCount(taskId);
         }
         
         // 删除任务（级联删除题目）
@@ -1439,6 +1545,14 @@
                 // 重新加载数据
                 await loadHierarchy();
                 await loadQuestions();
+                
+                // 更新项目和课程的题目数量
+                if (project) {
+                    await updateProjectQuestionCount(project.project_id);
+                    if (course) {
+                        await updateCourseQuestionCount(course.course_id);
+                    }
+                }
                 
                 // 刷新任务列表弹窗（如果打开的话）
                 if (document.getElementById('tasks-list-modal').style.display === 'flex') {
@@ -2189,6 +2303,16 @@
                 updated_at: new Date().toISOString()
             };
             
+            // 获取旧题目的task_id（如果是编辑操作）
+            const editId = document.getElementById('edit-question-id').value;
+            let oldTaskId = null;
+            if (editId) {
+                const oldQuestion = questions.find(q => q.round === round);
+                if (oldQuestion) {
+                    oldTaskId = oldQuestion.task_id;
+                }
+            }
+            
             const { error } = await supabaseClient.from('questions').upsert(data, { onConflict: 'round' });
             
             if (error) {
@@ -2199,11 +2323,22 @@
             closeQuestionModal();
             await loadHierarchy();
             await loadQuestions();
+            
+            // 更新题目数量：新任务和旧任务（如果不同）
+            await updateHierarchyQuestionCounts(taskId);
+            if (oldTaskId && oldTaskId !== taskId) {
+                await updateHierarchyQuestionCounts(oldTaskId);
+            }
+            
             alert('✅ 保存成功');
         }
         
         async function deleteQuestion(round) {
             if (!confirm(`确定要删除第 ${round} 题吗？`)) return;
+            
+            // 获取题目的task_id以便更新计数
+            const question = questions.find(q => q.round === round);
+            const taskId = question ? question.task_id : null;
             
             const { error } = await supabaseClient.from('questions').delete().eq('round', round);
             if (error) {
@@ -2211,7 +2346,12 @@
                 return;
             }
             
-            loadQuestions();
+            await loadQuestions();
+            
+            // 更新题目数量
+            if (taskId) {
+                await updateHierarchyQuestionCounts(taskId);
+            }
         }
 
         // ================== 导入功能 ==================
@@ -2452,10 +2592,14 @@
                 return;
             }
             
-            alert(`✅ 成功导入 ${questionsToInsert.length} 道题目`);
             closeImportModal();
             await loadHierarchy();
             await loadQuestions();
+            
+            // 更新题目数量
+            await updateHierarchyQuestionCounts(taskId);
+            
+            alert(`✅ 成功导入 ${questionsToInsert.length} 道题目`);
         }
         
         // ================== 格式说明 ==================
