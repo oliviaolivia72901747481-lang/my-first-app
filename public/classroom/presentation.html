@@ -535,6 +535,7 @@
             <div style="display:flex; gap:10px;">
                 <button class="ctrl-btn btn-upload" onclick="openUploadModal()">📤 上传课件</button>
                 <button class="ctrl-btn" style="background:#3b82f6; color:white;" onclick="openAnalytics()">📊 数据</button>
+                <button class="ctrl-btn" style="background:#8b5cf6; color:white;" onclick="openHistoryPanel()">📚 历史</button>
                 <button class="ctrl-btn" style="background:#f59e0b; color:white;" onclick="toggleFullscreen()">⛶ 全屏</button>
             </div>
         </div>
@@ -837,6 +838,9 @@
         </div>
     </div>
 
+    <!-- 历史数据管理模块 -->
+    <script src="/classroom/js/history.js"></script>
+    
     <script>
         // Supabase 配置
         const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co';
@@ -1659,9 +1663,18 @@
             modal.id = 'end-class-modal';
             modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center; z-index:2000;';
             modal.innerHTML = `
-                <div style="background:white; border-radius:20px; padding:30px; width:90%; max-width:500px; color:#333; text-align:center;">
+                <div style="background:white; border-radius:20px; padding:30px; width:90%; max-width:550px; color:#333; text-align:center;">
                     <h2 style="margin-bottom:20px; color:#ef4444;">🔔 下课确认</h2>
-                    <p style="color:#666; margin-bottom:20px;">下课将会重置所有功能并清空今日数据</p>
+                    <p style="color:#666; margin-bottom:15px;">下课将自动存档数据到历史记录，然后清空今日数据</p>
+                    
+                    <!-- 课程信息输入 -->
+                    <div style="background:#f0f9ff; border-radius:10px; padding:15px; margin-bottom:15px; text-align:left;">
+                        <div style="font-weight:bold; margin-bottom:10px; color:#0369a1;">📝 课程信息（可选）</div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <input type="text" id="end-class-name" placeholder="班级名称" style="padding:8px 12px; border:1px solid #ddd; border-radius:6px; font-size:0.9rem;">
+                            <input type="text" id="end-course-name" placeholder="课程名称" style="padding:8px 12px; border:1px solid #ddd; border-radius:6px; font-size:0.9rem;">
+                        </div>
+                    </div>
                     
                     <div style="background:#f8fafc; border-radius:10px; padding:15px; margin-bottom:20px; text-align:left;">
                         <div style="font-weight:bold; margin-bottom:10px;">📊 本节课数据统计</div>
@@ -1670,14 +1683,19 @@
                     
                     <div style="display:flex; flex-direction:column; gap:10px;">
                         <button onclick="exportClassData()" style="padding:15px; background:linear-gradient(135deg, #3b82f6, #8b5cf6); color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold; font-size:1rem;">
-                            💾 导出本节课数据
+                            💾 导出CSV文件
                         </button>
-                        <button onclick="confirmEndClass()" style="padding:15px; background:#ef4444; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold; font-size:1rem;">
-                            ✅ 确认下课并清空数据
+                        <button onclick="archiveAndEndClass()" id="archive-end-btn" style="padding:15px; background:linear-gradient(135deg, #10b981, #059669); color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold; font-size:1rem;">
+                            📦 存档并下课
                         </button>
-                        <button onclick="closeEndClassModal()" style="padding:12px; background:#e5e7eb; color:#333; border:none; border-radius:10px; cursor:pointer; font-weight:bold;">
-                            取消
-                        </button>
+                        <div style="display:flex; gap:10px;">
+                            <button onclick="openHistoryPanel()" style="flex:1; padding:12px; background:#f59e0b; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold;">
+                                📚 查看历史
+                            </button>
+                            <button onclick="closeEndClassModal()" style="flex:1; padding:12px; background:#e5e7eb; color:#333; border:none; border-radius:10px; cursor:pointer; font-weight:bold;">
+                                取消
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -1823,66 +1841,318 @@
             }
         }
         
-        async function confirmEndClass() {
+        // 存档并下课
+        async function archiveAndEndClass() {
+            const btn = document.getElementById('archive-end-btn');
+            btn.disabled = true;
+            btn.innerHTML = '⏳ 正在存档...';
+            
             try {
-                const today = new Date().toISOString().split('T')[0];
+                // 获取课程信息
+                const className = document.getElementById('end-class-name')?.value || '';
+                const courseName = document.getElementById('end-course-name')?.value || '';
                 
-                // 1. 释放全局控制
-                await supabaseClient.from('global_state').update({
-                    current_page: 'idle',
-                    status: 'idle'
-                }).eq('id', 1);
+                // 1. 存档数据到历史记录
+                const archiveResult = await ClassHistory.archiveSession(supabaseClient, {
+                    class_name: className,
+                    course_name: courseName
+                });
                 
-                // 2. 重置答题配置
-                await supabaseClient.from('vote_config').update({
-                    current_round: 1,
-                    is_active: false,
-                    allowed_student: null,
-                    answer_mode: 'vote'
-                }).eq('id', 1);
-                
-                // 3. 关闭抢答
-                await supabaseClient.from('buzzer').update({
-                    is_active: false,
-                    winner: null
-                }).eq('id', 1);
-                
-                // 4. 清空今日答题记录
-                await supabaseClient.from('vote_logs').delete().gte('created_at', today);
-                
-                // 5. 清空今日签到记录
-                await supabaseClient.from('attendance').delete().gte('created_at', today);
-                
-                // 6. 清空今日积分记录（可选，保留总积分）
-                // await supabaseClient.from('points_log').delete().gte('created_at', today);
-                
-                // 重置本地状态
-                isDanmuEnabled = false;
-                isQuestionPanelVisible = false;
-                qpRound = 1;
-                isQPActive = false;
-                showAnswerRevealed = false;
-                document.getElementById('question-panel').style.display = 'none';
-                updateDanmuButton();
-                
-                // 关闭侧边栏
-                if (isSidebarOpen) {
-                    isSidebarOpen = false;
-                    document.getElementById('sidebar').classList.remove('open');
+                if (archiveResult.success) {
+                    console.log('✅ 数据存档成功:', archiveResult.sessionId);
                 }
                 
-                // 关闭点名面板
-                if (isLuckyVisible) {
-                    closeLuckyOverlay();
-                }
+                // 2. 执行下课清理
+                await doEndClassCleanup();
                 
-                // 关闭下课弹窗
+                // 关闭弹窗
                 closeEndClassModal();
                 
-                alert('✅ 下课成功！\n\n• 所有功能已重置\n• 签到记录已清空\n• 答题记录已清空\n• 学生端已释放');
+                if (archiveResult.success) {
+                    alert(`✅ 下课成功！\n\n📦 数据已存档到历史记录\n• 签到人数: ${archiveResult.stats.attendanceCount}\n• 答题次数: ${archiveResult.stats.answerCount}\n• 正确率: ${archiveResult.stats.correctRate}%\n• 发放积分: ${archiveResult.stats.pointsDistributed}\n\n可在"查看历史"中查看详情`);
+                } else {
+                    alert('✅ 下课成功！\n\n⚠️ 数据存档跳过（无数据或存档失败）\n所有功能已重置');
+                }
+            } catch (err) {
+                console.error('存档下课失败:', err);
+                alert('❌ 操作失败: ' + err.message);
+                btn.disabled = false;
+                btn.innerHTML = '📦 存档并下课';
+            }
+        }
+        
+        // 下课清理操作
+        async function doEndClassCleanup() {
+            const today = new Date().toISOString().split('T')[0];
+            
+            // 1. 释放全局控制
+            await supabaseClient.from('global_state').update({
+                current_page: 'idle',
+                status: 'idle'
+            }).eq('id', 1);
+            
+            // 2. 重置答题配置
+            await supabaseClient.from('vote_config').update({
+                current_round: 1,
+                is_active: false,
+                allowed_student: null,
+                answer_mode: 'vote'
+            }).eq('id', 1);
+            
+            // 3. 关闭抢答
+            await supabaseClient.from('buzzer').update({
+                is_active: false,
+                winner: null
+            }).eq('id', 1);
+            
+            // 4. 清空今日答题记录
+            await supabaseClient.from('vote_logs').delete().gte('created_at', today);
+            
+            // 5. 清空今日签到记录
+            await supabaseClient.from('attendance').delete().gte('created_at', today);
+            
+            // 6. 清空今日积分记录
+            await supabaseClient.from('points_log').delete().gte('created_at', today);
+            
+            // 重置本地状态
+            isDanmuEnabled = false;
+            isQuestionPanelVisible = false;
+            qpRound = 1;
+            isQPActive = false;
+            showAnswerRevealed = false;
+            document.getElementById('question-panel').style.display = 'none';
+            updateDanmuButton();
+            
+            // 关闭侧边栏
+            if (isSidebarOpen) {
+                isSidebarOpen = false;
+                document.getElementById('sidebar').classList.remove('open');
+            }
+            
+            // 关闭点名面板
+            if (isLuckyVisible) {
+                closeLuckyOverlay();
+            }
+        }
+        
+        async function confirmEndClass() {
+            if (!confirm('⚠️ 确定不存档直接下课吗？\n\n这将清空所有数据且不保存到历史记录！')) {
+                return;
+            }
+            try {
+                await doEndClassCleanup();
+                closeEndClassModal();
+                alert('✅ 下课成功！\n\n• 所有功能已重置\n• 数据已清空（未存档）');
             } catch (err) {
                 console.error('下课操作失败:', err);
                 alert('❌ 操作失败: ' + err.message);
+            }
+        }
+        
+        // ================== 历史记录面板 ==================
+        function openHistoryPanel() {
+            closeEndClassModal();
+            
+            const panel = document.createElement('div');
+            panel.id = 'history-panel';
+            panel.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:flex; align-items:center; justify-content:center; z-index:2000;';
+            panel.innerHTML = `
+                <div style="background:#1e293b; border-radius:20px; padding:25px; width:95%; max-width:900px; max-height:85vh; color:white; overflow:hidden; display:flex; flex-direction:column;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                        <h2 style="margin:0;">📚 课堂历史记录</h2>
+                        <button onclick="closeHistoryPanel()" style="background:rgba(255,255,255,0.1); border:none; color:white; width:40px; height:40px; border-radius:50%; cursor:pointer; font-size:1.2rem;">✕</button>
+                    </div>
+                    
+                    <!-- 统计概览 -->
+                    <div id="history-overview" style="display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:20px;">
+                        <div style="background:rgba(59,130,246,0.2); padding:15px; border-radius:10px; text-align:center;">
+                            <div style="font-size:1.8rem; font-weight:bold; color:#3b82f6;" id="hist-total-sessions">-</div>
+                            <div style="font-size:0.8rem; color:#94a3b8;">总课次</div>
+                        </div>
+                        <div style="background:rgba(16,185,129,0.2); padding:15px; border-radius:10px; text-align:center;">
+                            <div style="font-size:1.8rem; font-weight:bold; color:#10b981;" id="hist-total-students">-</div>
+                            <div style="font-size:0.8rem; color:#94a3b8;">总人次</div>
+                        </div>
+                        <div style="background:rgba(245,158,11,0.2); padding:15px; border-radius:10px; text-align:center;">
+                            <div style="font-size:1.8rem; font-weight:bold; color:#f59e0b;" id="hist-avg-attendance">-</div>
+                            <div style="font-size:0.8rem; color:#94a3b8;">平均出勤</div>
+                        </div>
+                        <div style="background:rgba(139,92,246,0.2); padding:15px; border-radius:10px; text-align:center;">
+                            <div style="font-size:1.8rem; font-weight:bold; color:#8b5cf6;" id="hist-avg-correct">-</div>
+                            <div style="font-size:0.8rem; color:#94a3b8;">平均正确率</div>
+                        </div>
+                        <div style="background:rgba(239,68,68,0.2); padding:15px; border-radius:10px; text-align:center;">
+                            <div style="font-size:1.8rem; font-weight:bold; color:#ef4444;" id="hist-total-points">-</div>
+                            <div style="font-size:0.8rem; color:#94a3b8;">总积分</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 历史列表 -->
+                    <div style="flex:1; overflow-y:auto;">
+                        <table style="width:100%; border-collapse:collapse;">
+                            <thead>
+                                <tr style="background:rgba(255,255,255,0.1);">
+                                    <th style="padding:12px; text-align:left; font-size:0.85rem;">日期时间</th>
+                                    <th style="padding:12px; text-align:left; font-size:0.85rem;">班级</th>
+                                    <th style="padding:12px; text-align:left; font-size:0.85rem;">课程</th>
+                                    <th style="padding:12px; text-align:center; font-size:0.85rem;">出勤</th>
+                                    <th style="padding:12px; text-align:center; font-size:0.85rem;">答题</th>
+                                    <th style="padding:12px; text-align:center; font-size:0.85rem;">正确率</th>
+                                    <th style="padding:12px; text-align:center; font-size:0.85rem;">积分</th>
+                                    <th style="padding:12px; text-align:center; font-size:0.85rem;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-list">
+                                <tr><td colspan="8" style="padding:30px; text-align:center; color:#666;">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(panel);
+            
+            loadHistoryData();
+        }
+        
+        function closeHistoryPanel() {
+            const panel = document.getElementById('history-panel');
+            if (panel) panel.remove();
+        }
+        
+        async function loadHistoryData() {
+            try {
+                // 加载统计概览
+                const stats = await ClassHistory.getOverviewStats(supabaseClient, 30);
+                document.getElementById('hist-total-sessions').textContent = stats.totalSessions;
+                document.getElementById('hist-total-students').textContent = stats.totalStudents;
+                document.getElementById('hist-avg-attendance').textContent = stats.avgAttendance;
+                document.getElementById('hist-avg-correct').textContent = stats.avgCorrectRate + '%';
+                document.getElementById('hist-total-points').textContent = stats.totalPoints;
+                
+                // 加载历史列表
+                const sessions = await ClassHistory.getSessionList(supabaseClient, 50);
+                const tbody = document.getElementById('history-list');
+                
+                if (sessions.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" style="padding:30px; text-align:center; color:#666;">暂无历史记录</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = sessions.map(s => `
+                    <tr style="border-bottom:1px solid rgba(255,255,255,0.1);">
+                        <td style="padding:12px; font-size:0.85rem;">${new Date(s.start_time).toLocaleString('zh-CN')}</td>
+                        <td style="padding:12px; font-size:0.85rem;">${s.class_name || '-'}</td>
+                        <td style="padding:12px; font-size:0.85rem;">${s.course_name || '-'}</td>
+                        <td style="padding:12px; text-align:center; font-size:0.85rem;">${s.attendance_count}人</td>
+                        <td style="padding:12px; text-align:center; font-size:0.85rem;">${s.answer_count}次</td>
+                        <td style="padding:12px; text-align:center; font-size:0.85rem;">${s.correct_rate || 0}%</td>
+                        <td style="padding:12px; text-align:center; font-size:0.85rem;">${s.points_distributed}分</td>
+                        <td style="padding:12px; text-align:center;">
+                            <button onclick="viewSessionDetail('${s.session_id}')" style="padding:5px 10px; background:#3b82f6; color:white; border:none; border-radius:5px; cursor:pointer; font-size:0.75rem; margin-right:5px;">详情</button>
+                            <button onclick="deleteSession('${s.session_id}')" style="padding:5px 10px; background:#ef4444; color:white; border:none; border-radius:5px; cursor:pointer; font-size:0.75rem;">删除</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                console.error('加载历史数据失败:', e);
+                document.getElementById('history-list').innerHTML = '<tr><td colspan="8" style="padding:30px; text-align:center; color:#ef4444;">加载失败</td></tr>';
+            }
+        }
+        
+        async function viewSessionDetail(sessionId) {
+            try {
+                const detail = await ClassHistory.getSessionDetail(supabaseClient, sessionId);
+                if (!detail.session) {
+                    alert('未找到该记录');
+                    return;
+                }
+                
+                const s = detail.session;
+                const students = detail.students;
+                
+                // 创建详情弹窗
+                const detailPanel = document.createElement('div');
+                detailPanel.id = 'session-detail-panel';
+                detailPanel.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); display:flex; align-items:center; justify-content:center; z-index:2100;';
+                detailPanel.innerHTML = `
+                    <div style="background:#1e293b; border-radius:20px; padding:25px; width:95%; max-width:800px; max-height:85vh; color:white; overflow:hidden; display:flex; flex-direction:column;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                            <div>
+                                <h2 style="margin:0 0 5px 0;">📋 课堂详情</h2>
+                                <div style="font-size:0.85rem; color:#94a3b8;">${new Date(s.start_time).toLocaleString('zh-CN')} | ${s.class_name || '未命名'} | ${s.course_name || '未命名课程'}</div>
+                            </div>
+                            <button onclick="document.getElementById('session-detail-panel').remove()" style="background:rgba(255,255,255,0.1); border:none; color:white; width:40px; height:40px; border-radius:50%; cursor:pointer; font-size:1.2rem;">✕</button>
+                        </div>
+                        
+                        <!-- 统计卡片 -->
+                        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:20px;">
+                            <div style="background:rgba(59,130,246,0.2); padding:12px; border-radius:10px; text-align:center;">
+                                <div style="font-size:1.5rem; font-weight:bold; color:#3b82f6;">${s.attendance_count}</div>
+                                <div style="font-size:0.75rem; color:#94a3b8;">签到人数</div>
+                            </div>
+                            <div style="background:rgba(16,185,129,0.2); padding:12px; border-radius:10px; text-align:center;">
+                                <div style="font-size:1.5rem; font-weight:bold; color:#10b981;">${s.answer_count}</div>
+                                <div style="font-size:0.75rem; color:#94a3b8;">答题次数</div>
+                            </div>
+                            <div style="background:rgba(245,158,11,0.2); padding:12px; border-radius:10px; text-align:center;">
+                                <div style="font-size:1.5rem; font-weight:bold; color:#f59e0b;">${s.correct_rate || 0}%</div>
+                                <div style="font-size:0.75rem; color:#94a3b8;">正确率</div>
+                            </div>
+                            <div style="background:rgba(139,92,246,0.2); padding:12px; border-radius:10px; text-align:center;">
+                                <div style="font-size:1.5rem; font-weight:bold; color:#8b5cf6;">${s.points_distributed}</div>
+                                <div style="font-size:0.75rem; color:#94a3b8;">发放积分</div>
+                            </div>
+                        </div>
+                        
+                        <!-- 学生列表 -->
+                        <div style="flex:1; overflow-y:auto;">
+                            <table style="width:100%; border-collapse:collapse;">
+                                <thead>
+                                    <tr style="background:rgba(255,255,255,0.1);">
+                                        <th style="padding:10px; text-align:left; font-size:0.8rem;">排名</th>
+                                        <th style="padding:10px; text-align:left; font-size:0.8rem;">学号</th>
+                                        <th style="padding:10px; text-align:left; font-size:0.8rem;">姓名</th>
+                                        <th style="padding:10px; text-align:center; font-size:0.8rem;">签到</th>
+                                        <th style="padding:10px; text-align:center; font-size:0.8rem;">答题</th>
+                                        <th style="padding:10px; text-align:center; font-size:0.8rem;">正确</th>
+                                        <th style="padding:10px; text-align:center; font-size:0.8rem;">正确率</th>
+                                        <th style="padding:10px; text-align:center; font-size:0.8rem;">本节积分</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${students.map((st, i) => `
+                                        <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                                            <td style="padding:10px; font-size:0.85rem;">${i + 1}</td>
+                                            <td style="padding:10px; font-size:0.85rem;">${st.student_id}</td>
+                                            <td style="padding:10px; font-size:0.85rem;">${st.student_name}</td>
+                                            <td style="padding:10px; text-align:center; font-size:0.85rem;">${st.signed ? '✅' : '❌'}</td>
+                                            <td style="padding:10px; text-align:center; font-size:0.85rem;">${st.answer_count}</td>
+                                            <td style="padding:10px; text-align:center; font-size:0.85rem;">${st.correct_count}</td>
+                                            <td style="padding:10px; text-align:center; font-size:0.85rem;">${st.correct_rate || 0}%</td>
+                                            <td style="padding:10px; text-align:center; font-size:0.85rem; color:#f59e0b; font-weight:bold;">${st.session_points}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(detailPanel);
+            } catch (e) {
+                console.error('加载详情失败:', e);
+                alert('加载详情失败: ' + e.message);
+            }
+        }
+        
+        async function deleteSession(sessionId) {
+            if (!confirm('确定要删除这条历史记录吗？\n\n此操作不可恢复！')) return;
+            
+            const success = await ClassHistory.deleteSession(supabaseClient, sessionId);
+            if (success) {
+                alert('✅ 删除成功');
+                loadHistoryData();
+            } else {
+                alert('❌ 删除失败');
             }
         }
         
