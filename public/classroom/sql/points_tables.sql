@@ -9,9 +9,15 @@ CREATE TABLE IF NOT EXISTS student_points (
     student_id VARCHAR(50) UNIQUE NOT NULL,
     student_name VARCHAR(100) NOT NULL,
     total_points INTEGER DEFAULT 0,
+    today_points INTEGER DEFAULT 0,        -- 当日积分（每日重置）
+    last_points_date DATE DEFAULT CURRENT_DATE,  -- 最后积分日期（用于判断是否需要重置当日积分）
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- 添加当日积分字段（如果表已存在）
+-- ALTER TABLE student_points ADD COLUMN IF NOT EXISTS today_points INTEGER DEFAULT 0;
+-- ALTER TABLE student_points ADD COLUMN IF NOT EXISTS last_points_date DATE DEFAULT CURRENT_DATE;
 
 -- 2. 积分记录明细表
 CREATE TABLE IF NOT EXISTS points_log (

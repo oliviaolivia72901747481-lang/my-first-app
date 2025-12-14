@@ -366,25 +366,37 @@
         .sidebar-leaderboard .rank-item {
             display: flex;
             align-items: center;
-            padding: 12px;
+            padding: 10px 12px;
             background: rgba(255,255,255,0.05);
             border-radius: 10px;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
+            transition: all 0.3s;
         }
+        .sidebar-leaderboard .rank-item:hover { background: rgba(255,255,255,0.1); }
         .sidebar-leaderboard .rank-item.top-1 { background: linear-gradient(135deg, rgba(255,215,0,0.3), rgba(255,215,0,0.1)); }
         .sidebar-leaderboard .rank-item.top-2 { background: linear-gradient(135deg, rgba(192,192,192,0.3), rgba(192,192,192,0.1)); }
         .sidebar-leaderboard .rank-item.top-3 { background: linear-gradient(135deg, rgba(205,127,50,0.3), rgba(205,127,50,0.1)); }
+        .sidebar-leaderboard .rank-item.highlight { animation: pointsFlash 1s ease; }
+        @keyframes pointsFlash {
+            0%, 100% { background: rgba(255,255,255,0.05); }
+            50% { background: rgba(16, 185, 129, 0.4); }
+        }
         .sidebar-leaderboard .rank-pos {
-            width: 30px;
-            height: 30px;
+            width: 28px;
+            height: 28px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: bold;
-            margin-right: 12px;
+            margin-right: 10px;
+            font-size: 0.9rem;
         }
-        .sidebar-leaderboard .rank-name { flex: 1; font-weight: 500; }
-        .sidebar-leaderboard .rank-points { font-weight: bold; color: #f59e0b; }
+        .sidebar-leaderboard .rank-info { flex: 1; }
+        .sidebar-leaderboard .rank-name { font-weight: 600; font-size: 0.9rem; color: white; }
+        .sidebar-leaderboard .rank-today { font-size: 0.7rem; color: #10b981; margin-top: 2px; }
+        .sidebar-leaderboard .rank-points-wrap { text-align: right; }
+        .sidebar-leaderboard .rank-total { font-weight: bold; color: #f59e0b; font-size: 1rem; }
+        .sidebar-leaderboard .rank-today-pts { font-size: 0.7rem; color: #94a3b8; }
         
         /* 题库面板 - 改为侧边栏内嵌 */
         #question-panel {
@@ -548,69 +560,69 @@
         </div>
     </div>
     
-    <!-- 侧边栏 -->
+    <!-- 侧边栏 - 整合题库互动和排行榜 -->
     <div class="sidebar" id="sidebar">
         <button class="sidebar-close" onclick="toggleSidebar()">✕</button>
-        <div class="sidebar-tabs">
-            <button class="sidebar-tab active" data-panel="questions" onclick="switchSidebarTab('questions')">📚 题库互动</button>
-            <button class="sidebar-tab" data-panel="leaderboard" onclick="switchSidebarTab('leaderboard')">🏆 排行榜</button>
+        <div class="sidebar-header" style="background:linear-gradient(135deg, #3b82f6, #8b5cf6); padding:15px 20px; text-align:center;">
+            <div style="font-size:1.2rem; font-weight:bold;">📚 课堂互动中心</div>
         </div>
-        <div class="sidebar-content">
-            <!-- 题库面板 -->
-            <div class="sidebar-panel active" id="sidebar-questions">
-                <div class="qp-question">
-                    <div class="qp-q-header">
-                        <div class="qp-round">第 <span id="sb-qp-round">1</span> 题</div>
-                        <div class="qp-mode-badge qp-mode-vote" id="sb-qp-mode-badge">📊 答题</div>
-                    </div>
-                    <div class="qp-q-title" id="sb-qp-title">正在加载题目...</div>
-                    <div class="qp-options" id="sb-qp-options"></div>
+        <div class="sidebar-content" style="padding:15px;">
+            <!-- 题目区域 -->
+            <div class="qp-question" style="margin-bottom:12px; padding:15px;">
+                <div class="qp-q-header" style="margin-bottom:10px;">
+                    <div class="qp-round" style="font-size:1.2rem;">第 <span id="sb-qp-round">1</span> 题</div>
+                    <div class="qp-mode-badge qp-mode-vote" id="sb-qp-mode-badge" style="padding:3px 10px; font-size:0.75rem;">📊 答题</div>
                 </div>
-                <!-- 抢答/点名回答结果 -->
-                <div id="sb-qp-answer-result" style="background:linear-gradient(135deg, rgba(16,185,129,0.2), rgba(59,130,246,0.2)); border-radius:15px; padding:20px; margin:15px 0; display:none; text-align:center;">
-                    <div style="font-size:0.9rem; color:#94a3b8; margin-bottom:10px;" id="sb-qp-answer-mode-label">🏆 抢答回答</div>
-                    <div style="font-size:1.5rem; font-weight:bold; color:white; margin-bottom:10px;" id="sb-qp-answer-student">--</div>
-                    <div style="display:flex; justify-content:center; gap:20px; align-items:center;">
-                        <div style="font-size:3rem; font-weight:bold;" id="sb-qp-answer-option">--</div>
-                        <div id="sb-qp-answer-correct" style="font-size:2rem;">--</div>
-                    </div>
-                </div>
-                <!-- 实时统计 -->
-                <div id="sb-qp-stats" style="background:rgba(255,255,255,0.1); border-radius:15px; padding:15px; margin-bottom:15px;">
-                    <div style="font-size:0.9rem; color:#94a3b8; margin-bottom:10px;">📊 实时统计</div>
-                    <div class="vote-stats">
-                        <div class="vote-stat-item"><div class="vote-stat-label" style="color:#FF6384;">A</div><div class="vote-stat-count" id="sb-qp-stat-a">0</div></div>
-                        <div class="vote-stat-item"><div class="vote-stat-label" style="color:#36A2EB;">B</div><div class="vote-stat-count" id="sb-qp-stat-b">0</div></div>
-                        <div class="vote-stat-item"><div class="vote-stat-label" style="color:#FFCE56;">C</div><div class="vote-stat-count" id="sb-qp-stat-c">0</div></div>
-                        <div class="vote-stat-item"><div class="vote-stat-label" style="color:#4BC0C0;">D</div><div class="vote-stat-count" id="sb-qp-stat-d">0</div></div>
-                    </div>
-                </div>
-                <!-- 模式选择 -->
-                <div style="background:rgba(255,255,255,0.05); border-radius:10px; padding:15px; margin-bottom:15px;">
-                    <div style="font-size:0.85rem; color:#94a3b8; margin-bottom:10px;">选择互动模式：</div>
-                    <div style="display:flex; gap:8px;">
-                        <button class="sb-qp-mode-select active" data-mode="vote" onclick="setQPMode('vote')" style="flex:1; padding:10px; border:2px solid #3b82f6; background:#3b82f6; color:white; border-radius:10px; cursor:pointer; font-weight:bold; font-size:0.85rem;">📊 答题</button>
-                        <button class="sb-qp-mode-select" data-mode="buzzer" onclick="setQPMode('buzzer')" style="flex:1; padding:10px; border:2px solid rgba(255,255,255,0.2); background:transparent; color:#94a3b8; border-radius:10px; cursor:pointer; font-weight:bold; font-size:0.85rem;">⚡ 抢答</button>
-                        <button class="sb-qp-mode-select" data-mode="lucky" onclick="setQPMode('lucky')" style="flex:1; padding:10px; border:2px solid rgba(255,255,255,0.2); background:transparent; color:#94a3b8; border-radius:10px; cursor:pointer; font-weight:bold; font-size:0.85rem;">🎰 点名</button>
-                    </div>
-                </div>
-                <div class="qp-controls" style="flex-wrap:wrap;">
-                    <button class="qp-btn qp-btn-start" id="sb-qp-start-btn" onclick="startQuestion()" style="min-width:auto;">▶️ 开始</button>
-                    <button class="qp-btn qp-btn-stop" onclick="stopQuestion()" style="min-width:auto;">⏹️ 停止</button>
-                    <button class="qp-btn qp-btn-prev" onclick="prevQuestion()" style="min-width:auto;">⬅️</button>
-                    <button class="qp-btn qp-btn-next" onclick="nextQuestion()" style="min-width:auto;">➡️</button>
+                <div class="qp-q-title" id="sb-qp-title" style="font-size:1rem; margin-bottom:10px;">正在加载题目...</div>
+                <div class="qp-options" id="sb-qp-options" style="gap:6px;"></div>
+            </div>
+            
+            <!-- 抢答/点名回答结果 -->
+            <div id="sb-qp-answer-result" style="background:linear-gradient(135deg, rgba(16,185,129,0.3), rgba(59,130,246,0.3)); border-radius:12px; padding:15px; margin-bottom:12px; display:none; text-align:center;">
+                <div style="font-size:0.8rem; color:#94a3b8; margin-bottom:5px;" id="sb-qp-answer-mode-label">🏆 抢答回答</div>
+                <div style="font-size:1.3rem; font-weight:bold; color:white; margin-bottom:5px;" id="sb-qp-answer-student">--</div>
+                <div style="display:flex; justify-content:center; gap:15px; align-items:center;">
+                    <div style="font-size:2rem; font-weight:bold;" id="sb-qp-answer-option">--</div>
+                    <div id="sb-qp-answer-correct" style="font-size:1.5rem;">--</div>
                 </div>
             </div>
             
-            <!-- 排行榜面板 -->
-            <div class="sidebar-panel" id="sidebar-leaderboard">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                    <span style="font-size:0.9rem; color:#94a3b8;">实时积分排名</span>
-                    <button onclick="refreshSidebarLeaderboard()" style="background:rgba(255,255,255,0.1); border:none; color:white; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:0.85rem;">🔄 刷新</button>
+            <!-- 实时统计 -->
+            <div id="sb-qp-stats" style="background:rgba(255,255,255,0.08); border-radius:12px; padding:12px; margin-bottom:12px;">
+                <div style="font-size:0.8rem; color:#94a3b8; margin-bottom:8px;">📊 实时统计</div>
+                <div class="vote-stats" style="gap:6px;">
+                    <div class="vote-stat-item" style="padding:8px;"><div class="vote-stat-label" style="color:#FF6384; font-size:1rem;">A</div><div class="vote-stat-count" id="sb-qp-stat-a" style="font-size:0.85rem;">0</div></div>
+                    <div class="vote-stat-item" style="padding:8px;"><div class="vote-stat-label" style="color:#36A2EB; font-size:1rem;">B</div><div class="vote-stat-count" id="sb-qp-stat-b" style="font-size:0.85rem;">0</div></div>
+                    <div class="vote-stat-item" style="padding:8px;"><div class="vote-stat-label" style="color:#FFCE56; font-size:1rem;">C</div><div class="vote-stat-count" id="sb-qp-stat-c" style="font-size:0.85rem;">0</div></div>
+                    <div class="vote-stat-item" style="padding:8px;"><div class="vote-stat-label" style="color:#4BC0C0; font-size:1rem;">D</div><div class="vote-stat-count" id="sb-qp-stat-d" style="font-size:0.85rem;">0</div></div>
                 </div>
-                <div class="sidebar-leaderboard" id="sidebar-rank-list">
-                    <div style="text-align:center; color:#666; padding:20px;">加载中...</div>
-                </div>
+            </div>
+            
+            <!-- 模式选择和控制按钮 -->
+            <div style="display:flex; gap:6px; margin-bottom:12px;">
+                <button class="sb-qp-mode-select active" data-mode="vote" onclick="setQPMode('vote')" style="flex:1; padding:8px 5px; border:2px solid #3b82f6; background:#3b82f6; color:white; border-radius:8px; cursor:pointer; font-weight:bold; font-size:0.75rem;">📊 答题</button>
+                <button class="sb-qp-mode-select" data-mode="buzzer" onclick="setQPMode('buzzer')" style="flex:1; padding:8px 5px; border:2px solid rgba(255,255,255,0.2); background:transparent; color:#94a3b8; border-radius:8px; cursor:pointer; font-weight:bold; font-size:0.75rem;">⚡ 抢答</button>
+                <button class="sb-qp-mode-select" data-mode="lucky" onclick="setQPMode('lucky')" style="flex:1; padding:8px 5px; border:2px solid rgba(255,255,255,0.2); background:transparent; color:#94a3b8; border-radius:8px; cursor:pointer; font-weight:bold; font-size:0.75rem;">🎰 点名</button>
+            </div>
+            <div style="display:flex; gap:6px; margin-bottom:15px;">
+                <button class="qp-btn qp-btn-start" onclick="startQuestion()" style="flex:2; padding:10px; min-width:auto; font-size:0.85rem;">▶️ 开始</button>
+                <button class="qp-btn qp-btn-stop" onclick="stopQuestion()" style="flex:2; padding:10px; min-width:auto; font-size:0.85rem;">⏹️ 停止</button>
+                <button class="qp-btn qp-btn-prev" onclick="prevQuestion()" style="flex:1; padding:10px; min-width:auto; font-size:0.85rem;">⬅️</button>
+                <button class="qp-btn qp-btn-next" onclick="nextQuestion()" style="flex:1; padding:10px; min-width:auto; font-size:0.85rem;">➡️</button>
+            </div>
+            
+            <!-- 分隔线 -->
+            <div style="border-top:1px solid rgba(255,255,255,0.1); margin:15px 0;"></div>
+            
+            <!-- 积分排行榜标题 -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <span style="font-size:1rem; font-weight:bold; color:white;">🏆 积分排行榜</span>
+                <button onclick="refreshSidebarLeaderboard()" style="background:rgba(255,255,255,0.1); border:none; color:white; padding:4px 8px; border-radius:5px; cursor:pointer; font-size:0.75rem;">🔄</button>
+            </div>
+            
+            <!-- 积分排行榜 -->
+            <div class="sidebar-leaderboard" id="sidebar-rank-list">
+                <div style="text-align:center; color:#666; padding:20px;">加载中...</div>
             </div>
         </div>
     </div>
@@ -2045,22 +2057,7 @@
             }
         }
         
-        function switchSidebarTab(panel) {
-            // 更新标签样式
-            document.querySelectorAll('.sidebar-tab').forEach(tab => {
-                tab.classList.toggle('active', tab.dataset.panel === panel);
-            });
-            // 显示对应面板
-            document.querySelectorAll('.sidebar-panel').forEach(p => {
-                p.classList.toggle('active', p.id === 'sidebar-' + panel);
-            });
-            // 加载数据
-            if (panel === 'leaderboard') {
-                loadSidebarLeaderboard();
-            } else if (panel === 'questions') {
-                loadSidebarQuestion();
-            }
-        }
+        // 侧边栏已整合，不再需要标签页切换
         
         // 侧边栏题库加载
         async function loadSidebarQuestion() {
@@ -2122,17 +2119,22 @@
             });
         }
         
-        // 侧边栏排行榜加载
+        // 侧边栏排行榜加载（含当日积分和总积分）
+        let lastLeaderboardData = [];
+        
         async function loadSidebarLeaderboard() {
             const list = document.getElementById('sidebar-rank-list');
-            list.innerHTML = '<div style="text-align:center; color:#666; padding:20px;">加载中...</div>';
+            if (lastLeaderboardData.length === 0) {
+                list.innerHTML = '<div style="text-align:center; color:#666; padding:20px;">加载中...</div>';
+            }
             
             try {
+                // 获取总积分排行
                 const { data, error } = await supabaseClient
                     .from('student_points')
                     .select('*')
                     .order('total_points', { ascending: false })
-                    .limit(20);
+                    .limit(15);
                 
                 if (error) throw error;
                 
@@ -2141,19 +2143,53 @@
                     return;
                 }
                 
+                // 获取今日积分
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const { data: todayLogs } = await supabaseClient
+                    .from('points_log')
+                    .select('student_id, points')
+                    .gte('created_at', today.toISOString());
+                
+                // 计算每个学生的今日积分
+                const todayPoints = {};
+                if (todayLogs) {
+                    todayLogs.forEach(log => {
+                        todayPoints[log.student_id] = (todayPoints[log.student_id] || 0) + log.points;
+                    });
+                }
+                
+                // 检测积分变化，添加高亮动画
+                const changedIds = [];
+                data.forEach(student => {
+                    const old = lastLeaderboardData.find(s => s.student_id === student.student_id);
+                    if (old && old.total_points !== student.total_points) {
+                        changedIds.push(student.student_id);
+                    }
+                });
+                lastLeaderboardData = data;
+                
                 list.innerHTML = data.map((student, index) => {
                     const rank = index + 1;
                     const topClass = rank <= 3 ? `top-${rank}` : '';
+                    const highlightClass = changedIds.includes(student.student_id) ? 'highlight' : '';
+                    const todayPts = todayPoints[student.student_id] || 0;
                     let medal = '';
                     if (rank === 1) medal = '🥇';
                     else if (rank === 2) medal = '🥈';
                     else if (rank === 3) medal = '🥉';
                     
                     return `
-                        <div class="rank-item ${topClass}">
+                        <div class="rank-item ${topClass} ${highlightClass}">
                             <div class="rank-pos">${medal || rank}</div>
-                            <div class="rank-name">${student.student_name}</div>
-                            <div class="rank-points">${student.total_points}</div>
+                            <div class="rank-info">
+                                <div class="rank-name">${student.student_name}</div>
+                                ${todayPts > 0 ? `<div class="rank-today">今日 +${todayPts}</div>` : ''}
+                            </div>
+                            <div class="rank-points-wrap">
+                                <div class="rank-total">${student.total_points}</div>
+                                <div class="rank-today-pts">总积分</div>
+                            </div>
                         </div>
                     `;
                 }).join('');
