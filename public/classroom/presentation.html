@@ -447,8 +447,8 @@
             <button class="ctrl-btn" style="background:#10b981;" onclick="toggleQuestionPanel()">📚 题库</button>
             <button class="ctrl-btn btn-danmu" onclick="toggleDanmu()">💬 弹幕</button>
             <button class="ctrl-btn" style="background:#f59e0b;" onclick="toggleLuckyOverlay()">🎰 点名</button>
+            <button class="ctrl-btn" style="background:linear-gradient(135deg, #8b5cf6, #6366f1);" onclick="showLeaderboard()">🏆 排行</button>
             <button class="ctrl-btn" style="background:#ef4444;" onclick="clearContent()" id="clear-content-btn">🗑️ 清除</button>
-            <button class="ctrl-btn" style="background:#64748b;" onclick="releaseControl()">⏸️ 释放</button>
             <button class="ctrl-btn" style="background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);" onclick="endClass()">🔔 下课</button>
             <button class="ctrl-btn btn-nav" onclick="nextSlide()">下一页 ➡️</button>
         </div>
@@ -1513,6 +1513,18 @@
                 console.error('下课操作失败:', err);
                 alert('❌ 操作失败: ' + err.message);
             }
+        }
+        
+        // ================== 排行榜 ==================
+        async function showLeaderboard() {
+            // 让学生端跳转到排行榜页面
+            await supabaseClient.from('global_state').update({ 
+                status: 'active', 
+                current_page: 'leaderboard.html' 
+            }).eq('id', 1);
+            
+            // 同时在新窗口打开教师端排行榜
+            window.open('/classroom/leaderboard.html', '_blank', 'width=500,height=700');
         }
         
         // ================== 模态框 ==================

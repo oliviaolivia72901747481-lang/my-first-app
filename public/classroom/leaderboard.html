@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏆 积分排行榜</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/classroom/js/common.js"></script>
+    <script src="/classroom/js/navigation.js"></script>
+    <script src="/classroom/js/points.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 600px; margin: 0 auto; }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 20px;
+        }
+        .header h1 { font-size: 2rem; margin-bottom: 5px; }
+        .header p { opacity: 0.8; }
+        
+        /* 我的积分卡片 */
+        .my-points-card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .my-points-value {
+            font-size: 3.5rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .my-points-label { color: #666; margin-top: 5px; }
+        .my-rank {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 8px 20px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: white;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+        
+        /* 今日统计 */
+        .today-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .stat-item {
+            background: #f3f4f6;
+            padding: 10px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .stat-value { font-size: 1.5rem; font-weight: bold; color: #333; }
+        .stat-label { font-size: 0.75rem; color: #666; }
+        
+        /* 排行榜 */
+        .leaderboard {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .leaderboard-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .rank-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            transition: all 0.2s;
+        }
+        .rank-item:hover { background: #f3f4f6; }
+        .rank-item.top-1 { background: linear-gradient(135deg, #fef3c7, #fde68a); }
+        .rank-item.top-2 { background: linear-gradient(135deg, #e5e7eb, #d1d5db); }
+        .rank-item.top-3 { background: linear-gradient(135deg, #fed7aa, #fdba74); }
+        .rank-item.is-me { border: 2px solid #3b82f6; }
+        
+        .rank-position {
+            width: 35px;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1rem;
+            border-radius: 50%;
+            margin-right: 12px;
+        }
+        .rank-position.medal { font-size: 1.5rem; }
+        
+        .rank-info { flex: 1; }
+        .rank-name { font-weight: bold; color: #333; }
+        .rank-id { font-size: 0.8rem; color: #999; }
+        
+        .rank-points {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #f59e0b;
+        }
+        
+        /* 刷新按钮 */
+        .refresh-btn {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: white;
+            border: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            cursor: pointer;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .refresh-btn:active { transform: scale(0.95); }
+        
+        /* 加载状态 */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .spinning { animation: spin 1s linear infinite; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏆 积分排行榜</h1>
+            <p>努力学习，赢取积分！</p>
+        </div>
+        
+        <!-- 我的积分 -->
+        <div class="my-points-card">
+            <div class="my-points-value" id="my-points">--</div>
+            <div class="my-points-label">我的积分</div>
+            <div class="my-rank" id="my-rank">排名加载中...</div>
+            
+            <div class="today-stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="today-total">0</div>
+                    <div class="stat-label">今日获得</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="today-sign">0</div>
+                    <div class="stat-label">签到</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="today-answer">0</div>
+                    <div class="stat-label">答题</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 排行榜 -->
+        <div class="leaderboard">
+            <div class="leaderboard-title">
+                <span>📊 全班排名</span>
+                <span style="flex:1;"></span>
+                <span style="font-size:0.8rem; color:#999; font-weight:normal;">实时更新</span>
+            </div>
+            <div id="rank-list" class="loading">
+                加载中...
+            </div>
+        </div>
+    </div>
+    
+    <button class="refresh-btn" onclick="refreshData()" id="refresh-btn">🔄</button>
+
+    <script>
+        const supabaseClient = ClassroomCommon.createSupabaseClient();
+        const myId = localStorage.getItem('my_id');
+        const myName = localStorage.getItem('my_name');
+        
+        async function loadMyPoints() {
+            if (!myId) {
+                document.getElementById('my-points').innerText = '0';
+                document.getElementById('my-rank').innerText = '请先签到';
+                return;
+            }
+            
+            // 获取我的积分
+            const points = await PointsSystem.getStudentPoints(supabaseClient, myId);
+            document.getElementById('my-points').innerText = points;
+            
+            // 获取今日统计
+            const todayStats = await PointsSystem.getTodayStats(supabaseClient, myId);
+            document.getElementById('today-total').innerText = todayStats.total;
+            document.getElementById('today-sign').innerText = todayStats.breakdown.sign_in || 0;
+            document.getElementById('today-answer').innerText = todayStats.breakdown.answer || 0;
+        }
+        
+        async function loadLeaderboard() {
+            const list = document.getElementById('rank-list');
+            list.innerHTML = '<div class="loading">加载中...</div>';
+            
+            const data = await PointsSystem.getLeaderboard(supabaseClient, 30);
+            
+            if (data.length === 0) {
+                list.innerHTML = '<div class="loading">暂无数据</div>';
+                return;
+            }
+            
+            // 找到我的排名
+            let myRank = data.findIndex(s => s.student_id === myId) + 1;
+            if (myRank > 0) {
+                document.getElementById('my-rank').innerText = `第 ${myRank} 名`;
+            } else {
+                document.getElementById('my-rank').innerText = '未上榜';
+            }
+            
+            // 渲染排行榜
+            list.innerHTML = data.map((student, index) => {
+                const rank = index + 1;
+                const isMe = student.student_id === myId;
+                const topClass = rank <= 3 ? `top-${rank}` : '';
+                const meClass = isMe ? 'is-me' : '';
+                
+                let medal = '';
+                if (rank === 1) medal = '🥇';
+                else if (rank === 2) medal = '🥈';
+                else if (rank === 3) medal = '🥉';
+                
+                return `
+                    <div class="rank-item ${topClass} ${meClass}">
+                        <div class="rank-position ${medal ? 'medal' : ''}">${medal || rank}</div>
+                        <div class="rank-info">
+                            <div class="rank-name">${student.student_name}${isMe ? ' (我)' : ''}</div>
+                            <div class="rank-id">${student.student_id}</div>
+                        </div>
+                        <div class="rank-points">${student.total_points}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        async function refreshData() {
+            const btn = document.getElementById('refresh-btn');
+            btn.classList.add('spinning');
+            
+            await Promise.all([loadMyPoints(), loadLeaderboard()]);
+            
+            btn.classList.remove('spinning');
+        }
+        
+        // 实时订阅积分变化
+        function subscribeToChanges() {
+            supabaseClient.channel('leaderboard-changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'student_points' }, () => {
+                    loadLeaderboard();
+                    loadMyPoints();
+                })
+                .subscribe();
+        }
+        
+        // 初始化
+        window.addEventListener('load', async function() {
+            await refreshData();
+            subscribeToChanges();
+            
+            // 启动全局控制监听
+            ClassroomCommon.initGlobalControlListener(supabaseClient);
+            
+            // 初始化底部导航
+            if (typeof NavigationComponent !== 'undefined') {
+                NavigationComponent.init();
+            }
+        });
+    </script>
+</body>
+</html>

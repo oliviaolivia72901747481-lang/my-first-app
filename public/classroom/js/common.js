@@ -51,12 +51,14 @@ const PAGE_MAP = {
     'buzzer.html': '/buzzer',
     'sign.html': '/sign',
     'lucky.html': '/lucky',
+    'leaderboard.html': '/classroom/leaderboard.html',
     // URL路径格式 (admin.html 使用) - 直接映射
     '/vote': '/vote',
     '/danmu': '/danmu',
     '/buzzer': '/buzzer',
     '/sign': '/sign',
-    '/lucky': '/lucky'
+    '/lucky': '/lucky',
+    '/leaderboard': '/classroom/leaderboard.html'
 };
 
 function handleGlobalStateChange(data) {
