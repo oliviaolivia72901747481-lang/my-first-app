@@ -107,6 +107,9 @@
                     <button onclick="openAddProject()" class="btn btn-success" title="新建项目">➕ 项目</button>
                     <button onclick="openAddTask()" class="btn btn-warning" title="新建任务">➕ 任务</button>
                 </div>
+                <div class="hierarchy-actions" style="margin-top:5px;">
+                    <button onclick="manageCourses()" class="btn btn-secondary" title="管理课程" style="width:100%;">📋 管理课程</button>
+                </div>
                 
                 <h3 style="margin-top:25px;">📊 题型统计</h3>
                 <div id="type-stats" style="margin-top:10px;">
@@ -530,6 +533,27 @@
             updateCourseSelects();
         }
         
+        // 更新课程的项目数量和题目数量
+        async function updateCourseStats(courseId) {
+            const courseProjects = projects.filter(p => p.course_id === courseId);
+            const projectCount = courseProjects.length;
+            const courseProjectIds = courseProjects.map(p => p.project_id);
+            const courseTaskIds = tasks.filter(t => courseProjectIds.includes(t.project_id)).map(t => t.task_id);
+            const questionCount = questions.filter(q => courseTaskIds.includes(q.task_id)).length;
+            
+            await supabaseClient.from('courses').update({
+                project_count: projectCount,
+                question_count: questionCount
+            }).eq('course_id', courseId);
+        }
+        
+        // 更新所有课程的统计数据
+        async function updateAllCourseStats() {
+            for (const course of courses) {
+                await updateCourseStats(course.course_id);
+            }
+        }
+        
         function renderCourseSelect() {
             const select = document.getElementById('course-select');
             if (select) {
@@ -832,33 +856,109 @@
             const data = { name, code, teacher, semester, description, color };
             
             if (id) {
+                // 更新课程时保留现有的 project_count 和 question_count
                 const { error } = await supabaseClient.from('courses').update(data).eq('course_id', id);
                 if (error) { alert('更新失败: ' + error.message); return; }
             } else {
+                // 新建课程时初始化 project_count 和 question_count 为 0
+                data.project_count = 0;
+                data.question_count = 0;
                 const { error } = await supabaseClient.from('courses').insert([data]);
                 if (error) { alert('创建失败: ' + error.message); return; }
             }
             
             closeCourseModal();
-            loadCourses();
+            await loadHierarchy();
             alert('✅ 保存成功');
         }
         
         async function deleteCourse(id) {
-            if (!confirm('确定要删除这个课程吗？\n\n注意：该课程下的分类不会被删除，但会变为"未分类"状态。')) return;
+            // 计算将被删除的项目、任务和题目数量
+            const courseProjects = projects.filter(p => p.course_id === id);
+            const projectCount = courseProjects.length;
+            const courseProjectIds = courseProjects.map(p => p.project_id);
+            const courseTasks = tasks.filter(t => courseProjectIds.includes(t.project_id));
+            const taskCount = courseTasks.length;
+            const courseTaskIds = courseTasks.map(t => t.task_id);
+            const questionCount = questions.filter(q => courseTaskIds.includes(q.task_id)).length;
             
-            // 先将该课程下的分类设为无课程
-            await supabaseClient.from('question_categories').update({ course_id: null }).eq('course_id', id);
+            const course = courses.find(c => c.course_id === id);
+            const courseName = course ? course.name : '该课程';
             
-            const { error } = await supabaseClient.from('courses').delete().eq('course_id', id);
-            if (error) { alert('删除失败: ' + error.message); return; }
+            // 显示确认对话框，包含将被删除的项目数量
+            const confirmMsg = `确定要删除课程「${courseName}」吗？\n\n⚠️ 此操作将同时删除：\n• ${projectCount} 个项目\n• ${taskCount} 个任务\n• ${questionCount} 道题目\n\n此操作不可撤销！`;
             
-            if (currentCourse === id) currentCourse = 'all';
-            loadCourses();
-            loadCategories();
+            if (!confirm(confirmMsg)) return;
+            
+            try {
+                // 级联删除：先删除题目，再删除任务，再删除项目，最后删除课程
+                // 由于数据库设置了 ON DELETE CASCADE，只需删除课程即可
+                // 但为了确保数据一致性，我们手动按顺序删除
+                
+                // 1. 删除该课程下所有任务的题目
+                if (courseTaskIds.length > 0) {
+                    const { error: qError } = await supabaseClient
+                        .from('questions')
+                        .delete()
+                        .in('task_id', courseTaskIds);
+                    if (qError) {
+                        console.error('删除题目失败:', qError);
+                    }
+                }
+                
+                // 2. 删除该课程下所有项目的任务
+                if (courseProjectIds.length > 0) {
+                    const { error: tError } = await supabaseClient
+                        .from('tasks')
+                        .delete()
+                        .in('project_id', courseProjectIds);
+                    if (tError) {
+                        console.error('删除任务失败:', tError);
+                    }
+                }
+                
+                // 3. 删除该课程下的所有项目
+                const { error: pError } = await supabaseClient
+                    .from('projects')
+                    .delete()
+                    .eq('course_id', id);
+                if (pError) {
+                    console.error('删除项目失败:', pError);
+                }
+                
+                // 4. 删除课程
+                const { error } = await supabaseClient.from('courses').delete().eq('course_id', id);
+                if (error) { 
+                    alert('删除课程失败: ' + error.message); 
+                    return; 
+                }
+                
+                // 重置筛选状态
+                if (currentFilterType === 'course' && currentFilterId === id) {
+                    currentFilterType = 'all';
+                    currentFilterId = 'all';
+                }
+                
+                // 重新加载数据
+                await loadHierarchy();
+                await loadQuestions();
+                
+                alert(`✅ 已删除课程「${courseName}」及其下属 ${projectCount} 个项目、${taskCount} 个任务、${questionCount} 道题目`);
+                
+            } catch (err) {
+                console.error('删除课程时发生错误:', err);
+                alert('删除失败，请重试');
+            }
         }
         
         function manageCourses() {
+            // 确保数据已加载后再渲染课程列表
+            renderCoursesList();
+            document.getElementById('courses-list-modal').style.display = 'flex';
+        }
+        
+        // 打开课程管理列表弹窗
+        function openCoursesListModal() {
             renderCoursesList();
             document.getElementById('courses-list-modal').style.display = 'flex';
         }
@@ -875,11 +975,14 @@
             }
             
             container.innerHTML = courses.map(c => {
-                const catCount = categories.filter(cat => cat.course_id === c.course_id).length;
-                const qCount = questions.filter(q => {
-                    const cat = categories.find(cat => cat.category_id === q.category_id);
-                    return cat && cat.course_id === c.course_id;
-                }).length;
+                // 计算项目数量
+                const projectCount = projects.filter(p => p.course_id === c.course_id).length;
+                // 计算任务数量
+                const courseProjectIds = projects.filter(p => p.course_id === c.course_id).map(p => p.project_id);
+                const taskCount = tasks.filter(t => courseProjectIds.includes(t.project_id)).length;
+                // 计算题目数量
+                const courseTaskIds = tasks.filter(t => courseProjectIds.includes(t.project_id)).map(t => t.task_id);
+                const qCount = questions.filter(q => courseTaskIds.includes(q.task_id)).length;
                 
                 return `
                     <div style="display:flex; align-items:center; padding:15px; background:rgba(255,255,255,0.05); border-radius:10px; margin-bottom:10px; border-left:4px solid ${c.color};">
@@ -887,7 +990,7 @@
                         <div style="flex:1;">
                             <div style="font-weight:bold; font-size:1.1rem;">${c.name}</div>
                             <div style="font-size:0.85rem; color:#94a3b8; margin-top:3px;">
-                                ${c.code ? `代码: ${c.code} | ` : ''}${c.teacher ? `教师: ${c.teacher} | ` : ''}${catCount} 个分类 | ${qCount} 道题目
+                                ${c.code ? `代码: ${c.code} | ` : ''}${c.teacher ? `教师: ${c.teacher} | ` : ''}${projectCount} 个项目 | ${taskCount} 个任务 | ${qCount} 道题目
                             </div>
                         </div>
                         <div style="display:flex; gap:8px;">

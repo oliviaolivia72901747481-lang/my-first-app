@@ -51,13 +51,22 @@
     - **Property 1: Hierarchy Integrity**
     - **Validates: Requirements 1.2, 1.3, 1.4**
 
-- [ ] 3. Implement course management
-  - [ ] 3.1 Update course modal and CRUD functions
+- [x] 3. Implement course management
+
+
+
+
+
+  - [x] 3.1 Update course modal and CRUD functions
+
+
     - Modify existing course modal for new schema
     - Update saveCourse() to handle project_count
     - Implement course list display with project counts
     - _Requirements: 2.1, 2.2, 2.3_
-  - [ ] 3.2 Implement course deletion with cascade
+
+  - [x] 3.2 Implement course deletion with cascade
+
     - Add confirmation dialog showing affected items count
     - Implement cascade delete for projects, tasks, questions
     - _Requirements: 2.4_
