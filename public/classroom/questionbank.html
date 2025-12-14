@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>📚 题库管理中心</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    <script src="js/batch-operations.js"></script>
+    <script src="js/question-search.js"></script>
+    <script src="js/import-export.js"></script>
+    <script src="js/version-history.js"></script>
+    <script src="js/question-templates.js"></script>
+    <script src="js/ai-assistant.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: white; min-height: 100vh; }
@@ -19,6 +26,28 @@
         .btn-warning { background: #f59e0b; color: white; }
         .btn-danger { background: #ef4444; color: white; }
         .btn-secondary { background: rgba(255,255,255,0.1); color: white; }
+        .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+        
+        /* 批量操作工具栏样式 */
+        .batch-toolbar { display: none; background: linear-gradient(135deg, #1e3a5f, #2d4a6f); border-radius: 12px; padding: 15px 20px; margin-bottom: 15px; align-items: center; gap: 15px; flex-wrap: wrap; border: 1px solid rgba(59,130,246,0.3); }
+        .batch-toolbar.active { display: flex; }
+        .batch-toolbar .selected-count { background: #3b82f6; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9rem; }
+        .batch-toolbar .batch-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .batch-toolbar .batch-btn { padding: 8px 14px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; display: flex; align-items: center; gap: 5px; }
+        .batch-toolbar .batch-btn:hover { transform: translateY(-1px); }
+        .batch-btn-delete { background: #ef4444; color: white; }
+        .batch-btn-move { background: #f59e0b; color: white; }
+        .batch-btn-edit { background: #8b5cf6; color: white; }
+        .batch-btn-copy { background: #10b981; color: white; }
+        .batch-btn-cancel { background: rgba(255,255,255,0.1); color: white; }
+        
+        /* 题目复选框样式 */
+        .question-checkbox { width: 20px; height: 20px; cursor: pointer; accent-color: #3b82f6; }
+        .question-item { position: relative; }
+        .question-item.selected { background: rgba(59,130,246,0.15) !important; border-left: 3px solid #3b82f6; }
+        
+        /* 高亮样式 */
+        .highlight { background: #fbbf24; color: #000; padding: 1px 3px; border-radius: 3px; }
         
         .main-content { display: grid; grid-template-columns: 280px 1fr; gap: 20px; }
         
@@ -65,7 +94,9 @@
             </div>
             <div class="header-actions">
                 <button class="btn btn-success" onclick="openImportModal()">📥 导入题目</button>
+                <button class="btn btn-warning" onclick="openExportModal()">📤 导出题目</button>
                 <button class="btn btn-primary" onclick="openAddQuestion()">➕ 添加题目</button>
+                <button class="btn" style="background:linear-gradient(135deg,#8b5cf6,#6366f1);color:white;" onclick="openAIAssistant()">🤖 AI助手</button>
                 <button class="btn btn-secondary" onclick="openFormatHelp()">❓ 格式说明</button>
                 <a href="/classroom/presentation.html" class="btn btn-warning">🎬 返回课件</a>
             </div>
@@ -127,7 +158,11 @@
             <!-- 右侧题目列表 -->
             <div class="content-area" style="background:#1e293b; border-radius:15px; padding:20px;">
                 <!-- 筛选栏 -->
-                <div style="display:flex; gap:15px; margin-bottom:20px; flex-wrap:wrap; align-items:center;">
+                <div style="display:flex; gap:15px; margin-bottom:15px; flex-wrap:wrap; align-items:center;">
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; padding:8px 12px; background:rgba(255,255,255,0.05); border-radius:8px;">
+                        <input type="checkbox" id="select-all-checkbox" class="question-checkbox" onchange="toggleSelectAll()">
+                        <span style="font-size:0.85rem;">全选</span>
+                    </label>
                     <input type="text" id="search-input" placeholder="🔍 搜索题目..." style="flex:1; min-width:200px; padding:10px 15px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
                     <select id="filter-type" style="padding:10px 15px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
                         <option value="">全部题型</option>
@@ -145,6 +180,19 @@
                         <option value="5">⭐⭐⭐⭐⭐ 困难</option>
                     </select>
                     <button class="btn btn-secondary" onclick="loadQuestions()">🔄 刷新</button>
+                    <button class="btn btn-secondary" onclick="openAdvancedSearch()">🔎 高级搜索</button>
+                </div>
+                
+                <!-- 批量操作工具栏 -->
+                <div id="batch-toolbar" class="batch-toolbar">
+                    <span class="selected-count">已选 <span id="selected-count">0</span> 题</span>
+                    <div class="batch-actions">
+                        <button class="batch-btn batch-btn-delete" onclick="batchDeleteQuestions()">🗑️ 批量删除</button>
+                        <button class="batch-btn batch-btn-move" onclick="openBatchMoveModal()">📁 批量移动</button>
+                        <button class="batch-btn batch-btn-edit" onclick="openBatchEditModal()">✏️ 批量编辑</button>
+                        <button class="batch-btn batch-btn-copy" onclick="openBatchCopyModal()">📋 批量复制</button>
+                        <button class="batch-btn batch-btn-cancel" onclick="cancelBatchSelection()">✕ 取消选择</button>
+                    </div>
                 </div>
                 
                 <!-- 题目列表 -->
@@ -201,23 +249,48 @@
             
             <div style="background:rgba(59,130,246,0.1); border:2px dashed #3b82f6; border-radius:15px; padding:40px; text-align:center; margin-bottom:20px;" id="drop-area">
                 <div style="font-size:3rem; margin-bottom:10px;">📄</div>
-                <div style="margin-bottom:15px;">拖拽CSV文件到此处，或点击选择</div>
-                <input type="file" id="file-input" accept=".csv" style="display:none;" onchange="handleFileSelect(event)">
-                <button onclick="document.getElementById('file-input').click()" class="btn btn-primary">选择CSV文件</button>
+                <div style="margin-bottom:15px;">拖拽 CSV 或 Excel 文件到此处，或点击选择</div>
+                <input type="file" id="file-input" accept=".csv,.xlsx,.xls" style="display:none;" onchange="handleFileSelect(event)">
+                <div style="display:flex; gap:10px; justify-content:center;">
+                    <button onclick="document.getElementById('file-input').click()" class="btn btn-primary">选择文件</button>
+                </div>
+                <div style="font-size:0.8rem; color:#94a3b8; margin-top:10px;">支持 CSV、Excel (.xlsx, .xls) 格式</div>
             </div>
             
             <div id="import-preview" style="display:none;">
-                <div style="font-weight:bold; margin-bottom:10px;">📝 预览 (<span id="preview-count">0</span> 道题目)</div>
-                <div id="preview-list" style="max-height:200px; overflow-y:auto; background:rgba(0,0,0,0.2); border-radius:8px; padding:10px; margin-bottom:15px;"></div>
-                <div style="display:flex; gap:15px; align-items:center; margin-bottom:15px;">
+                <!-- 导入统计 -->
+                <div style="display:flex; gap:15px; margin-bottom:15px;">
+                    <div style="flex:1; background:rgba(16,185,129,0.2); padding:12px; border-radius:8px; text-align:center;">
+                        <div style="font-size:1.5rem; font-weight:bold; color:#10b981;" id="import-valid-count">0</div>
+                        <div style="font-size:0.8rem; color:#94a3b8;">有效题目</div>
+                    </div>
+                    <div style="flex:1; background:rgba(239,68,68,0.2); padding:12px; border-radius:8px; text-align:center;">
+                        <div style="font-size:1.5rem; font-weight:bold; color:#ef4444;" id="import-invalid-count">0</div>
+                        <div style="font-size:0.8rem; color:#94a3b8;">错误题目</div>
+                    </div>
+                </div>
+                
+                <div style="font-weight:bold; margin-bottom:10px;">📝 预览 (<span id="preview-count">0</span> 道有效题目)</div>
+                <div id="preview-list" style="max-height:150px; overflow-y:auto; background:rgba(0,0,0,0.2); border-radius:8px; padding:10px; margin-bottom:10px;"></div>
+                
+                <!-- 错误列表 -->
+                <div id="import-errors" style="display:none; margin-bottom:15px;">
+                    <div style="font-weight:bold; margin-bottom:10px; color:#ef4444;">⚠️ 错误详情</div>
+                    <div id="import-errors-list" style="max-height:100px; overflow-y:auto; background:rgba(239,68,68,0.1); border-radius:8px; padding:10px; font-size:0.85rem;"></div>
+                </div>
+                
+                <div style="display:flex; gap:15px; align-items:center; margin-bottom:15px; flex-wrap:wrap;">
                     <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
                         <input type="checkbox" id="clear-before-import"> 清空该任务现有题目
+                    </label>
+                    <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
+                        <input type="checkbox" id="overwrite-existing"> 覆盖已存在的题目
                     </label>
                     <label style="display:flex; align-items:center; gap:5px;">
                         起始序号: <input type="number" id="start-round" value="1" min="1" style="width:80px; padding:5px; border-radius:5px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
                     </label>
                 </div>
-                <button onclick="confirmImport()" class="btn btn-success" style="width:100%; padding:15px;">✅ 确认导入</button>
+                <button onclick="confirmImport()" class="btn btn-success" style="width:100%; padding:15px;">✅ 确认导入 (仅导入有效题目)</button>
             </div>
         </div>
     </div>
@@ -285,6 +358,479 @@
                     <li>知识点和难度为可选字段，可省略</li>
                     <li>难度范围：1-5（1最简单，5最难）</li>
                 </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- 模板管理弹窗 -->
+    <div id="template-manager-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1001; align-items:center; justify-content:center;">
+        <div style="background:#1e293b; border-radius:20px; padding:30px; width:90%; max-width:600px; max-height:90vh; overflow-y:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2>📋 模板管理</h2>
+                <button onclick="closeTemplateManager()" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">✕</button>
+            </div>
+            
+            <!-- 内置模板 -->
+            <div style="margin-bottom:20px;">
+                <h4 style="margin-bottom:10px; color:#94a3b8;">内置模板</h4>
+                <div id="builtin-templates-list" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <div style="padding:15px; background:rgba(59,130,246,0.1); border-radius:8px; border-left:3px solid #3b82f6;">
+                        <div style="font-weight:bold;">📌 单选题模板</div>
+                        <div style="font-size:0.8rem; color:#94a3b8;">标准四选一单选题</div>
+                    </div>
+                    <div style="padding:15px; background:rgba(139,92,246,0.1); border-radius:8px; border-left:3px solid #8b5cf6;">
+                        <div style="font-weight:bold;">📋 多选题模板</div>
+                        <div style="font-size:0.8rem; color:#94a3b8;">可选2-4个正确答案</div>
+                    </div>
+                    <div style="padding:15px; background:rgba(16,185,129,0.1); border-radius:8px; border-left:3px solid #10b981;">
+                        <div style="font-weight:bold;">✅ 判断题模板</div>
+                        <div style="font-size:0.8rem; color:#94a3b8;">对错判断题</div>
+                    </div>
+                    <div style="padding:15px; background:rgba(245,158,11,0.1); border-radius:8px; border-left:3px solid #f59e0b;">
+                        <div style="font-weight:bold;">✏️ 填空题模板</div>
+                        <div style="font-size:0.8rem; color:#94a3b8;">用___标记填空位置</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 自定义模板 -->
+            <div style="margin-bottom:20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <h4 style="color:#94a3b8;">自定义模板</h4>
+                    <button onclick="openCreateTemplate()" class="btn btn-primary" style="padding:6px 12px; font-size:0.8rem;">➕ 新建模板</button>
+                </div>
+                <div id="custom-templates-list">
+                    <div style="text-align:center; padding:20px; color:#666;">暂无自定义模板</div>
+                </div>
+            </div>
+            
+            <!-- 创建模板表单 -->
+            <div id="create-template-form" style="display:none; background:rgba(0,0,0,0.2); border-radius:8px; padding:15px; margin-bottom:15px;">
+                <h4 style="margin-bottom:15px;">创建新模板</h4>
+                <div style="margin-bottom:10px;">
+                    <label style="display:block; margin-bottom:5px; color:#94a3b8; font-size:0.9rem;">模板名称</label>
+                    <input type="text" id="new-template-name" placeholder="如：环境监测单选题" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                </div>
+                <div style="margin-bottom:10px;">
+                    <label style="display:block; margin-bottom:5px; color:#94a3b8; font-size:0.9rem;">基于题型</label>
+                    <select id="new-template-type" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                        <option value="single">单选题</option>
+                        <option value="multiple">多选题</option>
+                        <option value="truefalse">判断题</option>
+                        <option value="fillblank">填空题</option>
+                    </select>
+                </div>
+                <div style="margin-bottom:10px;">
+                    <label style="display:block; margin-bottom:5px; color:#94a3b8; font-size:0.9rem;">默认难度</label>
+                    <select id="new-template-difficulty" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                        <option value="1">⭐ 简单</option>
+                        <option value="2">⭐⭐ 较易</option>
+                        <option value="3" selected>⭐⭐⭐ 中等</option>
+                        <option value="4">⭐⭐⭐⭐ 较难</option>
+                        <option value="5">⭐⭐⭐⭐⭐ 困难</option>
+                    </select>
+                </div>
+                <div style="margin-bottom:15px;">
+                    <label style="display:block; margin-bottom:5px; color:#94a3b8; font-size:0.9rem;">默认知识点</label>
+                    <input type="text" id="new-template-tag" placeholder="如：土壤检测" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button onclick="saveNewTemplate()" class="btn btn-success" style="flex:1;">💾 保存模板</button>
+                    <button onclick="cancelCreateTemplate()" class="btn btn-secondary" style="flex:1;">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 版本历史弹窗 -->
+    <div id="version-history-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:#1e293b; border-radius:20px; padding:30px; width:90%; max-width:700px; max-height:90vh; overflow-y:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2>📜 版本历史</h2>
+                <button onclick="closeVersionHistory()" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">✕</button>
+            </div>
+            
+            <!-- 当前题目信息 -->
+            <div id="version-current-question" style="background:rgba(59,130,246,0.1); border-radius:8px; padding:15px; margin-bottom:20px;">
+                <div style="font-size:0.85rem; color:#94a3b8; margin-bottom:5px;">当前版本</div>
+                <div id="version-current-title" style="font-weight:bold;"></div>
+            </div>
+            
+            <!-- 版本列表 -->
+            <div style="margin-bottom:15px;">
+                <div style="font-weight:bold; margin-bottom:10px;">历史版本</div>
+                <div id="version-list" style="max-height:300px; overflow-y:auto;">
+                    <div style="text-align:center; padding:30px; color:#666;">加载中...</div>
+                </div>
+            </div>
+            
+            <!-- 版本对比区域 -->
+            <div id="version-compare" style="display:none; background:rgba(0,0,0,0.2); border-radius:8px; padding:15px; margin-bottom:15px;">
+                <div style="font-weight:bold; margin-bottom:10px;">📊 版本对比</div>
+                <div id="version-compare-content"></div>
+            </div>
+            
+            <div id="version-actions" style="display:none; display:flex; gap:10px;">
+                <button onclick="restoreSelectedVersion()" class="btn btn-warning" style="flex:1;">🔄 恢复此版本</button>
+                <button onclick="closeVersionCompare()" class="btn btn-secondary" style="flex:1;">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导出题目弹窗 -->
+    <div id="export-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:#1e293b; border-radius:20px; padding:30px; width:90%; max-width:500px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2>📤 导出题目</h2>
+                <button onclick="closeExportModal()" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">✕</button>
+            </div>
+            
+            <div style="margin-bottom:15px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">导出范围</label>
+                <select id="export-scope" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                    <option value="current">当前筛选结果 (<span id="export-current-count">0</span> 道)</option>
+                    <option value="selected">选中的题目 (<span id="export-selected-count">0</span> 道)</option>
+                    <option value="all">全部题目</option>
+                </select>
+            </div>
+            
+            <div style="margin-bottom:20px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">导出格式</label>
+                <div style="display:flex; gap:10px;">
+                    <label style="flex:1; display:flex; align-items:center; gap:8px; padding:15px; background:rgba(255,255,255,0.05); border-radius:8px; cursor:pointer; border:2px solid transparent;" class="export-format-option" data-format="csv">
+                        <input type="radio" name="export-format" value="csv" checked style="display:none;">
+                        <span style="font-size:1.5rem;">📄</span>
+                        <div>
+                            <div style="font-weight:bold;">CSV</div>
+                            <div style="font-size:0.75rem; color:#94a3b8;">通用格式</div>
+                        </div>
+                    </label>
+                    <label style="flex:1; display:flex; align-items:center; gap:8px; padding:15px; background:rgba(255,255,255,0.05); border-radius:8px; cursor:pointer; border:2px solid transparent;" class="export-format-option" data-format="excel">
+                        <input type="radio" name="export-format" value="excel" style="display:none;">
+                        <span style="font-size:1.5rem;">📊</span>
+                        <div>
+                            <div style="font-weight:bold;">Excel</div>
+                            <div style="font-size:0.75rem; color:#94a3b8;">.xlsx格式</div>
+                        </div>
+                    </label>
+                    <label style="flex:1; display:flex; align-items:center; gap:8px; padding:15px; background:rgba(255,255,255,0.05); border-radius:8px; cursor:pointer; border:2px solid transparent;" class="export-format-option" data-format="json">
+                        <input type="radio" name="export-format" value="json" style="display:none;">
+                        <span style="font-size:1.5rem;">{ }</span>
+                        <div>
+                            <div style="font-weight:bold;">JSON</div>
+                            <div style="font-size:0.75rem; color:#94a3b8;">完整数据</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            
+            <button onclick="executeExport()" class="btn btn-success" style="width:100%; padding:15px;">📥 开始导出</button>
+        </div>
+    </div>
+
+    <!-- AI助手弹窗 -->
+    <div id="ai-assistant-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:#1e293b; border-radius:20px; padding:30px; width:90%; max-width:700px; max-height:90vh; overflow-y:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2>🤖 AI 智能助手</h2>
+                <button onclick="closeAIAssistant()" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">✕</button>
+            </div>
+            
+            <!-- AI功能选项卡 -->
+            <div style="display:flex; gap:10px; margin-bottom:20px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px;">
+                <button id="ai-tab-generate" class="btn btn-primary" onclick="switchAITab('generate')">✨ 生成题目</button>
+                <button id="ai-tab-optimize" class="btn btn-secondary" onclick="switchAITab('optimize')">🔧 优化题目</button>
+                <button id="ai-tab-config" class="btn btn-secondary" onclick="switchAITab('config')">⚙️ API配置</button>
+            </div>
+            
+            <!-- 生成题目面板 -->
+            <div id="ai-panel-generate">
+                <div style="margin-bottom:15px;">
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">知识点/主题 *</label>
+                    <input type="text" id="ai-gen-topic" placeholder="如：环境监测、土壤检测、水质分析..." style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                </div>
+                
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px; margin-bottom:15px;">
+                    <div>
+                        <label style="display:block; margin-bottom:8px; color:#94a3b8;">题型</label>
+                        <select id="ai-gen-type" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                            <option value="single">单选题</option>
+                            <option value="multiple">多选题</option>
+                            <option value="truefalse">判断题</option>
+                            <option value="fillblank">填空题</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom:8px; color:#94a3b8;">难度</label>
+                        <select id="ai-gen-difficulty" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                            <option value="1">⭐ 简单</option>
+                            <option value="2">⭐⭐ 较易</option>
+                            <option value="3" selected>⭐⭐⭐ 中等</option>
+                            <option value="4">⭐⭐⭐⭐ 较难</option>
+                            <option value="5">⭐⭐⭐⭐⭐ 困难</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom:8px; color:#94a3b8;">数量 (1-10)</label>
+                        <input type="number" id="ai-gen-count" value="5" min="1" max="10" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                    </div>
+                </div>
+                
+                <div style="margin-bottom:15px;">
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">额外说明（可选）</label>
+                    <textarea id="ai-gen-context" placeholder="提供更多背景信息或特殊要求..." style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white; min-height:60px; resize:vertical;"></textarea>
+                </div>
+                
+                <button onclick="generateQuestionsWithAI()" class="btn btn-primary" style="width:100%; padding:15px; font-size:1rem;">
+                    ✨ 开始生成
+                </button>
+                
+                <!-- 生成结果预览 -->
+                <div id="ai-gen-result" style="display:none; margin-top:20px;">
+                    <h4 style="margin-bottom:10px;">📝 生成结果 (<span id="ai-gen-result-count">0</span> 道题目)</h4>
+                    <div id="ai-gen-result-list" style="max-height:300px; overflow-y:auto; background:rgba(0,0,0,0.2); border-radius:8px; padding:10px;"></div>
+                    <div style="display:flex; gap:10px; margin-top:15px;">
+                        <button onclick="saveGeneratedQuestions()" class="btn btn-success" style="flex:1;">💾 保存到题库</button>
+                        <button onclick="clearGeneratedQuestions()" class="btn btn-secondary" style="flex:1;">🗑️ 清空</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 优化题目面板 -->
+            <div id="ai-panel-optimize" style="display:none;">
+                <div style="margin-bottom:15px;">
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">选择要优化的题目</label>
+                    <select id="ai-opt-question" onchange="loadQuestionForOptimize()" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                        <option value="">请选择题目...</option>
+                    </select>
+                </div>
+                
+                <div id="ai-opt-preview" style="display:none; background:rgba(0,0,0,0.2); border-radius:8px; padding:15px; margin-bottom:15px;">
+                    <h4 style="margin-bottom:10px; color:#94a3b8;">当前题目</h4>
+                    <div id="ai-opt-preview-content"></div>
+                </div>
+                
+                <div style="display:flex; gap:10px; margin-bottom:15px;">
+                    <button onclick="optimizeQuestionWithAI()" class="btn btn-primary" style="flex:1;">🔧 优化题目</button>
+                    <button onclick="generateExplanationWithAI()" class="btn btn-success" style="flex:1;">📝 生成解析</button>
+                    <button onclick="checkQualityWithAI()" class="btn btn-warning" style="flex:1;">📊 质量检查</button>
+                </div>
+                
+                <!-- 优化结果 -->
+                <div id="ai-opt-result" style="display:none; background:rgba(139,92,246,0.1); border-radius:8px; padding:15px;">
+                    <h4 style="margin-bottom:10px; color:#8b5cf6;">优化结果</h4>
+                    <div id="ai-opt-result-content"></div>
+                    <button onclick="applyOptimization()" class="btn btn-success" style="width:100%; margin-top:15px;">✅ 应用优化</button>
+                </div>
+            </div>
+            
+            <!-- API配置面板 -->
+            <div id="ai-panel-config" style="display:none;">
+                <div style="background:rgba(245,158,11,0.1); border-radius:8px; padding:15px; margin-bottom:20px;">
+                    <p style="color:#f59e0b; font-size:0.9rem;">⚠️ API密钥仅保存在本地浏览器中，不会上传到服务器。</p>
+                </div>
+                
+                <div style="margin-bottom:15px;">
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">API 提供商</label>
+                    <select id="ai-config-provider" onchange="updateAPIEndpoint()" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                        <option value="openai">OpenAI</option>
+                        <option value="anthropic">Anthropic (Claude)</option>
+                        <option value="custom">自定义</option>
+                    </select>
+                </div>
+                
+                <div style="margin-bottom:15px;">
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">API 密钥 *</label>
+                    <input type="password" id="ai-config-key" placeholder="sk-..." style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                </div>
+                
+                <div style="margin-bottom:15px;">
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">API 端点</label>
+                    <input type="text" id="ai-config-endpoint" value="https://api.openai.com/v1/chat/completions" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                </div>
+                
+                <div style="margin-bottom:20px;">
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">模型</label>
+                    <select id="ai-config-model" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                        <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                        <option value="gpt-4">GPT-4</option>
+                        <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                        <option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option>
+                        <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                    </select>
+                </div>
+                
+                <div style="display:flex; gap:10px;">
+                    <button onclick="saveAIConfig()" class="btn btn-success" style="flex:1;">💾 保存配置</button>
+                    <button onclick="testAIConnection()" class="btn btn-primary" style="flex:1;">🔗 测试连接</button>
+                </div>
+                
+                <div id="ai-config-status" style="margin-top:15px; padding:10px; border-radius:8px; display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 高级搜索弹窗 -->
+    <div id="advanced-search-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:#1e293b; border-radius:20px; padding:30px; width:90%; max-width:600px; max-height:90vh; overflow-y:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2>🔎 高级搜索</h2>
+                <button onclick="closeAdvancedSearch()" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">✕</button>
+            </div>
+            
+            <div style="margin-bottom:15px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">关键词搜索</label>
+                <input type="text" id="adv-search-keyword" placeholder="搜索题目、选项、解析..." style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+            </div>
+            
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px;">
+                <div>
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">题型</label>
+                    <select id="adv-search-type" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                        <option value="">全部题型</option>
+                        <option value="single">单选题</option>
+                        <option value="multiple">多选题</option>
+                        <option value="truefalse">判断题</option>
+                        <option value="fillblank">填空题</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">难度</label>
+                    <select id="adv-search-difficulty" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                        <option value="">全部难度</option>
+                        <option value="1">⭐ 简单</option>
+                        <option value="2">⭐⭐ 较易</option>
+                        <option value="3">⭐⭐⭐ 中等</option>
+                        <option value="4">⭐⭐⭐⭐ 较难</option>
+                        <option value="5">⭐⭐⭐⭐⭐ 困难</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div style="margin-bottom:15px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">知识点标签</label>
+                <input type="text" id="adv-search-tag" placeholder="输入知识点关键词" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+            </div>
+            
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px;">
+                <div>
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">创建时间起始</label>
+                    <input type="date" id="adv-search-date-start" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">创建时间结束</label>
+                    <input type="date" id="adv-search-date-end" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                </div>
+            </div>
+            
+            <!-- 已保存的筛选条件 -->
+            <div style="margin-bottom:20px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">已保存的筛选条件</label>
+                <div id="saved-filters-list" style="background:rgba(0,0,0,0.2); border-radius:8px; padding:10px; max-height:120px; overflow-y:auto;">
+                    <div style="color:#666; text-align:center; padding:10px;">暂无保存的筛选条件</div>
+                </div>
+            </div>
+            
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button onclick="executeAdvancedSearch()" class="btn btn-primary" style="flex:1;">🔍 搜索</button>
+                <button onclick="saveCurrentFilter()" class="btn btn-success" style="flex:1;">💾 保存筛选</button>
+                <button onclick="resetAdvancedSearch()" class="btn btn-secondary" style="flex:1;">🔄 重置</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量移动弹窗 -->
+    <div id="batch-move-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:#1e293b; border-radius:20px; padding:30px; width:90%; max-width:500px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2>📁 批量移动题目</h2>
+                <button onclick="closeBatchMoveModal()" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">✕</button>
+            </div>
+            <p style="color:#94a3b8; margin-bottom:20px;">将 <span id="batch-move-count" style="color:#3b82f6; font-weight:bold;">0</span> 道题目移动到：</p>
+            <div style="margin-bottom:15px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">目标课程</label>
+                <select id="batch-move-course" onchange="updateBatchMoveProjectSelect()" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                    <option value="">请选择课程</option>
+                </select>
+            </div>
+            <div style="margin-bottom:15px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">目标项目</label>
+                <select id="batch-move-project" onchange="updateBatchMoveTaskSelect()" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                    <option value="">请先选择课程</option>
+                </select>
+            </div>
+            <div style="margin-bottom:20px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">目标任务</label>
+                <select id="batch-move-task" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                    <option value="">请先选择项目</option>
+                </select>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button onclick="confirmBatchMove()" class="btn btn-success" style="flex:1;">✅ 确认移动</button>
+                <button onclick="closeBatchMoveModal()" class="btn btn-secondary" style="flex:1;">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量编辑弹窗 -->
+    <div id="batch-edit-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:#1e293b; border-radius:20px; padding:30px; width:90%; max-width:500px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2>✏️ 批量编辑题目</h2>
+                <button onclick="closeBatchEditModal()" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">✕</button>
+            </div>
+            <p style="color:#94a3b8; margin-bottom:20px;">批量修改 <span id="batch-edit-count" style="color:#8b5cf6; font-weight:bold;">0</span> 道题目的属性（留空表示不修改）：</p>
+            <div style="margin-bottom:15px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">难度</label>
+                <select id="batch-edit-difficulty" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                    <option value="">不修改</option>
+                    <option value="1">⭐ 简单</option>
+                    <option value="2">⭐⭐ 较易</option>
+                    <option value="3">⭐⭐⭐ 中等</option>
+                    <option value="4">⭐⭐⭐⭐ 较难</option>
+                    <option value="5">⭐⭐⭐⭐⭐ 困难</option>
+                </select>
+            </div>
+            <div style="margin-bottom:20px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">知识点标签</label>
+                <input type="text" id="batch-edit-tag" placeholder="留空表示不修改" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button onclick="confirmBatchEdit()" class="btn btn-success" style="flex:1;">✅ 确认修改</button>
+                <button onclick="closeBatchEditModal()" class="btn btn-secondary" style="flex:1;">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量复制弹窗 -->
+    <div id="batch-copy-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:#1e293b; border-radius:20px; padding:30px; width:90%; max-width:500px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2>📋 批量复制题目</h2>
+                <button onclick="closeBatchCopyModal()" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">✕</button>
+            </div>
+            <p style="color:#94a3b8; margin-bottom:20px;">将 <span id="batch-copy-count" style="color:#10b981; font-weight:bold;">0</span> 道题目复制到：</p>
+            <div style="margin-bottom:15px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">目标课程</label>
+                <select id="batch-copy-course" onchange="updateBatchCopyProjectSelect()" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                    <option value="">请选择课程</option>
+                </select>
+            </div>
+            <div style="margin-bottom:15px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">目标项目</label>
+                <select id="batch-copy-project" onchange="updateBatchCopyTaskSelect()" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                    <option value="">请先选择课程</option>
+                </select>
+            </div>
+            <div style="margin-bottom:20px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">目标任务</label>
+                <select id="batch-copy-task" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                    <option value="">请先选择项目</option>
+                </select>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button onclick="confirmBatchCopy()" class="btn btn-success" style="flex:1;">✅ 确认复制</button>
+                <button onclick="closeBatchCopyModal()" class="btn btn-secondary" style="flex:1;">取消</button>
             </div>
         </div>
     </div>
@@ -452,8 +998,26 @@
     <!-- 添加/编辑题目弹窗 -->
     <div id="question-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
         <div style="background:#1e293b; border-radius:20px; padding:30px; width:90%; max-width:700px; max-height:90vh; overflow-y:auto;">
-            <h2 style="margin-bottom:20px;" id="question-modal-title">➕ 添加题目</h2>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2 id="question-modal-title">➕ 添加题目</h2>
+                <button onclick="openTemplateManager()" class="btn btn-secondary" style="padding:8px 12px; font-size:0.8rem;">📋 管理模板</button>
+            </div>
             <input type="hidden" id="edit-question-id">
+            
+            <!-- 模板选择 -->
+            <div style="margin-bottom:15px; padding:12px; background:rgba(139,92,246,0.1); border-radius:8px; border:1px solid rgba(139,92,246,0.3);">
+                <label style="display:block; margin-bottom:8px; color:#8b5cf6; font-weight:bold;">📋 使用模板快速创建</label>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <select id="q-template" onchange="applyQuestionTemplate()" style="flex:1; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                        <option value="">选择模板...</option>
+                        <option value="single">📌 单选题模板</option>
+                        <option value="multiple">📋 多选题模板</option>
+                        <option value="truefalse">✅ 判断题模板</option>
+                        <option value="fillblank">✏️ 填空题模板</option>
+                    </select>
+                    <span style="font-size:0.8rem; color:#94a3b8;">或手动填写</span>
+                </div>
+            </div>
             
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px;">
                 <div>
@@ -1740,6 +2304,9 @@
                 filtered = filtered.filter(q => q.title.toLowerCase().includes(searchText) || (q.knowledge_tag || '').toLowerCase().includes(searchText));
             }
             
+            // 保存当前显示的题目列表（用于批量操作）
+            currentDisplayedQuestions = filtered;
+            
             renderQuestions(filtered);
             updateStats();
             renderHierarchyTree();
@@ -1750,8 +2317,12 @@
             
             if (list.length === 0) {
                 container.innerHTML = '<div style="text-align:center; padding:50px; color:#666;">暂无题目</div>';
+                updateBatchToolbar();
                 return;
             }
+            
+            // 获取当前搜索关键词用于高亮
+            const searchKeyword = document.getElementById('search-input')?.value || '';
             
             container.innerHTML = list.map(q => {
                 const type = typeConfig[q.question_type] || typeConfig.single;
@@ -1759,6 +2330,7 @@
                 const project = task ? projects.find(p => p.project_id === task.project_id) : null;
                 const course = project ? courses.find(c => c.course_id === project.course_id) : null;
                 const difficulty = '⭐'.repeat(q.difficulty || 1);
+                const isSelected = BatchOperations.isSelected(q.id);
                 
                 // 构建层级路径显示
                 let hierarchyPath = '';
@@ -1766,11 +2338,15 @@
                     hierarchyPath = `<span style="background:${task.color}20; color:${task.color}; padding:2px 8px; border-radius:4px; font-size:0.75rem;" title="${course?.name || ''} > ${project?.name || ''} > ${task.name}">${task.name}</span>`;
                 }
                 
+                // 高亮标题中的关键词
+                const highlightedTitle = searchKeyword ? QuestionSearch.highlightKeyword(q.title, searchKeyword) : q.title;
+                
                 return `
-                    <div style="background:rgba(255,255,255,0.05); border-radius:12px; padding:15px; display:flex; gap:15px; align-items:flex-start;">
-                        <div style="min-width:50px; text-align:center;">
-                            <div style="font-size:1.5rem; font-weight:bold; color:#3b82f6;">${q.round}</div>
-                            <div style="font-size:0.7rem; color:#94a3b8;">序号</div>
+                    <div class="question-item ${isSelected ? 'selected' : ''}" data-question-id="${q.id}" style="background:rgba(255,255,255,0.05); border-radius:12px; padding:15px; display:flex; gap:15px; align-items:flex-start;">
+                        <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
+                            <input type="checkbox" class="question-checkbox" ${isSelected ? 'checked' : ''} onchange="toggleQuestionSelect('${q.id}')" onclick="event.stopPropagation()">
+                            <div style="font-size:1.3rem; font-weight:bold; color:#3b82f6;">${q.round}</div>
+                            <div style="font-size:0.65rem; color:#94a3b8;">序号</div>
                         </div>
                         <div style="flex:1;">
                             <div style="display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
@@ -1779,7 +2355,7 @@
                                 ${q.knowledge_tag ? `<span style="background:rgba(255,255,255,0.1); padding:2px 8px; border-radius:4px; font-size:0.75rem;">${q.knowledge_tag}</span>` : ''}
                                 <span style="font-size:0.75rem; color:#f59e0b;">${difficulty}</span>
                             </div>
-                            <div style="font-size:0.95rem; line-height:1.5; margin-bottom:8px;">${q.title}</div>
+                            <div style="font-size:0.95rem; line-height:1.5; margin-bottom:8px;">${highlightedTitle}</div>
                             ${q.question_type !== 'fillblank' && q.question_type !== 'truefalse' ? `
                                 <div style="display:flex; gap:15px; flex-wrap:wrap; font-size:0.85rem; color:#94a3b8;">
                                     ${q.option_a ? `<span>A. ${q.option_a.substring(0, 20)}${q.option_a.length > 20 ? '...' : ''}</span>` : ''}
@@ -1792,6 +2368,7 @@
                         <div style="display:flex; flex-direction:column; gap:5px; align-items:flex-end;">
                             <div style="background:#10b981; color:white; padding:5px 12px; border-radius:6px; font-weight:bold;">${q.answer}</div>
                             <div style="display:flex; gap:5px;">
+                                <button onclick="showVersionHistory('${q.id}')" class="btn btn-secondary" style="padding:5px 10px; font-size:0.75rem;" title="版本历史">📜</button>
                                 <button onclick="editQuestion(${q.round})" class="btn btn-secondary" style="padding:5px 10px; font-size:0.75rem;">✏️ 编辑</button>
                                 <button onclick="deleteQuestion(${q.round})" class="btn btn-danger" style="padding:5px 10px; font-size:0.75rem;">🗑️</button>
                             </div>
@@ -1799,6 +2376,8 @@
                     </div>
                 `;
             }).join('');
+            
+            updateBatchToolbar();
         }
         
         function updateStats() {
@@ -2226,22 +2805,41 @@
             if (file) processFile(file);
         }
         
-        function processFile(file) {
-            if (!file.name.endsWith('.csv')) {
-                alert('请选择CSV文件');
+        // 导入解析结果
+        let importParseResult = { valid: [], invalid: [], errors: [] };
+        
+        async function processFile(file) {
+            const fileName = file.name.toLowerCase();
+            const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+            const isCSV = fileName.endsWith('.csv');
+            
+            if (!isExcel && !isCSV) {
+                alert('请选择 CSV 或 Excel 文件');
                 return;
             }
             
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const text = e.target.result;
-                const type = document.getElementById('import-type').value;
-                pendingImport = parseCSV(text, type);
-                
-                if (pendingImport.length === 0) {
-                    alert('未能解析出有效题目，请检查CSV格式');
-                    return;
+            const type = document.getElementById('import-type').value;
+            
+            try {
+                if (isExcel) {
+                    // 使用增强的Excel解析
+                    importParseResult = await ImportExport.parseExcel(file, type);
+                } else {
+                    // 使用增强的CSV解析
+                    const reader = new FileReader();
+                    const text = await new Promise((resolve, reject) => {
+                        reader.onload = (e) => resolve(e.target.result);
+                        reader.onerror = () => reject(new Error('文件读取失败'));
+                        reader.readAsText(file, 'UTF-8');
+                    });
+                    importParseResult = ImportExport.parseCSV(text, type);
                 }
+                
+                pendingImport = importParseResult.valid;
+                
+                // 更新统计
+                document.getElementById('import-valid-count').textContent = importParseResult.valid.length;
+                document.getElementById('import-invalid-count').textContent = importParseResult.invalid.length;
                 
                 // 显示预览
                 document.getElementById('import-preview').style.display = 'block';
@@ -2252,8 +2850,23 @@
                         <span style="color:#10b981;">[${q.answer}]</span>
                     </div>
                 `).join('') + (pendingImport.length > 5 ? `<div style="padding:8px; color:#94a3b8; font-size:0.8rem;">... 还有 ${pendingImport.length - 5} 道题目</div>` : '');
-            };
-            reader.readAsText(file, 'UTF-8');
+                
+                // 显示错误列表
+                if (importParseResult.errors.length > 0) {
+                    document.getElementById('import-errors').style.display = 'block';
+                    document.getElementById('import-errors-list').innerHTML = importParseResult.errors.map(e => 
+                        `<div style="padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.05);">第 ${e.row} 行: ${e.message}</div>`
+                    ).join('');
+                } else {
+                    document.getElementById('import-errors').style.display = 'none';
+                }
+                
+                if (pendingImport.length === 0) {
+                    alert('未能解析出有效题目，请检查文件格式');
+                }
+            } catch (error) {
+                alert('文件解析失败: ' + error.message);
+            }
         }
         
         function parseCSV(text, type) {
@@ -2396,6 +3009,1281 @@
         function closeFormatHelp() {
             document.getElementById('format-modal').style.display = 'none';
         }
+        
+        // ================== 批量操作功能 ==================
+        // 当前显示的题目列表（用于批量操作）
+        let currentDisplayedQuestions = [];
+        
+        // 更新批量操作工具栏显示
+        function updateBatchToolbar() {
+            const toolbar = document.getElementById('batch-toolbar');
+            const countSpan = document.getElementById('selected-count');
+            const selectAllCheckbox = document.getElementById('select-all-checkbox');
+            const count = BatchOperations.getSelectedCount();
+            
+            if (count > 0) {
+                toolbar.classList.add('active');
+                countSpan.textContent = count;
+            } else {
+                toolbar.classList.remove('active');
+            }
+            
+            // 更新全选复选框状态
+            if (selectAllCheckbox && currentDisplayedQuestions.length > 0) {
+                const allSelected = currentDisplayedQuestions.every(q => BatchOperations.isSelected(q.id));
+                selectAllCheckbox.checked = allSelected;
+                selectAllCheckbox.indeterminate = count > 0 && !allSelected;
+            }
+        }
+        
+        // 切换单个题目选择
+        function toggleQuestionSelect(questionId) {
+            BatchOperations.toggleSelect(questionId);
+            updateQuestionItemUI(questionId);
+            updateBatchToolbar();
+        }
+        
+        // 更新单个题目项的UI
+        function updateQuestionItemUI(questionId) {
+            const item = document.querySelector(`.question-item[data-question-id="${questionId}"]`);
+            if (item) {
+                const isSelected = BatchOperations.isSelected(questionId);
+                item.classList.toggle('selected', isSelected);
+                const checkbox = item.querySelector('.question-checkbox');
+                if (checkbox) checkbox.checked = isSelected;
+            }
+        }
+        
+        // 全选/取消全选
+        function toggleSelectAll() {
+            const selectAllCheckbox = document.getElementById('select-all-checkbox');
+            const questionIds = currentDisplayedQuestions.map(q => q.id);
+            
+            if (selectAllCheckbox.checked) {
+                BatchOperations.selectAll(questionIds);
+            } else {
+                BatchOperations.deselectAll();
+            }
+            
+            // 更新所有题目项的UI
+            document.querySelectorAll('.question-item').forEach(item => {
+                const qId = item.dataset.questionId;
+                const isSelected = BatchOperations.isSelected(qId);
+                item.classList.toggle('selected', isSelected);
+                const checkbox = item.querySelector('.question-checkbox');
+                if (checkbox) checkbox.checked = isSelected;
+            });
+            
+            updateBatchToolbar();
+        }
+        
+        // 取消批量选择
+        function cancelBatchSelection() {
+            BatchOperations.deselectAll();
+            document.querySelectorAll('.question-item').forEach(item => {
+                item.classList.remove('selected');
+                const checkbox = item.querySelector('.question-checkbox');
+                if (checkbox) checkbox.checked = false;
+            });
+            document.getElementById('select-all-checkbox').checked = false;
+            updateBatchToolbar();
+        }
+        
+        // 批量删除题目
+        async function batchDeleteQuestions() {
+            const selectedIds = BatchOperations.getSelectedIds();
+            if (selectedIds.length === 0) {
+                alert('请先选择要删除的题目');
+                return;
+            }
+            
+            const result = await BatchOperations.batchDeleteWithConfirm(supabaseClient, selectedIds);
+            
+            if (result.cancelled) return;
+            
+            if (result.success) {
+                // 记录操作日志
+                await BatchOperations.logOperation(supabaseClient, 'delete', {
+                    questionIds: selectedIds,
+                    deleted: result.deleted,
+                    failed: result.failed
+                });
+                
+                alert(`✅ 成功删除 ${result.deleted} 道题目${result.failed > 0 ? `，${result.failed} 道失败` : ''}`);
+                await loadQuestions();
+                await updateAllHierarchyCounts();
+            } else {
+                alert('❌ 删除失败: ' + (result.errors.join(', ') || '未知错误'));
+            }
+        }
+        
+        // 打开批量移动弹窗
+        function openBatchMoveModal() {
+            const selectedIds = BatchOperations.getSelectedIds();
+            if (selectedIds.length === 0) {
+                alert('请先选择要移动的题目');
+                return;
+            }
+            
+            document.getElementById('batch-move-count').textContent = selectedIds.length;
+            updateBatchMoveCourseSelect();
+            document.getElementById('batch-move-modal').style.display = 'flex';
+        }
+        
+        function closeBatchMoveModal() {
+            document.getElementById('batch-move-modal').style.display = 'none';
+        }
+        
+        function updateBatchMoveCourseSelect() {
+            const select = document.getElementById('batch-move-course');
+            select.innerHTML = '<option value="">请选择课程</option>' + 
+                courses.map(c => `<option value="${c.course_id}">${c.name}</option>`).join('');
+            document.getElementById('batch-move-project').innerHTML = '<option value="">请先选择课程</option>';
+            document.getElementById('batch-move-task').innerHTML = '<option value="">请先选择项目</option>';
+        }
+        
+        function updateBatchMoveProjectSelect() {
+            const courseId = document.getElementById('batch-move-course').value;
+            const projectSelect = document.getElementById('batch-move-project');
+            const taskSelect = document.getElementById('batch-move-task');
+            
+            if (!courseId) {
+                projectSelect.innerHTML = '<option value="">请先选择课程</option>';
+                taskSelect.innerHTML = '<option value="">请先选择项目</option>';
+                return;
+            }
+            
+            const courseProjects = projects.filter(p => p.course_id === courseId);
+            projectSelect.innerHTML = '<option value="">请选择项目</option>' + 
+                courseProjects.map(p => `<option value="${p.project_id}">${p.name}</option>`).join('');
+            taskSelect.innerHTML = '<option value="">请先选择项目</option>';
+        }
+        
+        function updateBatchMoveTaskSelect() {
+            const projectId = document.getElementById('batch-move-project').value;
+            const taskSelect = document.getElementById('batch-move-task');
+            
+            if (!projectId) {
+                taskSelect.innerHTML = '<option value="">请先选择项目</option>';
+                return;
+            }
+            
+            const projectTasks = tasks.filter(t => t.project_id === projectId);
+            taskSelect.innerHTML = '<option value="">请选择任务</option>' + 
+                projectTasks.map(t => `<option value="${t.task_id}">${t.name}</option>`).join('');
+        }
+        
+        async function confirmBatchMove() {
+            const targetTaskId = document.getElementById('batch-move-task').value;
+            if (!targetTaskId) {
+                alert('请选择目标任务');
+                return;
+            }
+            
+            const selectedIds = BatchOperations.getSelectedIds();
+            const result = await BatchOperations.batchMove(supabaseClient, selectedIds, targetTaskId);
+            
+            if (result.success) {
+                // 记录操作日志
+                await BatchOperations.logOperation(supabaseClient, 'move', {
+                    questionIds: selectedIds,
+                    targetTaskId: targetTaskId,
+                    moved: result.moved,
+                    failed: result.failed
+                });
+                
+                alert(`✅ 成功移动 ${result.moved} 道题目`);
+                closeBatchMoveModal();
+                cancelBatchSelection();
+                await loadQuestions();
+                await updateAllHierarchyCounts();
+            } else {
+                alert('❌ 移动失败: ' + (result.errors.join(', ') || '未知错误'));
+            }
+        }
+        
+        // 打开批量编辑弹窗
+        function openBatchEditModal() {
+            const selectedIds = BatchOperations.getSelectedIds();
+            if (selectedIds.length === 0) {
+                alert('请先选择要编辑的题目');
+                return;
+            }
+            
+            document.getElementById('batch-edit-count').textContent = selectedIds.length;
+            document.getElementById('batch-edit-difficulty').value = '';
+            document.getElementById('batch-edit-tag').value = '';
+            document.getElementById('batch-edit-modal').style.display = 'flex';
+        }
+        
+        function closeBatchEditModal() {
+            document.getElementById('batch-edit-modal').style.display = 'none';
+        }
+        
+        async function confirmBatchEdit() {
+            const difficulty = document.getElementById('batch-edit-difficulty').value;
+            const knowledgeTag = document.getElementById('batch-edit-tag').value.trim();
+            
+            const updates = {};
+            if (difficulty) updates.difficulty = parseInt(difficulty);
+            if (knowledgeTag) updates.knowledge_tag = knowledgeTag;
+            
+            if (Object.keys(updates).length === 0) {
+                alert('请至少修改一个字段');
+                return;
+            }
+            
+            const selectedIds = BatchOperations.getSelectedIds();
+            const result = await BatchOperations.batchUpdate(supabaseClient, selectedIds, updates);
+            
+            if (result.success) {
+                // 记录操作日志
+                await BatchOperations.logOperation(supabaseClient, 'update', {
+                    questionIds: selectedIds,
+                    updates: updates,
+                    updated: result.updated,
+                    failed: result.failed
+                });
+                
+                alert(`✅ 成功更新 ${result.updated} 道题目`);
+                closeBatchEditModal();
+                cancelBatchSelection();
+                await loadQuestions();
+            } else {
+                alert('❌ 更新失败: ' + (result.errors.join(', ') || '未知错误'));
+            }
+        }
+        
+        // 打开批量复制弹窗
+        function openBatchCopyModal() {
+            const selectedIds = BatchOperations.getSelectedIds();
+            if (selectedIds.length === 0) {
+                alert('请先选择要复制的题目');
+                return;
+            }
+            
+            document.getElementById('batch-copy-count').textContent = selectedIds.length;
+            updateBatchCopyCourseSelect();
+            document.getElementById('batch-copy-modal').style.display = 'flex';
+        }
+        
+        function closeBatchCopyModal() {
+            document.getElementById('batch-copy-modal').style.display = 'none';
+        }
+        
+        function updateBatchCopyCourseSelect() {
+            const select = document.getElementById('batch-copy-course');
+            select.innerHTML = '<option value="">请选择课程</option>' + 
+                courses.map(c => `<option value="${c.course_id}">${c.name}</option>`).join('');
+            document.getElementById('batch-copy-project').innerHTML = '<option value="">请先选择课程</option>';
+            document.getElementById('batch-copy-task').innerHTML = '<option value="">请先选择项目</option>';
+        }
+        
+        function updateBatchCopyProjectSelect() {
+            const courseId = document.getElementById('batch-copy-course').value;
+            const projectSelect = document.getElementById('batch-copy-project');
+            const taskSelect = document.getElementById('batch-copy-task');
+            
+            if (!courseId) {
+                projectSelect.innerHTML = '<option value="">请先选择课程</option>';
+                taskSelect.innerHTML = '<option value="">请先选择项目</option>';
+                return;
+            }
+            
+            const courseProjects = projects.filter(p => p.course_id === courseId);
+            projectSelect.innerHTML = '<option value="">请选择项目</option>' + 
+                courseProjects.map(p => `<option value="${p.project_id}">${p.name}</option>`).join('');
+            taskSelect.innerHTML = '<option value="">请先选择项目</option>';
+        }
+        
+        function updateBatchCopyTaskSelect() {
+            const projectId = document.getElementById('batch-copy-project').value;
+            const taskSelect = document.getElementById('batch-copy-task');
+            
+            if (!projectId) {
+                taskSelect.innerHTML = '<option value="">请先选择项目</option>';
+                return;
+            }
+            
+            const projectTasks = tasks.filter(t => t.project_id === projectId);
+            taskSelect.innerHTML = '<option value="">请选择任务</option>' + 
+                projectTasks.map(t => `<option value="${t.task_id}">${t.name}</option>`).join('');
+        }
+        
+        async function confirmBatchCopy() {
+            const targetTaskId = document.getElementById('batch-copy-task').value;
+            if (!targetTaskId) {
+                alert('请选择目标任务');
+                return;
+            }
+            
+            const selectedIds = BatchOperations.getSelectedIds();
+            const result = await BatchOperations.batchCopy(supabaseClient, selectedIds, targetTaskId);
+            
+            if (result.success) {
+                // 记录操作日志
+                await BatchOperations.logOperation(supabaseClient, 'copy', {
+                    sourceQuestionIds: selectedIds,
+                    targetTaskId: targetTaskId,
+                    copied: result.copied,
+                    newIds: result.newIds
+                });
+                
+                alert(`✅ 成功复制 ${result.copied} 道题目`);
+                closeBatchCopyModal();
+                cancelBatchSelection();
+                await loadQuestions();
+                await updateAllHierarchyCounts();
+            } else {
+                alert('❌ 复制失败: ' + (result.errors.join(', ') || '未知错误'));
+            }
+        }
+        
+        // ================== 高级搜索功能 ==================
+        let savedFilters = [];
+        
+        function openAdvancedSearch() {
+            // 同步当前筛选条件到高级搜索面板
+            document.getElementById('adv-search-keyword').value = document.getElementById('search-input').value || '';
+            document.getElementById('adv-search-type').value = document.getElementById('filter-type').value || '';
+            document.getElementById('adv-search-difficulty').value = document.getElementById('filter-difficulty').value || '';
+            document.getElementById('adv-search-tag').value = '';
+            document.getElementById('adv-search-date-start').value = '';
+            document.getElementById('adv-search-date-end').value = '';
+            
+            loadSavedFilters();
+            document.getElementById('advanced-search-modal').style.display = 'flex';
+        }
+        
+        function closeAdvancedSearch() {
+            document.getElementById('advanced-search-modal').style.display = 'none';
+        }
+        
+        async function loadSavedFilters() {
+            savedFilters = await QuestionSearch.loadSavedFilters(supabaseClient);
+            renderSavedFilters();
+        }
+        
+        function renderSavedFilters() {
+            const container = document.getElementById('saved-filters-list');
+            
+            if (savedFilters.length === 0) {
+                container.innerHTML = '<div style="color:#666; text-align:center; padding:10px;">暂无保存的筛选条件</div>';
+                return;
+            }
+            
+            container.innerHTML = savedFilters.map(f => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:8px; background:rgba(255,255,255,0.05); border-radius:6px; margin-bottom:5px;">
+                    <span style="cursor:pointer;" onclick="applySavedFilter('${f.id}')">${f.name}</span>
+                    <button onclick="deleteSavedFilter('${f.id}')" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:0.8rem;">🗑️</button>
+                </div>
+            `).join('');
+        }
+        
+        async function applySavedFilter(filterId) {
+            const filter = savedFilters.find(f => f.id === filterId);
+            if (!filter || !filter.filter_data) return;
+            
+            const data = filter.filter_data;
+            document.getElementById('adv-search-keyword').value = data.keyword || '';
+            document.getElementById('adv-search-type').value = data.type || '';
+            document.getElementById('adv-search-difficulty').value = data.difficulty || '';
+            document.getElementById('adv-search-tag').value = data.knowledge_tag || '';
+            document.getElementById('adv-search-date-start').value = data.dateRange?.start || '';
+            document.getElementById('adv-search-date-end').value = data.dateRange?.end || '';
+        }
+        
+        async function deleteSavedFilter(filterId) {
+            if (!confirm('确定要删除这个筛选条件吗？')) return;
+            
+            const result = await QuestionSearch.deleteSavedFilter(supabaseClient, filterId);
+            if (result.success) {
+                await loadSavedFilters();
+            } else {
+                alert('删除失败: ' + result.error);
+            }
+        }
+        
+        async function saveCurrentFilter() {
+            const name = prompt('请输入筛选条件名称：');
+            if (!name || !name.trim()) return;
+            
+            const filters = {
+                keyword: document.getElementById('adv-search-keyword').value,
+                type: document.getElementById('adv-search-type').value,
+                difficulty: document.getElementById('adv-search-difficulty').value,
+                knowledge_tag: document.getElementById('adv-search-tag').value,
+                dateRange: {
+                    start: document.getElementById('adv-search-date-start').value,
+                    end: document.getElementById('adv-search-date-end').value
+                }
+            };
+            
+            const result = await QuestionSearch.saveFilter(supabaseClient, name.trim(), filters);
+            if (result.success) {
+                alert('✅ 筛选条件已保存');
+                await loadSavedFilters();
+            } else {
+                alert('保存失败: ' + result.error);
+            }
+        }
+        
+        function resetAdvancedSearch() {
+            document.getElementById('adv-search-keyword').value = '';
+            document.getElementById('adv-search-type').value = '';
+            document.getElementById('adv-search-difficulty').value = '';
+            document.getElementById('adv-search-tag').value = '';
+            document.getElementById('adv-search-date-start').value = '';
+            document.getElementById('adv-search-date-end').value = '';
+        }
+        
+        async function executeAdvancedSearch() {
+            const keyword = document.getElementById('adv-search-keyword').value;
+            const type = document.getElementById('adv-search-type').value;
+            const difficulty = document.getElementById('adv-search-difficulty').value;
+            const knowledgeTag = document.getElementById('adv-search-tag').value;
+            const dateStart = document.getElementById('adv-search-date-start').value;
+            const dateEnd = document.getElementById('adv-search-date-end').value;
+            
+            // 同步到主筛选栏
+            document.getElementById('search-input').value = keyword;
+            document.getElementById('filter-type').value = type;
+            document.getElementById('filter-difficulty').value = difficulty;
+            
+            // 构建筛选条件
+            const filters = {};
+            if (type) filters.type = type;
+            if (difficulty) filters.difficulty = parseInt(difficulty);
+            if (knowledgeTag) filters.knowledge_tag = knowledgeTag;
+            if (dateStart || dateEnd) {
+                filters.dateRange = {};
+                if (dateStart) filters.dateRange.start = dateStart;
+                if (dateEnd) filters.dateRange.end = dateEnd;
+            }
+            
+            // 根据层级筛选
+            let baseQuestions = questions;
+            if (currentFilterType === 'task' && currentFilterId !== 'all') {
+                baseQuestions = questions.filter(q => q.task_id === currentFilterId);
+            } else if (currentFilterType === 'project' && currentFilterId !== 'all') {
+                const projectTaskIds = tasks.filter(t => t.project_id === currentFilterId).map(t => t.task_id);
+                baseQuestions = questions.filter(q => projectTaskIds.includes(q.task_id));
+            } else if (currentFilterType === 'course' && currentFilterId !== 'all') {
+                const courseProjectIds = projects.filter(p => p.course_id === currentFilterId).map(p => p.project_id);
+                const courseTaskIds = tasks.filter(t => courseProjectIds.includes(t.project_id)).map(t => t.task_id);
+                baseQuestions = questions.filter(q => courseTaskIds.includes(q.task_id));
+            }
+            
+            // 使用高级搜索模块进行搜索和筛选
+            const result = QuestionSearch.searchAndFilter(baseQuestions, keyword, filters);
+            
+            // 保存当前显示的题目列表
+            currentDisplayedQuestions = result;
+            
+            renderQuestions(result);
+            closeAdvancedSearch();
+        }
+        
+        // ================== AI助手功能 ==================
+        let generatedQuestions = [];
+        let currentOptimizeQuestion = null;
+        let optimizedQuestion = null;
+        
+        function openAIAssistant() {
+            loadAIConfig();
+            updateOptimizeQuestionSelect();
+            document.getElementById('ai-assistant-modal').style.display = 'flex';
+        }
+        
+        function closeAIAssistant() {
+            document.getElementById('ai-assistant-modal').style.display = 'none';
+        }
+        
+        function switchAITab(tab) {
+            // 更新按钮样式
+            document.getElementById('ai-tab-generate').className = tab === 'generate' ? 'btn btn-primary' : 'btn btn-secondary';
+            document.getElementById('ai-tab-optimize').className = tab === 'optimize' ? 'btn btn-primary' : 'btn btn-secondary';
+            document.getElementById('ai-tab-config').className = tab === 'config' ? 'btn btn-primary' : 'btn btn-secondary';
+            
+            // 显示对应面板
+            document.getElementById('ai-panel-generate').style.display = tab === 'generate' ? 'block' : 'none';
+            document.getElementById('ai-panel-optimize').style.display = tab === 'optimize' ? 'block' : 'none';
+            document.getElementById('ai-panel-config').style.display = tab === 'config' ? 'block' : 'none';
+        }
+        
+        // AI配置管理
+        function loadAIConfig() {
+            const config = JSON.parse(localStorage.getItem('ai_config') || '{}');
+            if (config.apiKey) document.getElementById('ai-config-key').value = config.apiKey;
+            if (config.apiEndpoint) document.getElementById('ai-config-endpoint').value = config.apiEndpoint;
+            if (config.model) document.getElementById('ai-config-model').value = config.model;
+            if (config.provider) document.getElementById('ai-config-provider').value = config.provider;
+            
+            // 应用配置到AIAssistant模块
+            if (config.apiKey) {
+                AIAssistant.configure({
+                    apiKey: config.apiKey,
+                    apiEndpoint: config.apiEndpoint,
+                    model: config.model
+                });
+            }
+        }
+        
+        function saveAIConfig() {
+            const config = {
+                provider: document.getElementById('ai-config-provider').value,
+                apiKey: document.getElementById('ai-config-key').value,
+                apiEndpoint: document.getElementById('ai-config-endpoint').value,
+                model: document.getElementById('ai-config-model').value
+            };
+            
+            localStorage.setItem('ai_config', JSON.stringify(config));
+            
+            AIAssistant.configure({
+                apiKey: config.apiKey,
+                apiEndpoint: config.apiEndpoint,
+                model: config.model
+            });
+            
+            showAIConfigStatus('✅ 配置已保存', 'success');
+        }
+        
+        function updateAPIEndpoint() {
+            const provider = document.getElementById('ai-config-provider').value;
+            const endpoint = AIAssistant.getDefaultEndpoint(provider);
+            document.getElementById('ai-config-endpoint').value = endpoint;
+        }
+        
+        async function testAIConnection() {
+            if (!AIAssistant.isConfigured()) {
+                showAIConfigStatus('❌ 请先配置API密钥', 'error');
+                return;
+            }
+            
+            showAIConfigStatus('🔄 测试连接中...', 'info');
+            
+            const result = await AIAssistant.callAPI('请回复"连接成功"');
+            
+            if (result.success) {
+                showAIConfigStatus('✅ 连接成功！', 'success');
+            } else {
+                showAIConfigStatus('❌ ' + AIAssistant.getFriendlyErrorMessage(result.errorType, result.error), 'error');
+            }
+        }
+        
+        function showAIConfigStatus(message, type) {
+            const status = document.getElementById('ai-config-status');
+            status.style.display = 'block';
+            status.textContent = message;
+            status.style.background = type === 'success' ? 'rgba(16,185,129,0.2)' : 
+                                      type === 'error' ? 'rgba(239,68,68,0.2)' : 'rgba(59,130,246,0.2)';
+            status.style.color = type === 'success' ? '#10b981' : 
+                                 type === 'error' ? '#ef4444' : '#3b82f6';
+        }
+        
+        // AI生成题目
+        async function generateQuestionsWithAI() {
+            const topic = document.getElementById('ai-gen-topic').value.trim();
+            if (!topic) {
+                alert('请输入知识点或主题');
+                return;
+            }
+            
+            if (!AIAssistant.isConfigured()) {
+                alert('请先配置AI API密钥');
+                switchAITab('config');
+                return;
+            }
+            
+            const options = {
+                topic,
+                type: document.getElementById('ai-gen-type').value,
+                difficulty: parseInt(document.getElementById('ai-gen-difficulty').value),
+                count: parseInt(document.getElementById('ai-gen-count').value),
+                context: document.getElementById('ai-gen-context').value
+            };
+            
+            // 显示加载状态
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = '⏳ 生成中...';
+            btn.disabled = true;
+            
+            const result = await AIAssistant.generateQuestions(options);
+            
+            btn.textContent = originalText;
+            btn.disabled = false;
+            
+            if (result.success && result.questions.length > 0) {
+                generatedQuestions = result.questions;
+                renderGeneratedQuestions();
+                document.getElementById('ai-gen-result').style.display = 'block';
+            } else {
+                alert('生成失败: ' + (result.error || '未知错误'));
+            }
+        }
+        
+        function renderGeneratedQuestions() {
+            const container = document.getElementById('ai-gen-result-list');
+            document.getElementById('ai-gen-result-count').textContent = generatedQuestions.length;
+            
+            container.innerHTML = generatedQuestions.map((q, i) => `
+                <div style="padding:12px; background:rgba(255,255,255,0.05); border-radius:8px; margin-bottom:8px;">
+                    <div style="font-weight:bold; margin-bottom:5px;">${i + 1}. ${q.title}</div>
+                    ${q.option_a ? `<div style="font-size:0.85rem; color:#94a3b8;">A. ${q.option_a} | B. ${q.option_b} | C. ${q.option_c || '-'} | D. ${q.option_d || '-'}</div>` : ''}
+                    <div style="font-size:0.85rem; color:#10b981; margin-top:5px;">答案: ${q.answer}</div>
+                </div>
+            `).join('');
+        }
+        
+        async function saveGeneratedQuestions() {
+            if (generatedQuestions.length === 0) {
+                alert('没有可保存的题目');
+                return;
+            }
+            
+            // 获取目标任务
+            const taskId = currentFilterType === 'task' && currentFilterId !== 'all' ? currentFilterId : null;
+            
+            if (!taskId) {
+                alert('请先在左侧选择一个任务，再保存生成的题目');
+                return;
+            }
+            
+            // 获取下一个可用序号
+            const { data: maxRoundData } = await supabaseClient
+                .from('questions')
+                .select('round')
+                .eq('task_id', taskId)
+                .order('round', { ascending: false })
+                .limit(1);
+            
+            let nextRound = maxRoundData && maxRoundData.length > 0 ? maxRoundData[0].round + 1 : 1;
+            
+            // 准备插入数据
+            const questionsToInsert = generatedQuestions.map((q, i) => ({
+                ...q,
+                round: nextRound + i,
+                task_id: taskId
+            }));
+            
+            const { error } = await supabaseClient.from('questions').insert(questionsToInsert);
+            
+            if (error) {
+                alert('保存失败: ' + error.message);
+                return;
+            }
+            
+            // 记录AI生成日志
+            await AIAssistant.logOperation(supabaseClient, 'generate_save', {
+                topic: document.getElementById('ai-gen-topic').value,
+                type: document.getElementById('ai-gen-type').value,
+                difficulty: document.getElementById('ai-gen-difficulty').value,
+                count: questionsToInsert.length,
+                taskId: taskId
+            }, {
+                savedCount: questionsToInsert.length,
+                questions: questionsToInsert.map(q => ({ title: q.title, answer: q.answer }))
+            });
+            
+            alert(`✅ 成功保存 ${questionsToInsert.length} 道题目`);
+            clearGeneratedQuestions();
+            await loadQuestions();
+            await updateHierarchyQuestionCounts(taskId);
+        }
+        
+        function clearGeneratedQuestions() {
+            generatedQuestions = [];
+            document.getElementById('ai-gen-result').style.display = 'none';
+            document.getElementById('ai-gen-result-list').innerHTML = '';
+        }
+        
+        // AI优化题目
+        function updateOptimizeQuestionSelect() {
+            const select = document.getElementById('ai-opt-question');
+            select.innerHTML = '<option value="">请选择题目...</option>' + 
+                currentDisplayedQuestions.slice(0, 50).map(q => 
+                    `<option value="${q.id}">${q.round}. ${q.title.substring(0, 40)}${q.title.length > 40 ? '...' : ''}</option>`
+                ).join('');
+        }
+        
+        function loadQuestionForOptimize() {
+            const questionId = document.getElementById('ai-opt-question').value;
+            if (!questionId) {
+                document.getElementById('ai-opt-preview').style.display = 'none';
+                currentOptimizeQuestion = null;
+                return;
+            }
+            
+            currentOptimizeQuestion = currentDisplayedQuestions.find(q => q.id === questionId);
+            if (!currentOptimizeQuestion) return;
+            
+            const q = currentOptimizeQuestion;
+            document.getElementById('ai-opt-preview-content').innerHTML = `
+                <div style="margin-bottom:8px;"><strong>题目:</strong> ${q.title}</div>
+                ${q.option_a ? `<div style="font-size:0.9rem; color:#94a3b8;">A. ${q.option_a} | B. ${q.option_b} | C. ${q.option_c || '-'} | D. ${q.option_d || '-'}</div>` : ''}
+                <div style="font-size:0.9rem; margin-top:5px;"><strong>答案:</strong> ${q.answer}</div>
+                ${q.explanation ? `<div style="font-size:0.9rem; margin-top:5px;"><strong>解析:</strong> ${q.explanation}</div>` : ''}
+            `;
+            document.getElementById('ai-opt-preview').style.display = 'block';
+            document.getElementById('ai-opt-result').style.display = 'none';
+        }
+        
+        async function optimizeQuestionWithAI() {
+            if (!currentOptimizeQuestion) {
+                alert('请先选择要优化的题目');
+                return;
+            }
+            
+            if (!AIAssistant.isConfigured()) {
+                alert('请先配置AI API密钥');
+                switchAITab('config');
+                return;
+            }
+            
+            const result = await AIAssistant.optimizeQuestion(currentOptimizeQuestion);
+            
+            if (result.success) {
+                optimizedQuestion = result.optimized;
+                document.getElementById('ai-opt-result-content').innerHTML = `
+                    <div style="margin-bottom:10px;"><strong>优化后题目:</strong> ${optimizedQuestion.title}</div>
+                    ${optimizedQuestion.option_a ? `<div style="font-size:0.9rem; color:#94a3b8;">A. ${optimizedQuestion.option_a} | B. ${optimizedQuestion.option_b} | C. ${optimizedQuestion.option_c || '-'} | D. ${optimizedQuestion.option_d || '-'}</div>` : ''}
+                    <div style="font-size:0.9rem; margin-top:5px;"><strong>答案:</strong> ${optimizedQuestion.answer}</div>
+                    <div style="font-size:0.9rem; margin-top:5px;"><strong>解析:</strong> ${optimizedQuestion.explanation || '无'}</div>
+                    ${result.suggestions?.length > 0 ? `<div style="margin-top:10px; padding:10px; background:rgba(0,0,0,0.2); border-radius:6px;"><strong>优化建议:</strong><ul style="margin:5px 0 0 20px;">${result.suggestions.map(s => `<li>${s}</li>`).join('')}</ul></div>` : ''}
+                `;
+                document.getElementById('ai-opt-result').style.display = 'block';
+            } else {
+                alert('优化失败: ' + result.error);
+            }
+        }
+        
+        async function generateExplanationWithAI() {
+            if (!currentOptimizeQuestion) {
+                alert('请先选择题目');
+                return;
+            }
+            
+            if (!AIAssistant.isConfigured()) {
+                alert('请先配置AI API密钥');
+                switchAITab('config');
+                return;
+            }
+            
+            const result = await AIAssistant.generateExplanation(currentOptimizeQuestion);
+            
+            if (result.success) {
+                optimizedQuestion = { ...currentOptimizeQuestion, explanation: result.explanation };
+                document.getElementById('ai-opt-result-content').innerHTML = `
+                    <div><strong>生成的解析:</strong></div>
+                    <div style="margin-top:8px; padding:10px; background:rgba(0,0,0,0.2); border-radius:6px;">${result.explanation}</div>
+                `;
+                document.getElementById('ai-opt-result').style.display = 'block';
+            } else {
+                alert('生成解析失败: ' + result.error);
+            }
+        }
+        
+        async function checkQualityWithAI() {
+            if (!currentOptimizeQuestion) {
+                alert('请先选择题目');
+                return;
+            }
+            
+            if (!AIAssistant.isConfigured()) {
+                alert('请先配置AI API密钥');
+                switchAITab('config');
+                return;
+            }
+            
+            const result = await AIAssistant.checkQuality(currentOptimizeQuestion);
+            
+            if (result.success) {
+                const scoreColor = result.score >= 80 ? '#10b981' : result.score >= 60 ? '#f59e0b' : '#ef4444';
+                document.getElementById('ai-opt-result-content').innerHTML = `
+                    <div style="text-align:center; margin-bottom:15px;">
+                        <div style="font-size:2rem; font-weight:bold; color:${scoreColor};">${result.score}</div>
+                        <div style="color:#94a3b8;">质量评分</div>
+                    </div>
+                    ${result.issues?.length > 0 ? `<div style="margin-bottom:10px;"><strong style="color:#ef4444;">发现的问题:</strong><ul style="margin:5px 0 0 20px;">${result.issues.map(i => `<li>${i}</li>`).join('')}</ul></div>` : ''}
+                    ${result.suggestions?.length > 0 ? `<div><strong style="color:#10b981;">改进建议:</strong><ul style="margin:5px 0 0 20px;">${result.suggestions.map(s => `<li>${s}</li>`).join('')}</ul></div>` : ''}
+                `;
+                document.getElementById('ai-opt-result').style.display = 'block';
+                optimizedQuestion = null; // 质量检查不需要应用
+            } else {
+                alert('质量检查失败: ' + result.error);
+            }
+        }
+        
+        async function applyOptimization() {
+            if (!optimizedQuestion || !currentOptimizeQuestion) {
+                alert('没有可应用的优化结果');
+                return;
+            }
+            
+            // 保存版本历史
+            await VersionHistory.saveVersionWithCleanup(
+                supabaseClient,
+                currentOptimizeQuestion.id,
+                currentOptimizeQuestion,
+                'AI优化前的版本'
+            );
+            
+            // 更新题目
+            const { error } = await supabaseClient
+                .from('questions')
+                .update({
+                    title: optimizedQuestion.title,
+                    option_a: optimizedQuestion.option_a,
+                    option_b: optimizedQuestion.option_b,
+                    option_c: optimizedQuestion.option_c,
+                    option_d: optimizedQuestion.option_d,
+                    answer: optimizedQuestion.answer,
+                    explanation: optimizedQuestion.explanation
+                })
+                .eq('id', currentOptimizeQuestion.id);
+            
+            if (error) {
+                alert('应用失败: ' + error.message);
+                return;
+            }
+            
+            // 记录AI优化日志
+            await AIAssistant.logOperation(supabaseClient, 'optimize_apply', {
+                questionId: currentOptimizeQuestion.id,
+                originalTitle: currentOptimizeQuestion.title
+            }, {
+                optimizedTitle: optimizedQuestion.title,
+                changes: ['title', 'options', 'answer', 'explanation'].filter(f => 
+                    currentOptimizeQuestion[f === 'options' ? 'option_a' : f] !== optimizedQuestion[f === 'options' ? 'option_a' : f]
+                )
+            });
+            
+            alert('✅ 优化已应用');
+            document.getElementById('ai-opt-result').style.display = 'none';
+            await loadQuestions();
+            updateOptimizeQuestionSelect();
+        }
+        
+        // ================== 导出功能 ==================
+        function openExportModal() {
+            // 更新导出数量显示
+            document.getElementById('export-current-count').textContent = currentDisplayedQuestions.length;
+            document.getElementById('export-selected-count').textContent = BatchOperations.getSelectedCount();
+            
+            // 初始化格式选择样式
+            document.querySelectorAll('.export-format-option').forEach(opt => {
+                opt.style.borderColor = 'transparent';
+                const radio = opt.querySelector('input[type="radio"]');
+                if (radio.checked) {
+                    opt.style.borderColor = '#3b82f6';
+                }
+            });
+            
+            // 添加格式选择事件
+            document.querySelectorAll('.export-format-option').forEach(opt => {
+                opt.onclick = function() {
+                    document.querySelectorAll('.export-format-option').forEach(o => o.style.borderColor = 'transparent');
+                    this.style.borderColor = '#3b82f6';
+                    this.querySelector('input[type="radio"]').checked = true;
+                };
+            });
+            
+            document.getElementById('export-modal').style.display = 'flex';
+        }
+        
+        function closeExportModal() {
+            document.getElementById('export-modal').style.display = 'none';
+        }
+        
+        async function executeExport() {
+            const scope = document.getElementById('export-scope').value;
+            const format = document.querySelector('input[name="export-format"]:checked').value;
+            
+            let questionsToExport = [];
+            let filename = 'questions';
+            
+            switch (scope) {
+                case 'current':
+                    questionsToExport = currentDisplayedQuestions;
+                    filename = 'questions_filtered';
+                    break;
+                case 'selected':
+                    const selectedIds = BatchOperations.getSelectedIds();
+                    questionsToExport = questions.filter(q => selectedIds.includes(q.id));
+                    filename = 'questions_selected';
+                    break;
+                case 'all':
+                    questionsToExport = questions;
+                    filename = 'questions_all';
+                    break;
+            }
+            
+            if (questionsToExport.length === 0) {
+                alert('没有可导出的题目');
+                return;
+            }
+            
+            try {
+                // 添加时间戳到文件名
+                const timestamp = new Date().toISOString().slice(0, 10);
+                filename = `${filename}_${timestamp}`;
+                
+                ImportExport.exportQuestions(questionsToExport, format, filename);
+                closeExportModal();
+                alert(`✅ 成功导出 ${questionsToExport.length} 道题目`);
+            } catch (error) {
+                alert('导出失败: ' + error.message);
+            }
+        }
+        
+        // ================== 版本历史功能 ==================
+        let currentVersionQuestionId = null;
+        let selectedVersionId = null;
+        let versionsList = [];
+        
+        async function showVersionHistory(questionId) {
+            currentVersionQuestionId = questionId;
+            selectedVersionId = null;
+            
+            // 获取当前题目信息
+            const question = questions.find(q => q.id === questionId);
+            if (question) {
+                document.getElementById('version-current-title').textContent = question.title;
+            }
+            
+            document.getElementById('version-history-modal').style.display = 'flex';
+            document.getElementById('version-compare').style.display = 'none';
+            document.getElementById('version-actions').style.display = 'none';
+            
+            await loadVersionList(questionId);
+        }
+        
+        function closeVersionHistory() {
+            document.getElementById('version-history-modal').style.display = 'none';
+            currentVersionQuestionId = null;
+            selectedVersionId = null;
+        }
+        
+        async function loadVersionList(questionId) {
+            const container = document.getElementById('version-list');
+            container.innerHTML = '<div style="text-align:center; padding:30px; color:#666;">加载中...</div>';
+            
+            versionsList = await VersionHistory.getVersions(supabaseClient, questionId);
+            
+            if (versionsList.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:30px; color:#666;">暂无历史版本</div>';
+                return;
+            }
+            
+            container.innerHTML = versionsList.map((v, i) => {
+                const date = new Date(v.created_at).toLocaleString('zh-CN');
+                return `
+                    <div class="version-item" data-version-id="${v.id}" onclick="selectVersion('${v.id}')" 
+                         style="display:flex; justify-content:space-between; align-items:center; padding:12px; background:rgba(255,255,255,0.05); border-radius:8px; margin-bottom:8px; cursor:pointer; border:2px solid transparent; transition:all 0.2s;">
+                        <div>
+                            <div style="font-weight:bold;">版本 ${v.version_number}</div>
+                            <div style="font-size:0.8rem; color:#94a3b8;">${date}</div>
+                            ${v.changes_summary ? `<div style="font-size:0.8rem; color:#f59e0b; margin-top:3px;">${v.changes_summary}</div>` : ''}
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            <button onclick="event.stopPropagation(); previewVersion('${v.id}')" class="btn btn-secondary" style="padding:5px 10px; font-size:0.75rem;">👁️ 预览</button>
+                            <button onclick="event.stopPropagation(); compareWithCurrent('${v.id}')" class="btn btn-primary" style="padding:5px 10px; font-size:0.75rem;">📊 对比</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function selectVersion(versionId) {
+            selectedVersionId = versionId;
+            
+            // 更新选中样式
+            document.querySelectorAll('.version-item').forEach(item => {
+                item.style.borderColor = item.dataset.versionId === versionId ? '#3b82f6' : 'transparent';
+            });
+            
+            document.getElementById('version-actions').style.display = 'flex';
+        }
+        
+        async function previewVersion(versionId) {
+            const version = await VersionHistory.getVersion(supabaseClient, versionId);
+            if (!version || !version.content) {
+                alert('无法加载版本内容');
+                return;
+            }
+            
+            const content = version.content;
+            document.getElementById('version-compare-content').innerHTML = `
+                <div style="background:rgba(255,255,255,0.05); border-radius:8px; padding:15px;">
+                    <div style="margin-bottom:10px;"><strong>题目:</strong> ${content.title}</div>
+                    ${content.option_a ? `<div style="font-size:0.9rem; color:#94a3b8;">A. ${content.option_a} | B. ${content.option_b} | C. ${content.option_c || '-'} | D. ${content.option_d || '-'}</div>` : ''}
+                    <div style="margin-top:8px;"><strong>答案:</strong> ${content.answer}</div>
+                    ${content.explanation ? `<div style="margin-top:8px;"><strong>解析:</strong> ${content.explanation}</div>` : ''}
+                </div>
+            `;
+            document.getElementById('version-compare').style.display = 'block';
+            selectedVersionId = versionId;
+            document.getElementById('version-actions').style.display = 'flex';
+        }
+        
+        async function compareWithCurrent(versionId) {
+            const version = await VersionHistory.getVersion(supabaseClient, versionId);
+            if (!version || !version.content) {
+                alert('无法加载版本内容');
+                return;
+            }
+            
+            const currentQuestion = questions.find(q => q.id === currentVersionQuestionId);
+            if (!currentQuestion) {
+                alert('无法获取当前题目');
+                return;
+            }
+            
+            const comparison = VersionHistory.compareVersions(version, currentQuestion);
+            
+            if (comparison.changes.length === 0) {
+                document.getElementById('version-compare-content').innerHTML = `
+                    <div style="text-align:center; padding:20px; color:#10b981;">✅ 此版本与当前版本内容相同</div>
+                `;
+            } else {
+                const fieldNames = {
+                    title: '题目',
+                    option_a: '选项A',
+                    option_b: '选项B',
+                    option_c: '选项C',
+                    option_d: '选项D',
+                    answer: '答案',
+                    explanation: '解析',
+                    difficulty: '难度',
+                    knowledge_tag: '知识点'
+                };
+                
+                document.getElementById('version-compare-content').innerHTML = `
+                    <div style="font-size:0.9rem;">
+                        ${comparison.changes.map(c => `
+                            <div style="margin-bottom:12px; padding:10px; background:rgba(255,255,255,0.05); border-radius:6px;">
+                                <div style="font-weight:bold; color:#f59e0b; margin-bottom:5px;">${fieldNames[c.field] || c.field}</div>
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                                    <div>
+                                        <div style="font-size:0.75rem; color:#94a3b8;">历史版本</div>
+                                        <div style="background:rgba(239,68,68,0.1); padding:5px; border-radius:4px; margin-top:3px;">${c.old || '(空)'}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size:0.75rem; color:#94a3b8;">当前版本</div>
+                                        <div style="background:rgba(16,185,129,0.1); padding:5px; border-radius:4px; margin-top:3px;">${c.new || '(空)'}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            
+            document.getElementById('version-compare').style.display = 'block';
+            selectedVersionId = versionId;
+            document.getElementById('version-actions').style.display = 'flex';
+        }
+        
+        function closeVersionCompare() {
+            document.getElementById('version-compare').style.display = 'none';
+            document.getElementById('version-actions').style.display = 'none';
+            selectedVersionId = null;
+            
+            document.querySelectorAll('.version-item').forEach(item => {
+                item.style.borderColor = 'transparent';
+            });
+        }
+        
+        async function restoreSelectedVersion() {
+            if (!selectedVersionId || !currentVersionQuestionId) {
+                alert('请先选择要恢复的版本');
+                return;
+            }
+            
+            if (!confirm('确定要恢复到此版本吗？当前版本将被保存为新的历史记录。')) {
+                return;
+            }
+            
+            const result = await VersionHistory.restoreVersion(supabaseClient, currentVersionQuestionId, selectedVersionId);
+            
+            if (result.success) {
+                alert('✅ 版本已恢复');
+                closeVersionHistory();
+                await loadQuestions();
+            } else {
+                alert('恢复失败: ' + result.error);
+            }
+        }
+        
+        // ================== 模板管理功能 ==================
+        let customTemplates = [];
+        
+        function openTemplateManager() {
+            loadCustomTemplates();
+            document.getElementById('template-manager-modal').style.display = 'flex';
+        }
+        
+        function closeTemplateManager() {
+            document.getElementById('template-manager-modal').style.display = 'none';
+            document.getElementById('create-template-form').style.display = 'none';
+        }
+        
+        async function loadCustomTemplates() {
+            const result = await QuestionTemplates.getTemplates(supabaseClient);
+            if (result.success) {
+                customTemplates = result.templates.filter(t => !t.is_builtin);
+                renderCustomTemplates();
+                updateTemplateSelect();
+            }
+        }
+        
+        function renderCustomTemplates() {
+            const container = document.getElementById('custom-templates-list');
+            
+            if (customTemplates.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:20px; color:#666;">暂无自定义模板</div>';
+                return;
+            }
+            
+            container.innerHTML = customTemplates.map(t => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; background:rgba(255,255,255,0.05); border-radius:8px; margin-bottom:8px;">
+                    <div>
+                        <div style="font-weight:bold;">${t.name}</div>
+                        <div style="font-size:0.8rem; color:#94a3b8;">${t.description || t.question_type}</div>
+                    </div>
+                    <button onclick="deleteCustomTemplate('${t.id}')" class="btn btn-danger" style="padding:5px 10px; font-size:0.75rem;">🗑️</button>
+                </div>
+            `).join('');
+        }
+        
+        function updateTemplateSelect() {
+            const select = document.getElementById('q-template');
+            if (!select) return;
+            
+            // 保留内置模板选项
+            let html = `
+                <option value="">选择模板...</option>
+                <option value="single">📌 单选题模板</option>
+                <option value="multiple">📋 多选题模板</option>
+                <option value="truefalse">✅ 判断题模板</option>
+                <option value="fillblank">✏️ 填空题模板</option>
+            `;
+            
+            // 添加自定义模板
+            if (customTemplates.length > 0) {
+                html += '<option disabled>──────────</option>';
+                customTemplates.forEach(t => {
+                    html += `<option value="custom_${t.id}">⭐ ${t.name}</option>`;
+                });
+            }
+            
+            select.innerHTML = html;
+        }
+        
+        function applyQuestionTemplate() {
+            const templateId = document.getElementById('q-template').value;
+            if (!templateId) return;
+            
+            let templateData;
+            
+            if (templateId.startsWith('custom_')) {
+                // 自定义模板
+                const customId = templateId.replace('custom_', '');
+                const customTemplate = customTemplates.find(t => t.id === customId);
+                if (customTemplate) {
+                    templateData = QuestionTemplates.applyTemplate(null, customTemplate);
+                }
+            } else {
+                // 内置模板
+                templateData = QuestionTemplates.applyTemplate(templateId);
+            }
+            
+            if (templateData) {
+                // 应用模板数据到表单
+                document.getElementById('q-type').value = templateData.question_type || 'single';
+                document.getElementById('q-difficulty').value = templateData.difficulty || 3;
+                
+                if (templateData.knowledge_tag) {
+                    document.getElementById('q-tag').value = templateData.knowledge_tag;
+                }
+                
+                // 更新表单显示
+                updateQuestionForm();
+                
+                // 如果模板有默认选项，填充它们
+                if (templateData.option_a !== undefined) {
+                    const optA = document.getElementById('q-opt-a');
+                    if (optA && templateData.option_a) optA.value = templateData.option_a;
+                }
+                if (templateData.option_b !== undefined) {
+                    const optB = document.getElementById('q-opt-b');
+                    if (optB && templateData.option_b) optB.value = templateData.option_b;
+                }
+            }
+        }
+        
+        function openCreateTemplate() {
+            document.getElementById('create-template-form').style.display = 'block';
+            document.getElementById('new-template-name').value = '';
+            document.getElementById('new-template-tag').value = '';
+        }
+        
+        function cancelCreateTemplate() {
+            document.getElementById('create-template-form').style.display = 'none';
+        }
+        
+        async function saveNewTemplate() {
+            const name = document.getElementById('new-template-name').value.trim();
+            if (!name) {
+                alert('请输入模板名称');
+                return;
+            }
+            
+            const questionType = document.getElementById('new-template-type').value;
+            const difficulty = parseInt(document.getElementById('new-template-difficulty').value);
+            const knowledgeTag = document.getElementById('new-template-tag').value.trim();
+            
+            // 获取基础模板数据
+            const baseTemplate = QuestionTemplates.applyTemplate(questionType);
+            
+            const template = {
+                question_type: questionType,
+                description: `${knowledgeTag || questionType} - 难度${difficulty}`,
+                template_data: {
+                    ...baseTemplate,
+                    difficulty,
+                    knowledge_tag: knowledgeTag || null
+                }
+            };
+            
+            const result = await QuestionTemplates.saveTemplate(supabaseClient, name, template);
+            
+            if (result.success) {
+                alert('✅ 模板已保存');
+                cancelCreateTemplate();
+                await loadCustomTemplates();
+            } else {
+                alert('保存失败: ' + result.error);
+            }
+        }
+        
+        async function deleteCustomTemplate(templateId) {
+            if (!confirm('确定要删除这个模板吗？')) return;
+            
+            const result = await QuestionTemplates.deleteTemplate(supabaseClient, templateId);
+            
+            if (result.success) {
+                await loadCustomTemplates();
+            } else {
+                alert('删除失败: ' + result.error);
+            }
+        }
+        
+        // 页面加载时初始化模板
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCustomTemplates();
+        });
     </script>
 </body>
 </html>

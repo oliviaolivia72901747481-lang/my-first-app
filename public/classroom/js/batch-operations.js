@@ -365,6 +365,45 @@ const BatchOperations = {
 
         const result = await this.batchDelete(supabase, questionIds);
         return { ...result, cancelled: false };
+    },
+
+    /**
+     * 记录批量操作日志
+     * @param {object} supabase - Supabase客户端实例
+     * @param {string} action - 操作类型 (delete, move, update, copy)
+     * @param {object} details - 操作详情
+     * @returns {Promise<{success: boolean, error?: string}>}
+     * Requirements: 1.5
+     */
+    async logOperation(supabase, action, details) {
+        if (!supabase) {
+            return { success: false, error: '无数据库连接' };
+        }
+
+        try {
+            const { error } = await supabase
+                .from('operation_logs')
+                .insert({
+                    operation_type: 'batch_' + action,
+                    operation_data: details,
+                    created_at: new Date().toISOString()
+                });
+
+            if (error) {
+                // 如果表不存在，静默失败（日志是可选功能）
+                if (error.code === '42P01') {
+                    console.warn('[BatchOperations] operation_logs 表不存在，跳过日志记录');
+                    return { success: true };
+                }
+                console.warn('[BatchOperations] 日志记录失败:', error.message);
+                return { success: false, error: error.message };
+            }
+
+            return { success: true };
+        } catch (e) {
+            console.warn('[BatchOperations] 日志记录异常:', e.message);
+            return { success: false, error: e.message };
+        }
     }
 };
 
