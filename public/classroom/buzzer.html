@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>⚡ 课堂抢答器</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/classroom/js/common.js"></script>
     <style>
         body {
             margin: 0;
@@ -19,23 +20,16 @@
             overflow: hidden;
         }
 
-        /* 名字输入区 */
-        #login-box {
-            background: white;
-            padding: 30px;
-            border-radius: 20px;
-            text-align: center;
-            color: #333;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-        input {
-            padding: 15px;
-            font-size: 1.2rem;
-            border: 2px solid #ddd;
-            border-radius: 10px;
-            width: 200px;
-            text-align: center;
-            margin-bottom: 20px;
+        /* 用户信息显示 */
+        .user-info {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255,255,255,0.1);
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-size: 1.1rem;
         }
         
         /* 核心抢答按钮 */
@@ -51,7 +45,6 @@
             box-shadow: 0 15px 0 #7f8c8d;
             cursor: not-allowed;
             transition: all 0.1s;
-            display: none; /* 登陆后显示 */
             
             /* Safari 兼容性 */
             -webkit-user-select: none;
@@ -79,70 +72,42 @@
             font-weight: bold;
             height: 50px;
         }
-
-        .btn-confirm {
-            background: #27ae60;
-            color: white;
-            border: none;
-            padding: 10px 30px;
-            border-radius: 10px;
-            font-size: 1.2rem;
-            cursor: pointer;
-            touch-action: manipulation;
-        }
     </style>
 </head>
 
 <body>
-
-    <div id="login-box">
-        <h2>🔥 谁手最快？</h2>
-        <input type="text" id="username" placeholder="输入你的名字">
-        <br>
-        <button class="btn-confirm" onclick="enterGame()">进入教室</button>
-    </div>
+    <div class="user-info">👤 <span id="user-name">加载中...</span></div>
 
     <button id="btn-buzz" onclick="doBuzz()">抢!</button>
 
-    <div id="status-text"></div>
+    <div id="status-text">等待老师开始...</div>
 
     <script>
-        // ================= 配置区域 =================
-        // ⚠️ 务必替换为你自己的 URL 和 Key
-        const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co' 
-        const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h'
-        // ===========================================
-
-        // 🛠️ 修复 1：变量名改为 supabaseClient
-        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey)
+        // 使用公共配置
+        const supabaseClient = ClassroomCommon.createSupabaseClient();
         
-        let myName = "";
+        // 检查用户身份（使用签到时保存的信息）
+        const userAuth = ClassroomCommon.checkUserAuth();
+        if (!userAuth) {
+            // 未签到，会自动跳转到签到页面
+        }
+        
+        let myName = userAuth ? userAuth.name : '';
+        let myId = userAuth ? userAuth.id : '';
+        
         const btn = document.getElementById('btn-buzz');
         const status = document.getElementById('status-text');
-        const loginBox = document.getElementById('login-box');
 
-        // 🛠️ 修复 2：使用 Base64 音效，避免学生端也出现 403 错误
-        // 短促的点击声
+        // 显示用户名
+        document.getElementById('user-name').innerText = myName || '未登录';
+
+        // 音效
         const audioClickSrc = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWgAAAA0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAAABjhfX/gwA0LAAABBAAAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAABjhmX38YYTIAAAAQAQAACR2F3f9lAAIAAAAEEAAAA//uQZAAAAAAA0gAAABBAAAACQAAAAA";
         const soundClick = new Audio(audioClickSrc);
 
-        // 1. 进入游戏
-        function enterGame() {
-            const input = document.getElementById('username');
-            if(!input.value.trim()) return alert("名字不能为空");
-            
-            myName = input.value.trim();
-            loginBox.style.display = 'none';
-            btn.style.display = 'block';
-            status.innerText = "等待老师开始...";
-            
-            localStorage.setItem('student_name', myName);
-            
+        // 初始化
+        if (myName) {
             initSupabase();
-        }
-
-        if(localStorage.getItem('student_name')) {
-            document.getElementById('username').value = localStorage.getItem('student_name');
         }
 
         // 2. 核心监听逻辑
