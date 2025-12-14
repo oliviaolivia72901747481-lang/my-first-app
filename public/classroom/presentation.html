@@ -2675,6 +2675,11 @@
         let slideQuestionBindings = {}; // 课件页面与题目的绑定关系
         
         function openQuestionBankManager() {
+            // 打开独立的题库管理页面
+            window.open('/classroom/questionbank.html', '_blank', 'width=1400,height=900');
+        }
+        
+        function openQuestionBankManagerOld() {
             const panel = document.createElement('div');
             panel.id = 'qb-manager-panel';
             panel.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:flex; align-items:center; justify-content:center; z-index:2000;';

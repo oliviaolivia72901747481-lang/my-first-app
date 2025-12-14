@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📚 题库管理中心</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: white; min-height: 100vh; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, #1e293b, #334155); border-radius: 15px; }
+        .header h1 { font-size: 1.8rem; }
+        .header-actions { display: flex; gap: 10px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+        .btn:hover { transform: translateY(-2px); }
+        .btn-primary { background: #3b82f6; color: white; }
+        .btn-success { background: #10b981; color: white; }
+        .btn-warning { background: #f59e0b; color: white; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-secondary { background: rgba(255,255,255,0.1); color: white; }
+        
+        .main-content { display: grid; grid-template-columns: 280px 1fr; gap: 20px; }
+        
+        /* 左侧分类栏 */
+        .sidebar { background: #1e293b; border-radius: 15px; padding: 20px; height: fit-content; }
+        .sidebar h3 { margin-bottom: 15px; color: #94a3b8; font-size: 0.9rem; }
+        .category-list { display: flex; flex-direction: column; gap: 8px; }
+        .category-item { display: flex; align-items: center; padding: 12px 15px; background: rgba(255,255,255,0.05); border-radius: 10px; cursor: pointer; transition: all 0.2s; }
+        .category-item:hover { background: rgba(255,255,255,0.1); }
+        .category-item.active { background: rgba(59,130,246,0.3); border-left: 3px solid #3b82f6; }
+        .category-color { width: 12px; height: 12px; border-radius: 50%; margin-right: 10px; }
+        .category-name { flex: 1; font-size: 0.95rem; }
+        .category-count { background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; }
+        .add-category { margin-top: 15px; padding: 12px; background: rgba(16,185,129,0.2); border: 2px dashed #10b981; border-radius: 10px; text-align: center; cursor: pointer; color: #10b981; }
+        .add-category:hover { background: rgba(16,185,129,0.3); }
+</style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>📚 题库管理中心</h1>
+                <p style="color:#94a3b8; margin-top:5px;">管理多课程题库，支持多种题型</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-success" onclick="openImportModal()">📥 导入题目</button>
+                <button class="btn btn-primary" onclick="openAddQuestion()">➕ 添加题目</button>
+                <button class="btn btn-secondary" onclick="openFormatHelp()">❓ 格式说明</button>
+                <a href="/classroom/presentation.html" class="btn btn-warning">🎬 返回课件</a>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- 左侧分类栏 -->
+            <div class="sidebar">
+                <h3>📂 题库分类</h3>
+                <div class="category-list" id="category-list">
+                    <div class="category-item active" data-id="all">
+                        <div class="category-color" style="background:#3b82f6;"></div>
+                        <span class="category-name">全部题目</span>
+                        <span class="category-count" id="total-count">0</span>
+                    </div>
+                </div>
+                <div class="add-category" onclick="openAddCategory()">➕ 新建分类</div>
+                
+                <h3 style="margin-top:25px;">📊 题型统计</h3>
+                <div id="type-stats" style="margin-top:10px;">
+                    <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.1);">
+                        <span style="color:#94a3b8;">单选题</span>
+                        <span id="stat-single">0</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.1);">
+                        <span style="color:#94a3b8;">多选题</span>
+                        <span id="stat-multiple">0</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.1);">
+                        <span style="color:#94a3b8;">判断题</span>
+                        <span id="stat-truefalse">0</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; padding:8px 0;">
+                        <span style="color:#94a3b8;">填空题</span>
+                        <span id="stat-fillblank">0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 右侧题目列表 -->
+            <div class="content-area" style="background:#1e293b; border-radius:15px; padding:20px;">
+                <!-- 筛选栏 -->
+                <div style="display:flex; gap:15px; margin-bottom:20px; flex-wrap:wrap; align-items:center;">
+                    <input type="text" id="search-input" placeholder="🔍 搜索题目..." style="flex:1; min-width:200px; padding:10px 15px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                    <select id="filter-type" style="padding:10px 15px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                        <option value="">全部题型</option>
+                        <option value="single">单选题</option>
+                        <option value="multiple">多选题</option>
+                        <option value="truefalse">判断题</option>
+                        <option value="fillblank">填空题</option>
+                    </select>
+                    <select id="filter-difficulty" style="padding:10px 15px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                        <option value="">全部难度</option>
+                        <option value="1">⭐ 简单</option>
+                        <option value="2">⭐⭐ 较易</option>
+                        <option value="3">⭐⭐⭐ 中等</option>
+                        <option value="4">⭐⭐⭐⭐ 较难</option>
+                        <option value="5">⭐⭐⭐⭐⭐ 困难</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="loadQuestions()">🔄 刷新</button>
+                </div>
+                
+                <!-- 题目列表 -->
+                <div id="question-list" style="display:flex; flex-direction:column; gap:12px;">
+                    <div style="text-align:center; padding:50px; color:#666;">加载中...</div>
+                </div>
+                
+                <!-- 分页 -->
+                <div id="pagination" style="display:flex; justify-content:center; gap:10px; margin-top:20px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导入题目弹窗 -->
+    <div id="import-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:#1e293b; border-radius:20px; padding:30px; width:90%; max-width:800px; max-height:90vh; overflow-y:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2>📥 导入题目</h2>
+                <button onclick="closeImportModal()" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">✕</button>
+            </div>
+            
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
+                <div>
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">选择分类</label>
+                    <select id="import-category" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;"></select>
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">题目类型</label>
+                    <select id="import-type" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                        <option value="single">单选题</option>
+                        <option value="multiple">多选题</option>
+                        <option value="truefalse">判断题</option>
+                        <option value="fillblank">填空题</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div style="background:rgba(59,130,246,0.1); border:2px dashed #3b82f6; border-radius:15px; padding:40px; text-align:center; margin-bottom:20px;" id="drop-area">
+                <div style="font-size:3rem; margin-bottom:10px;">📄</div>
+                <div style="margin-bottom:15px;">拖拽CSV文件到此处，或点击选择</div>
+                <input type="file" id="file-input" accept=".csv" style="display:none;" onchange="handleFileSelect(event)">
+                <button onclick="document.getElementById('file-input').click()" class="btn btn-primary">选择CSV文件</button>
+            </div>
+            
+            <div id="import-preview" style="display:none;">
+                <div style="font-weight:bold; margin-bottom:10px;">📝 预览 (<span id="preview-count">0</span> 道题目)</div>
+                <div id="preview-list" style="max-height:200px; overflow-y:auto; background:rgba(0,0,0,0.2); border-radius:8px; padding:10px; margin-bottom:15px;"></div>
+                <div style="display:flex; gap:15px; align-items:center; margin-bottom:15px;">
+                    <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
+                        <input type="checkbox" id="clear-before-import"> 清空该分类现有题目
+                    </label>
+                    <label style="display:flex; align-items:center; gap:5px;">
+                        起始序号: <input type="number" id="start-round" value="1" min="1" style="width:80px; padding:5px; border-radius:5px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                    </label>
+                </div>
+                <button onclick="confirmImport()" class="btn btn-success" style="width:100%; padding:15px;">✅ 确认导入</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 格式说明弹窗 -->
+    <div id="format-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:#1e293b; border-radius:20px; padding:30px; width:90%; max-width:900px; max-height:90vh; overflow-y:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2>📋 CSV格式说明</h2>
+                <button onclick="closeFormatHelp()" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">✕</button>
+            </div>
+            
+            <div style="display:grid; gap:20px;">
+                <!-- 单选题格式 -->
+                <div style="background:rgba(59,130,246,0.1); border-radius:12px; padding:20px;">
+                    <h3 style="color:#3b82f6; margin-bottom:10px;">📌 单选题格式</h3>
+                    <code style="display:block; background:rgba(0,0,0,0.3); padding:15px; border-radius:8px; font-size:0.85rem; overflow-x:auto;">
+题目,选项A,选项B,选项C,选项D,答案,知识点,难度<br>
+"1+1等于多少？","1","2","3","4",B,数学基础,1<br>
+"水的化学式是？","H2O","CO2","O2","N2",A,化学基础,2
+                    </code>
+                    <p style="color:#94a3b8; margin-top:10px; font-size:0.85rem;">答案填写：A/B/C/D（单个字母）</p>
+                </div>
+                
+                <!-- 多选题格式 -->
+                <div style="background:rgba(139,92,246,0.1); border-radius:12px; padding:20px;">
+                    <h3 style="color:#8b5cf6; margin-bottom:10px;">📌 多选题格式</h3>
+                    <code style="display:block; background:rgba(0,0,0,0.3); padding:15px; border-radius:8px; font-size:0.85rem; overflow-x:auto;">
+题目,选项A,选项B,选项C,选项D,答案,知识点,难度<br>
+"以下哪些是编程语言？","Python","Excel","Java","Word",AC,计算机基础,2<br>
+"哪些属于可再生能源？","太阳能","煤炭","风能","石油",AC,环境科学,1
+                    </code>
+                    <p style="color:#94a3b8; margin-top:10px; font-size:0.85rem;">答案填写：多个字母连写，如 AB、ACD、ABCD</p>
+                </div>
+                
+                <!-- 判断题格式 -->
+                <div style="background:rgba(16,185,129,0.1); border-radius:12px; padding:20px;">
+                    <h3 style="color:#10b981; margin-bottom:10px;">📌 判断题格式</h3>
+                    <code style="display:block; background:rgba(0,0,0,0.3); padding:15px; border-radius:8px; font-size:0.85rem; overflow-x:auto;">
+题目,答案,知识点,难度<br>
+"地球是太阳系中最大的行星",错,天文学,1<br>
+"水在标准大气压下100℃沸腾",对,物理学,1
+                    </code>
+                    <p style="color:#94a3b8; margin-top:10px; font-size:0.85rem;">答案填写：对/错 或 T/F 或 true/false</p>
+                </div>
+                
+                <!-- 填空题格式 -->
+                <div style="background:rgba(245,158,11,0.1); border-radius:12px; padding:20px;">
+                    <h3 style="color:#f59e0b; margin-bottom:10px;">📌 填空题格式</h3>
+                    <code style="display:block; background:rgba(0,0,0,0.3); padding:15px; border-radius:8px; font-size:0.85rem; overflow-x:auto;">
+题目,答案,知识点,难度<br>
+"中国的首都是____",北京,地理常识,1<br>
+"1千克等于____克",1000,单位换算,1
+                    </code>
+                    <p style="color:#94a3b8; margin-top:10px; font-size:0.85rem;">题目中用 ____ 表示填空位置，答案为标准答案</p>
+                </div>
+            </div>
+            
+            <div style="margin-top:20px; padding:15px; background:rgba(239,68,68,0.1); border-radius:10px;">
+                <h4 style="color:#ef4444; margin-bottom:8px;">⚠️ 注意事项</h4>
+                <ul style="color:#94a3b8; font-size:0.85rem; padding-left:20px; line-height:1.8;">
+                    <li>CSV文件需使用UTF-8编码保存</li>
+                    <li>第一行为标题行，会被自动跳过</li>
+                    <li>题目内容如包含逗号，需用英文双引号包裹</li>
+                    <li>知识点和难度为可选字段，可省略</li>
+                    <li>难度范围：1-5（1最简单，5最难）</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加分类弹窗 -->
+    <div id="category-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:#1e293b; border-radius:20px; padding:30px; width:90%; max-width:500px;">
+            <h2 style="margin-bottom:20px;" id="category-modal-title">➕ 新建分类</h2>
+            <input type="hidden" id="edit-category-id">
+            <div style="margin-bottom:15px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">分类名称</label>
+                <input type="text" id="category-name" placeholder="如：环境监测、土壤学" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+            </div>
+            <div style="margin-bottom:15px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">学科</label>
+                <input type="text" id="category-subject" placeholder="如：环境科学" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+            </div>
+            <div style="margin-bottom:15px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">描述</label>
+                <textarea id="category-desc" placeholder="分类描述（可选）" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white; min-height:80px; resize:vertical;"></textarea>
+            </div>
+            <div style="margin-bottom:20px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">显示颜色</label>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <label style="cursor:pointer;"><input type="radio" name="category-color" value="#3b82f6" checked style="display:none;"><span class="color-option" style="display:block; width:30px; height:30px; border-radius:50%; background:#3b82f6; border:3px solid transparent;"></span></label>
+                    <label style="cursor:pointer;"><input type="radio" name="category-color" value="#10b981" style="display:none;"><span class="color-option" style="display:block; width:30px; height:30px; border-radius:50%; background:#10b981; border:3px solid transparent;"></span></label>
+                    <label style="cursor:pointer;"><input type="radio" name="category-color" value="#f59e0b" style="display:none;"><span class="color-option" style="display:block; width:30px; height:30px; border-radius:50%; background:#f59e0b; border:3px solid transparent;"></span></label>
+                    <label style="cursor:pointer;"><input type="radio" name="category-color" value="#ef4444" style="display:none;"><span class="color-option" style="display:block; width:30px; height:30px; border-radius:50%; background:#ef4444; border:3px solid transparent;"></span></label>
+                    <label style="cursor:pointer;"><input type="radio" name="category-color" value="#8b5cf6" style="display:none;"><span class="color-option" style="display:block; width:30px; height:30px; border-radius:50%; background:#8b5cf6; border:3px solid transparent;"></span></label>
+                    <label style="cursor:pointer;"><input type="radio" name="category-color" value="#ec4899" style="display:none;"><span class="color-option" style="display:block; width:30px; height:30px; border-radius:50%; background:#ec4899; border:3px solid transparent;"></span></label>
+                </div>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button onclick="saveCategory()" class="btn btn-success" style="flex:1;">💾 保存</button>
+                <button onclick="closeCategoryModal()" class="btn btn-secondary" style="flex:1;">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加/编辑题目弹窗 -->
+    <div id="question-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:#1e293b; border-radius:20px; padding:30px; width:90%; max-width:700px; max-height:90vh; overflow-y:auto;">
+            <h2 style="margin-bottom:20px;" id="question-modal-title">➕ 添加题目</h2>
+            <input type="hidden" id="edit-question-id">
+            
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px; margin-bottom:15px;">
+                <div>
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">题目序号</label>
+                    <input type="number" id="q-round" min="1" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">题目类型</label>
+                    <select id="q-type" onchange="updateQuestionForm()" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                        <option value="single">单选题</option>
+                        <option value="multiple">多选题</option>
+                        <option value="truefalse">判断题</option>
+                        <option value="fillblank">填空题</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">所属分类</label>
+                    <select id="q-category" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;"></select>
+                </div>
+            </div>
+            
+            <div style="margin-bottom:15px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">题目内容</label>
+                <textarea id="q-title" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white; min-height:80px; resize:vertical;"></textarea>
+            </div>
+            
+            <div id="options-area">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
+                    <div><label style="color:#94a3b8; font-size:0.85rem;">选项A</label><input id="q-opt-a" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;"></div>
+                    <div><label style="color:#94a3b8; font-size:0.85rem;">选项B</label><input id="q-opt-b" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;"></div>
+                    <div><label style="color:#94a3b8; font-size:0.85rem;">选项C</label><input id="q-opt-c" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;"></div>
+                    <div><label style="color:#94a3b8; font-size:0.85rem;">选项D</label><input id="q-opt-d" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;"></div>
+                </div>
+            </div>
+            
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px; margin-bottom:15px;">
+                <div>
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">正确答案</label>
+                    <input id="q-answer" placeholder="如 A 或 AB" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">知识点</label>
+                    <input id="q-tag" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:8px; color:#94a3b8;">难度</label>
+                    <select id="q-difficulty" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                        <option value="1">⭐ 简单</option>
+                        <option value="2">⭐⭐ 较易</option>
+                        <option value="3">⭐⭐⭐ 中等</option>
+                        <option value="4">⭐⭐⭐⭐ 较难</option>
+                        <option value="5">⭐⭐⭐⭐⭐ 困难</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div style="margin-bottom:20px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">答案解析（可选）</label>
+                <textarea id="q-explanation" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white; min-height:60px; resize:vertical;"></textarea>
+            </div>
+            
+            <div style="display:flex; gap:10px;">
+                <button onclick="saveQuestion()" class="btn btn-success" style="flex:1;">💾 保存</button>
+                <button onclick="closeQuestionModal()" class="btn btn-secondary" style="flex:1;">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Supabase 配置
+        const supabaseUrl = 'https://urqxrtlzaifvambytoci.supabase.co';
+        const supabaseKey = 'sb_publishable_UWJrATWMObB576H3ODCicQ_FXX5Li8h';
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+        
+        // 状态
+        let categories = [];
+        let currentCategory = 'all';
+        let questions = [];
+        let pendingImport = [];
+        
+        // 题型配置
+        const typeConfig = {
+            single: { name: '单选题', color: '#3b82f6', icon: '📌' },
+            multiple: { name: '多选题', color: '#8b5cf6', icon: '📋' },
+            truefalse: { name: '判断题', color: '#10b981', icon: '✅' },
+            fillblank: { name: '填空题', color: '#f59e0b', icon: '✏️' }
+        };
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCategories();
+            loadQuestions();
+            setupColorPicker();
+            setupDropArea();
+        });
+        
+        // 设置颜色选择器
+        function setupColorPicker() {
+            document.querySelectorAll('input[name="category-color"]').forEach(input => {
+                input.addEventListener('change', () => {
+                    document.querySelectorAll('.color-option').forEach(opt => opt.style.borderColor = 'transparent');
+                    input.nextElementSibling.style.borderColor = 'white';
+                });
+            });
+            // 默认选中第一个
+            document.querySelector('.color-option').style.borderColor = 'white';
+        }
+        
+        // 设置拖拽区域
+        function setupDropArea() {
+            const dropArea = document.getElementById('drop-area');
+            dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.style.borderColor = '#10b981'; });
+            dropArea.addEventListener('dragleave', () => { dropArea.style.borderColor = '#3b82f6'; });
+            dropArea.addEventListener('drop', (e) => { e.preventDefault(); dropArea.style.borderColor = '#3b82f6'; handleFileDrop(e); });
+        }
+        
+        // ================== 分类管理 ==================
+        async function loadCategories() {
+            const { data, error } = await supabaseClient.from('question_categories').select('*').order('sort_order');
+            if (error) {
+                console.error('加载分类失败:', error);
+                // 如果表不存在，显示提示
+                if (error.code === '42P01') {
+                    alert('请先执行 questionbank_v2.sql 创建数据库表');
+                }
+                return;
+            }
+            categories = data || [];
+            renderCategories();
+            updateCategorySelects();
+        }
+        
+        function renderCategories() {
+            const list = document.getElementById('category-list');
+            const totalCount = questions.length;
+            
+            let html = `
+                <div class="category-item ${currentCategory === 'all' ? 'active' : ''}" data-id="all" onclick="selectCategory('all')">
+                    <div class="category-color" style="background:#3b82f6;"></div>
+                    <span class="category-name">全部题目</span>
+                    <span class="category-count" id="total-count">${totalCount}</span>
+                </div>
+            `;
+            
+            categories.forEach(cat => {
+                const count = questions.filter(q => q.category_id === cat.category_id).length;
+                html += `
+                    <div class="category-item ${currentCategory === cat.category_id ? 'active' : ''}" data-id="${cat.category_id}" onclick="selectCategory('${cat.category_id}')">
+                        <div class="category-color" style="background:${cat.color};"></div>
+                        <span class="category-name">${cat.name}</span>
+                        <span class="category-count">${count}</span>
+                        <button onclick="event.stopPropagation(); editCategory('${cat.category_id}')" style="background:none; border:none; color:#94a3b8; cursor:pointer; padding:2px 5px;">✏️</button>
+                    </div>
+                `;
+            });
+            
+            list.innerHTML = html;
+        }
+        
+        function selectCategory(id) {
+            currentCategory = id;
+            renderCategories();
+            loadQuestions();
+        }
+        
+        function updateCategorySelects() {
+            const selects = ['import-category', 'q-category'];
+            selects.forEach(id => {
+                const select = document.getElementById(id);
+                if (select) {
+                    select.innerHTML = '<option value="">未分类</option>' + 
+                        categories.map(c => `<option value="${c.category_id}">${c.name}</option>`).join('');
+                }
+            });
+        }
+        
+        function openAddCategory() {
+            document.getElementById('category-modal-title').textContent = '➕ 新建分类';
+            document.getElementById('edit-category-id').value = '';
+            document.getElementById('category-name').value = '';
+            document.getElementById('category-subject').value = '';
+            document.getElementById('category-desc').value = '';
+            document.getElementById('category-modal').style.display = 'flex';
+        }
+        
+        async function editCategory(id) {
+            const cat = categories.find(c => c.category_id === id);
+            if (!cat) return;
+            
+            document.getElementById('category-modal-title').textContent = '✏️ 编辑分类';
+            document.getElementById('edit-category-id').value = id;
+            document.getElementById('category-name').value = cat.name;
+            document.getElementById('category-subject').value = cat.subject || '';
+            document.getElementById('category-desc').value = cat.description || '';
+            
+            // 选中对应颜色
+            document.querySelectorAll('input[name="category-color"]').forEach(input => {
+                if (input.value === cat.color) {
+                    input.checked = true;
+                    input.nextElementSibling.style.borderColor = 'white';
+                } else {
+                    input.nextElementSibling.style.borderColor = 'transparent';
+                }
+            });
+            
+            document.getElementById('category-modal').style.display = 'flex';
+        }
+        
+        function closeCategoryModal() {
+            document.getElementById('category-modal').style.display = 'none';
+        }
+        
+        async function saveCategory() {
+            const id = document.getElementById('edit-category-id').value;
+            const name = document.getElementById('category-name').value.trim();
+            const subject = document.getElementById('category-subject').value.trim();
+            const description = document.getElementById('category-desc').value.trim();
+            const color = document.querySelector('input[name="category-color"]:checked').value;
+            
+            if (!name) { alert('请输入分类名称'); return; }
+            
+            const data = { name, subject, description, color };
+            
+            if (id) {
+                // 更新
+                const { error } = await supabaseClient.from('question_categories').update(data).eq('category_id', id);
+                if (error) { alert('更新失败: ' + error.message); return; }
+            } else {
+                // 新建
+                const { error } = await supabaseClient.from('question_categories').insert([data]);
+                if (error) { alert('创建失败: ' + error.message); return; }
+            }
+            
+            closeCategoryModal();
+            loadCategories();
+        }
+
+        // ================== 题目管理 ==================
+        async function loadQuestions() {
+            let query = supabaseClient.from('questions').select('*').order('round');
+            
+            if (currentCategory !== 'all') {
+                query = query.eq('category_id', currentCategory);
+            }
+            
+            // 筛选条件
+            const typeFilter = document.getElementById('filter-type')?.value;
+            const difficultyFilter = document.getElementById('filter-difficulty')?.value;
+            const searchText = document.getElementById('search-input')?.value?.toLowerCase();
+            
+            if (typeFilter) query = query.eq('question_type', typeFilter);
+            if (difficultyFilter) query = query.eq('difficulty', parseInt(difficultyFilter));
+            
+            const { data, error } = await query;
+            if (error) {
+                console.error('加载题目失败:', error);
+                document.getElementById('question-list').innerHTML = '<div style="text-align:center; padding:50px; color:#ef4444;">加载失败</div>';
+                return;
+            }
+            
+            questions = data || [];
+            
+            // 搜索过滤
+            let filtered = questions;
+            if (searchText) {
+                filtered = questions.filter(q => q.title.toLowerCase().includes(searchText) || (q.knowledge_tag || '').toLowerCase().includes(searchText));
+            }
+            
+            renderQuestions(filtered);
+            updateStats();
+            renderCategories();
+        }
+        
+        function renderQuestions(list) {
+            const container = document.getElementById('question-list');
+            
+            if (list.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:50px; color:#666;">暂无题目</div>';
+                return;
+            }
+            
+            container.innerHTML = list.map(q => {
+                const type = typeConfig[q.question_type] || typeConfig.single;
+                const cat = categories.find(c => c.category_id === q.category_id);
+                const difficulty = '⭐'.repeat(q.difficulty || 1);
+                
+                return `
+                    <div style="background:rgba(255,255,255,0.05); border-radius:12px; padding:15px; display:flex; gap:15px; align-items:flex-start;">
+                        <div style="min-width:50px; text-align:center;">
+                            <div style="font-size:1.5rem; font-weight:bold; color:#3b82f6;">${q.round}</div>
+                            <div style="font-size:0.7rem; color:#94a3b8;">序号</div>
+                        </div>
+                        <div style="flex:1;">
+                            <div style="display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
+                                <span style="background:${type.color}; color:white; padding:2px 8px; border-radius:4px; font-size:0.75rem;">${type.icon} ${type.name}</span>
+                                ${cat ? `<span style="background:${cat.color}20; color:${cat.color}; padding:2px 8px; border-radius:4px; font-size:0.75rem;">${cat.name}</span>` : ''}
+                                ${q.knowledge_tag ? `<span style="background:rgba(255,255,255,0.1); padding:2px 8px; border-radius:4px; font-size:0.75rem;">${q.knowledge_tag}</span>` : ''}
+                                <span style="font-size:0.75rem; color:#f59e0b;">${difficulty}</span>
+                            </div>
+                            <div style="font-size:0.95rem; line-height:1.5; margin-bottom:8px;">${q.title}</div>
+                            ${q.question_type !== 'fillblank' && q.question_type !== 'truefalse' ? `
+                                <div style="display:flex; gap:15px; flex-wrap:wrap; font-size:0.85rem; color:#94a3b8;">
+                                    ${q.option_a ? `<span>A. ${q.option_a.substring(0, 20)}${q.option_a.length > 20 ? '...' : ''}</span>` : ''}
+                                    ${q.option_b ? `<span>B. ${q.option_b.substring(0, 20)}${q.option_b.length > 20 ? '...' : ''}</span>` : ''}
+                                    ${q.option_c ? `<span>C. ${q.option_c.substring(0, 20)}${q.option_c.length > 20 ? '...' : ''}</span>` : ''}
+                                    ${q.option_d ? `<span>D. ${q.option_d.substring(0, 20)}${q.option_d.length > 20 ? '...' : ''}</span>` : ''}
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:5px; align-items:flex-end;">
+                            <div style="background:#10b981; color:white; padding:5px 12px; border-radius:6px; font-weight:bold;">${q.answer}</div>
+                            <div style="display:flex; gap:5px;">
+                                <button onclick="editQuestion(${q.round})" class="btn btn-secondary" style="padding:5px 10px; font-size:0.75rem;">✏️ 编辑</button>
+                                <button onclick="deleteQuestion(${q.round})" class="btn btn-danger" style="padding:5px 10px; font-size:0.75rem;">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function updateStats() {
+            const stats = { single: 0, multiple: 0, truefalse: 0, fillblank: 0 };
+            questions.forEach(q => {
+                const type = q.question_type || 'single';
+                if (stats[type] !== undefined) stats[type]++;
+            });
+            
+            document.getElementById('stat-single').textContent = stats.single;
+            document.getElementById('stat-multiple').textContent = stats.multiple;
+            document.getElementById('stat-truefalse').textContent = stats.truefalse;
+            document.getElementById('stat-fillblank').textContent = stats.fillblank;
+            document.getElementById('total-count').textContent = questions.length;
+        }
+        
+        // 搜索和筛选
+        document.getElementById('search-input')?.addEventListener('input', debounce(loadQuestions, 300));
+        document.getElementById('filter-type')?.addEventListener('change', loadQuestions);
+        document.getElementById('filter-difficulty')?.addEventListener('change', loadQuestions);
+        
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        // ================== 添加/编辑题目 ==================
+        async function openAddQuestion() {
+            // 获取下一个可用序号
+            const { data } = await supabaseClient.from('questions').select('round').order('round', { ascending: false }).limit(1);
+            const nextRound = (data && data[0]) ? data[0].round + 1 : 1;
+            
+            document.getElementById('question-modal-title').textContent = '➕ 添加题目';
+            document.getElementById('edit-question-id').value = '';
+            document.getElementById('q-round').value = nextRound;
+            document.getElementById('q-type').value = 'single';
+            document.getElementById('q-category').value = currentCategory !== 'all' ? currentCategory : '';
+            document.getElementById('q-title').value = '';
+            document.getElementById('q-opt-a').value = '';
+            document.getElementById('q-opt-b').value = '';
+            document.getElementById('q-opt-c').value = '';
+            document.getElementById('q-opt-d').value = '';
+            document.getElementById('q-answer').value = '';
+            document.getElementById('q-tag').value = '';
+            document.getElementById('q-difficulty').value = '1';
+            document.getElementById('q-explanation').value = '';
+            
+            updateQuestionForm();
+            document.getElementById('question-modal').style.display = 'flex';
+        }
+        
+        async function editQuestion(round) {
+            const { data: q } = await supabaseClient.from('questions').select('*').eq('round', round).single();
+            if (!q) { alert('题目不存在'); return; }
+            
+            document.getElementById('question-modal-title').textContent = '✏️ 编辑题目';
+            document.getElementById('edit-question-id').value = q.id;
+            document.getElementById('q-round').value = q.round;
+            document.getElementById('q-type').value = q.question_type || 'single';
+            document.getElementById('q-category').value = q.category_id || '';
+            document.getElementById('q-title').value = q.title;
+            document.getElementById('q-opt-a').value = q.option_a || '';
+            document.getElementById('q-opt-b').value = q.option_b || '';
+            document.getElementById('q-opt-c').value = q.option_c || '';
+            document.getElementById('q-opt-d').value = q.option_d || '';
+            document.getElementById('q-answer').value = q.answer;
+            document.getElementById('q-tag').value = q.knowledge_tag || '';
+            document.getElementById('q-difficulty').value = q.difficulty || 1;
+            document.getElementById('q-explanation').value = q.explanation || '';
+            
+            updateQuestionForm();
+            document.getElementById('question-modal').style.display = 'flex';
+        }
+        
+        function updateQuestionForm() {
+            const type = document.getElementById('q-type').value;
+            const optionsArea = document.getElementById('options-area');
+            
+            if (type === 'truefalse') {
+                optionsArea.innerHTML = `
+                    <div style="margin-bottom:15px; color:#94a3b8;">
+                        判断题无需填写选项，答案请填写：对/错 或 T/F
+                    </div>
+                `;
+            } else if (type === 'fillblank') {
+                optionsArea.innerHTML = `
+                    <div style="margin-bottom:15px; color:#94a3b8;">
+                        填空题无需填写选项，题目中用 ____ 表示填空位置，答案填写标准答案
+                    </div>
+                `;
+            } else {
+                optionsArea.innerHTML = `
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
+                        <div><label style="color:#94a3b8; font-size:0.85rem;">选项A</label><input id="q-opt-a" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;"></div>
+                        <div><label style="color:#94a3b8; font-size:0.85rem;">选项B</label><input id="q-opt-b" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;"></div>
+                        <div><label style="color:#94a3b8; font-size:0.85rem;">选项C</label><input id="q-opt-c" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;"></div>
+                        <div><label style="color:#94a3b8; font-size:0.85rem;">选项D</label><input id="q-opt-d" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;"></div>
+                    </div>
+                `;
+            }
+        }
+        
+        function closeQuestionModal() {
+            document.getElementById('question-modal').style.display = 'none';
+        }
+        
+        async function saveQuestion() {
+            const round = parseInt(document.getElementById('q-round').value);
+            const type = document.getElementById('q-type').value;
+            const categoryId = document.getElementById('q-category').value || null;
+            const title = document.getElementById('q-title').value.trim();
+            const answer = document.getElementById('q-answer').value.trim().toUpperCase();
+            const tag = document.getElementById('q-tag').value.trim() || null;
+            const difficulty = parseInt(document.getElementById('q-difficulty').value);
+            const explanation = document.getElementById('q-explanation').value.trim() || null;
+            
+            if (!round || !title || !answer) {
+                alert('请填写序号、题目和答案');
+                return;
+            }
+            
+            const data = {
+                round,
+                question_type: type,
+                category_id: categoryId,
+                title,
+                option_a: document.getElementById('q-opt-a')?.value || null,
+                option_b: document.getElementById('q-opt-b')?.value || null,
+                option_c: document.getElementById('q-opt-c')?.value || null,
+                option_d: document.getElementById('q-opt-d')?.value || null,
+                answer,
+                knowledge_tag: tag,
+                difficulty,
+                explanation,
+                updated_at: new Date().toISOString()
+            };
+            
+            const { error } = await supabaseClient.from('questions').upsert(data, { onConflict: 'round' });
+            
+            if (error) {
+                alert('保存失败: ' + error.message);
+                return;
+            }
+            
+            closeQuestionModal();
+            loadQuestions();
+            alert('✅ 保存成功');
+        }
+        
+        async function deleteQuestion(round) {
+            if (!confirm(`确定要删除第 ${round} 题吗？`)) return;
+            
+            const { error } = await supabaseClient.from('questions').delete().eq('round', round);
+            if (error) {
+                alert('删除失败: ' + error.message);
+                return;
+            }
+            
+            loadQuestions();
+        }
+
+        // ================== 导入功能 ==================
+        function openImportModal() {
+            document.getElementById('import-modal').style.display = 'flex';
+            document.getElementById('import-preview').style.display = 'none';
+            pendingImport = [];
+            updateCategorySelects();
+        }
+        
+        function closeImportModal() {
+            document.getElementById('import-modal').style.display = 'none';
+        }
+        
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) processFile(file);
+        }
+        
+        function handleFileDrop(event) {
+            const file = event.dataTransfer.files[0];
+            if (file) processFile(file);
+        }
+        
+        function processFile(file) {
+            if (!file.name.endsWith('.csv')) {
+                alert('请选择CSV文件');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const text = e.target.result;
+                const type = document.getElementById('import-type').value;
+                pendingImport = parseCSV(text, type);
+                
+                if (pendingImport.length === 0) {
+                    alert('未能解析出有效题目，请检查CSV格式');
+                    return;
+                }
+                
+                // 显示预览
+                document.getElementById('import-preview').style.display = 'block';
+                document.getElementById('preview-count').textContent = pendingImport.length;
+                document.getElementById('preview-list').innerHTML = pendingImport.slice(0, 5).map((q, i) => `
+                    <div style="padding:8px; border-bottom:1px solid rgba(255,255,255,0.1); font-size:0.85rem;">
+                        <strong>${i + 1}.</strong> ${q.title.substring(0, 60)}${q.title.length > 60 ? '...' : ''} 
+                        <span style="color:#10b981;">[${q.answer}]</span>
+                    </div>
+                `).join('') + (pendingImport.length > 5 ? `<div style="padding:8px; color:#94a3b8; font-size:0.8rem;">... 还有 ${pendingImport.length - 5} 道题目</div>` : '');
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+        
+        function parseCSV(text, type) {
+            const lines = text.trim().split('\n');
+            const questions = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                
+                const cells = parseCSVLine(line);
+                if (cells.length < 2) continue;
+                
+                let q = { question_type: type };
+                
+                if (type === 'single' || type === 'multiple') {
+                    // 题目,选项A,选项B,选项C,选项D,答案,知识点,难度
+                    if (cells.length < 6) continue;
+                    q.title = cells[0];
+                    q.option_a = cells[1];
+                    q.option_b = cells[2];
+                    q.option_c = cells[3];
+                    q.option_d = cells[4];
+                    q.answer = cells[5].toUpperCase();
+                    q.knowledge_tag = cells[6] || null;
+                    q.difficulty = parseInt(cells[7]) || 1;
+                } else if (type === 'truefalse') {
+                    // 题目,答案,知识点,难度
+                    q.title = cells[0];
+                    let ans = cells[1].trim().toLowerCase();
+                    q.answer = (ans === '对' || ans === 't' || ans === 'true' || ans === '正确') ? '对' : '错';
+                    q.knowledge_tag = cells[2] || null;
+                    q.difficulty = parseInt(cells[3]) || 1;
+                } else if (type === 'fillblank') {
+                    // 题目,答案,知识点,难度
+                    q.title = cells[0];
+                    q.answer = cells[1];
+                    q.knowledge_tag = cells[2] || null;
+                    q.difficulty = parseInt(cells[3]) || 1;
+                }
+                
+                questions.push(q);
+            }
+            
+            return questions;
+        }
+        
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current.trim());
+            return result;
+        }
+        
+        async function confirmImport() {
+            if (pendingImport.length === 0) {
+                alert('没有待导入的题目');
+                return;
+            }
+            
+            const categoryId = document.getElementById('import-category').value || null;
+            const clearBefore = document.getElementById('clear-before-import').checked;
+            const startRound = parseInt(document.getElementById('start-round').value) || 1;
+            
+            // 如果需要清空
+            if (clearBefore && categoryId) {
+                await supabaseClient.from('questions').delete().eq('category_id', categoryId);
+            }
+            
+            // 添加序号和分类
+            const questionsToInsert = pendingImport.map((q, i) => ({
+                ...q,
+                round: startRound + i,
+                category_id: categoryId
+            }));
+            
+            const { error } = await supabaseClient.from('questions').upsert(questionsToInsert, { onConflict: 'round' });
+            
+            if (error) {
+                alert('导入失败: ' + error.message);
+                return;
+            }
+            
+            alert(`✅ 成功导入 ${questionsToInsert.length} 道题目`);
+            closeImportModal();
+            loadQuestions();
+            loadCategories();
+        }
+        
+        // ================== 格式说明 ==================
+        function openFormatHelp() {
+            document.getElementById('format-modal').style.display = 'flex';
+        }
+        
+        function closeFormatHelp() {
+            document.getElementById('format-modal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
