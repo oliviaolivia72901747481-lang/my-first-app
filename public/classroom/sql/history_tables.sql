@@ -90,19 +90,12 @@ CREATE INDEX IF NOT EXISTS idx_class_student_snapshots_session ON class_student_
 CREATE INDEX IF NOT EXISTS idx_class_student_snapshots_student ON class_student_snapshots(student_id);
 CREATE INDEX IF NOT EXISTS idx_class_question_snapshots_session ON class_question_snapshots(session_id);
 
--- 5. 启用实时订阅
-DO $
-BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE class_sessions;
-EXCEPTION WHEN duplicate_object THEN
-    RAISE NOTICE 'class_sessions already in publication';
-END $;
-
--- 6. 添加 RLS 策略
+-- 5. 添加 RLS 策略
 ALTER TABLE class_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE class_student_snapshots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE class_question_snapshots ENABLE ROW LEVEL SECURITY;
 
+-- 允许所有人读取
 CREATE POLICY "Allow public read class_sessions" ON class_sessions FOR SELECT USING (true);
 CREATE POLICY "Allow public insert class_sessions" ON class_sessions FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow public update class_sessions" ON class_sessions FOR UPDATE USING (true);
