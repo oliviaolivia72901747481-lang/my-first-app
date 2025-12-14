@@ -150,8 +150,28 @@ const PointsSystem = {
 
     /**
      * 获取积分排行榜
+     * @param {object} supabase - Supabase客户端
+     * @param {object} options - 选项 { type: 'today' | 'total', limit: 20 }
+     * @returns {Array} [{ rank, student_id, student_name, points, today_points, total_points }]
+     * 
+     * Property 5: Leaderboard Ordering
+     * For any set of students with points, the leaderboard SHALL be sorted in 
+     * descending order by points (points[i] >= points[i+1] for all i).
+     * Validates: Requirements 3.1
+     * 
+     * Property 6: Leaderboard Limit
+     * For any leaderboard query with limit N, the result SHALL contain at most N entries.
+     * Validates: Requirements 3.1
      */
-    async getLeaderboard(supabase, limit = 20) {
+    async getLeaderboard(supabase, options = {}) {
+        const { type = 'total', limit = 20 } = typeof options === 'number' 
+            ? { limit: options } 
+            : options;
+        
+        if (type === 'today') {
+            return await this.getTodayLeaderboard(supabase, limit);
+        }
+        
         const { data, error } = await supabase
             .from('student_points')
             .select('*')
@@ -162,7 +182,105 @@ const PointsSystem = {
             console.error('获取排行榜失败:', error);
             return [];
         }
-        return data || [];
+        
+        // 添加 rank 字段
+        return (data || []).map((student, index) => ({
+            ...student,
+            rank: index + 1,
+            points: student.total_points
+        }));
+    },
+    
+    /**
+     * 获取今日排行榜
+     * @param {object} supabase - Supabase客户端
+     * @param {number} limit - 限制数量
+     */
+    async getTodayLeaderboard(supabase, limit = 20) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // 从 points_log 表获取今日积分汇总
+        const { data, error } = await supabase
+            .from('points_log')
+            .select('student_id, student_name, points')
+            .gte('created_at', today.toISOString());
+        
+        if (error) {
+            console.error('获取今日排行榜失败:', error);
+            // 如果 points_log 表不存在，返回空数组
+            return [];
+        }
+        
+        if (!data || data.length === 0) {
+            return [];
+        }
+        
+        // 按学生汇总积分
+        const studentMap = {};
+        data.forEach(log => {
+            if (!studentMap[log.student_id]) {
+                studentMap[log.student_id] = {
+                    student_id: log.student_id,
+                    student_name: log.student_name,
+                    today_points: 0,
+                    total_points: 0
+                };
+            }
+            studentMap[log.student_id].today_points += log.points;
+        });
+        
+        // 转换为数组并排序
+        const result = Object.values(studentMap)
+            .sort((a, b) => b.today_points - a.today_points)
+            .slice(0, limit)
+            .map((student, index) => ({
+                ...student,
+                rank: index + 1,
+                points: student.today_points
+            }));
+        
+        return result;
+    },
+    
+    /**
+     * 计算学生排名
+     * @param {Array} students - 学生数组，包含积分信息
+     * @param {string} studentId - 要计算排名的学生ID
+     * @param {string} pointsField - 积分字段名 ('today_points' 或 'total_points')
+     * @returns {object} { rank, isInTop20 }
+     * 
+     * Property 7: Student Rank Calculation
+     * For any student in a set of students with points, their rank SHALL equal 
+     * 1 plus the count of students with strictly higher points.
+     * Validates: Requirements 1.4, 3.2, 3.3
+     */
+    calculateRank(students, studentId, pointsField = 'total_points') {
+        if (!students || students.length === 0 || !studentId) {
+            return { rank: 0, isInTop20: false };
+        }
+        
+        // 获取当前学生的积分
+        const currentStudent = students.find(s => s.student_id === studentId);
+        if (!currentStudent) {
+            return { rank: 0, isInTop20: false };
+        }
+        
+        const myPoints = currentStudent[pointsField] || 0;
+        
+        // 计算排名：1 + 比我积分高的学生数量
+        let higherCount = 0;
+        students.forEach(s => {
+            const points = s[pointsField] || 0;
+            if (points > myPoints) {
+                higherCount++;
+            }
+        });
+        
+        const rank = higherCount + 1;
+        const isInTop20 = rank <= 20;
+        
+        return { rank, isInTop20 };
     },
 
     /**

@@ -1,31 +1,27 @@
 // ================= 统一底部导航组件 =================
+// 学生端底部导航栏，包含首页、答题、历史、排行、我的五个入口
+
+// 导航项配置
+const NAV_ITEMS = [
+    { id: 'home', href: 'index.html', icon: '🏠', label: '首页' },
+    { id: 'vote', href: 'vote.html', icon: '📊', label: '答题' },
+    { id: 'history', href: 'history.html', icon: '📚', label: '历史' },
+    { id: 'rank', href: 'rank.html', icon: '🏆', label: '排行' },
+    { id: 'profile', href: 'profile.html', icon: '👤', label: '我的' }
+];
 
 // 创建底部导航栏
 function createBottomNavigation() {
     const nav = document.createElement('div');
     nav.className = 'bottom-nav';
-    nav.innerHTML = `
-        <a href="sign.html" class="nav-item" id="nav-sign">
-            <span class="nav-icon">📅</span>
-            <span>签到</span>
+    
+    // 根据配置生成导航项
+    nav.innerHTML = NAV_ITEMS.map(item => `
+        <a href="${item.href}" class="nav-item" id="nav-${item.id}">
+            <span class="nav-icon">${item.icon}</span>
+            <span>${item.label}</span>
         </a>
-        <a href="vote.html" class="nav-item" id="nav-vote">
-            <span class="nav-icon">📊</span>
-            <span>答题</span>
-        </a>
-        <a href="danmu.html" class="nav-item" id="nav-danmu">
-            <span class="nav-icon">💬</span>
-            <span>弹幕</span>
-        </a>
-        <a href="buzzer.html" class="nav-item" id="nav-buzzer">
-            <span class="nav-icon">⚡</span>
-            <span>抢答</span>
-        </a>
-        <a href="index.html" class="nav-item" id="nav-home">
-            <span class="nav-icon">🏠</span>
-            <span>首页</span>
-        </a>
-    `;
+    `).join('');
     
     // 添加样式
     if (!document.getElementById('nav-styles')) {
@@ -58,28 +54,29 @@ function createBottomNavigation() {
 // 高亮当前页面的导航项
 function highlightCurrentNav() {
     const path = window.location.pathname;
+    const currentPage = path.split('/').pop() || 'index.html';
     const navItems = document.querySelectorAll('.nav-item');
     
+    // 移除所有active类
     navItems.forEach(item => item.classList.remove('active'));
     
-    if (path.includes('sign')) {
-        document.getElementById('nav-sign')?.classList.add('active');
-    } else if (path.includes('vote')) {
-        document.getElementById('nav-vote')?.classList.add('active');
-    } else if (path.includes('danmu')) {
-        document.getElementById('nav-danmu')?.classList.add('active');
-    } else if (path.includes('buzzer')) {
-        document.getElementById('nav-buzzer')?.classList.add('active');
-    } else if (path.includes('index')) {
-        document.getElementById('nav-home')?.classList.add('active');
+    // 根据当前页面路径匹配导航项
+    for (const item of NAV_ITEMS) {
+        if (currentPage === item.href || path.includes(item.id)) {
+            const navElement = document.getElementById(`nav-${item.id}`);
+            if (navElement) {
+                navElement.classList.add('active');
+                break;
+            }
+        }
     }
 }
 
 // 初始化导航栏
 function initBottomNavigation() {
-    // 只在学生端页面显示导航栏
-    const studentPages = ['sign.html', 'vote.html', 'danmu.html', 'buzzer.html', 'index.html'];
-    const currentPage = window.location.pathname.split('/').pop();
+    // 学生端页面列表（包含新增的页面）
+    const studentPages = NAV_ITEMS.map(item => item.href);
+    const currentPage = window.location.pathname.split('/').pop() || 'index.html';
     
     if (studentPages.includes(currentPage)) {
         const nav = createBottomNavigation();
@@ -91,5 +88,6 @@ function initBottomNavigation() {
 // 导出到全局
 window.NavigationComponent = {
     init: initBottomNavigation,
-    highlight: highlightCurrentNav
+    highlight: highlightCurrentNav,
+    items: NAV_ITEMS
 };

@@ -7,41 +7,122 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/classroom/js/common.js"></script>
     <script src="/classroom/js/navigation.js"></script>
+    <script src="/classroom/js/stats.js"></script>
+    <script src="/classroom/js/points.js"></script>
     <style>
         body { 
             font-family: 'Segoe UI', sans-serif; 
-            margin: 0; height: 100vh; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            margin: 0; min-height: 100vh; 
+            display: flex; flex-direction: column; align-items: center;
             background: #f3f4f6; color: #333; text-align: center;
+            padding: 20px; padding-bottom: 80px; box-sizing: border-box;
         }
         
         /* 等待状态的样式 */
         .wait-box {
-            background: white; padding: 40px; border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 80%; max-width: 400px;
+            background: white; padding: 30px; border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 400px;
+            margin-top: 20px;
         }
-        .icon-spin { font-size: 4rem; margin-bottom: 20px; display: inline-block; animation: spin 3s infinite linear; }
+        .icon-spin { font-size: 3rem; margin-bottom: 15px; display: inline-block; animation: spin 3s infinite linear; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
         
-        h2 { margin: 0 0 10px 0; color: #2563eb; }
-        p { color: #666; }
+        h2 { margin: 0 0 10px 0; color: #2563eb; font-size: 1.3rem; }
+        p { color: #666; font-size: 0.9rem; }
 
-        /* 快捷入口 (仅当老师未控制时显示) */
-        .quick-links { margin-top: 30px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-        .link-btn {
-            text-decoration: none; color: #666; font-size: 0.9rem; padding: 5px 10px;
-            border: 1px solid #ddd; border-radius: 15px; background: white;
+        /* 用户信息卡片 */
+        .user-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; padding: 20px; border-radius: 15px;
+            width: 100%; max-width: 400px; box-sizing: border-box;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
         }
+        .user-card .greeting { font-size: 0.9rem; opacity: 0.9; }
+        .user-card .user-name { font-size: 1.5rem; font-weight: bold; margin: 5px 0; }
+        .user-card .user-id { font-size: 0.8rem; opacity: 0.8; }
+
+        /* 简要统计 */
+        .stats-row {
+            display: flex; justify-content: space-around; margin-top: 15px;
+            padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2);
+        }
+        .stat-item { text-align: center; }
+        .stat-value { font-size: 1.3rem; font-weight: bold; }
+        .stat-label { font-size: 0.75rem; opacity: 0.8; }
+
+        /* 快捷入口 */
+        .quick-section {
+            width: 100%; max-width: 400px; margin-top: 20px;
+        }
+        .section-title {
+            font-size: 0.9rem; color: #666; text-align: left; margin-bottom: 10px;
+        }
+        .quick-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+        }
+        .quick-btn {
+            background: white; border: none; border-radius: 12px;
+            padding: 15px 10px; text-decoration: none; color: #333;
+            display: flex; flex-direction: column; align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .quick-btn:active { transform: scale(0.95); }
+        .quick-btn .icon { font-size: 1.5rem; margin-bottom: 5px; }
+        .quick-btn .label { font-size: 0.75rem; color: #666; }
     </style>
 </head>
 <body>
 
-    <div class="wait-box">
+    <!-- 用户信息卡片 -->
+    <div class="user-card" id="user-card" style="display: none;">
+        <div class="greeting">👋 欢迎回来</div>
+        <div class="user-name" id="user-name">--</div>
+        <div class="user-id">学号: <span id="user-id">--</span></div>
+        <div class="stats-row">
+            <div class="stat-item">
+                <div class="stat-value" id="today-count">0</div>
+                <div class="stat-label">今日答题</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="today-accuracy">0%</div>
+                <div class="stat-label">正确率</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="total-points">0</div>
+                <div class="stat-label">总积分</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 快捷入口 -->
+    <div class="quick-section" id="quick-section" style="display: none;">
+        <div class="section-title">📌 快捷入口</div>
+        <div class="quick-grid">
+            <a href="/classroom/history.html" class="quick-btn">
+                <span class="icon">📚</span>
+                <span class="label">答题历史</span>
+            </a>
+            <a href="/classroom/rank.html" class="quick-btn">
+                <span class="icon">🏆</span>
+                <span class="label">排行榜</span>
+            </a>
+            <a href="/classroom/profile.html" class="quick-btn">
+                <span class="icon">👤</span>
+                <span class="label">个人中心</span>
+            </a>
+            <a href="/sign" class="quick-btn">
+                <span class="icon">✍️</span>
+                <span class="label">签到</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- 等待状态 -->
+    <div class="wait-box" id="wait-box">
         <div class="icon-spin">⏳</div>
         <h2>等待上课指令...</h2>
         <p id="status-text">请保持此页面打开<br>老师开启功能后将自动跳转</p>
-        
-        <!-- 快捷入口已移除，由老师统一控制 -->
     </div>
 
     <script>
@@ -59,6 +140,21 @@
             if (!supabaseClient) {
                 console.error('Failed to create Supabase client');
                 return;
+            }
+
+            // 检查用户是否已签到，显示用户信息
+            const myName = localStorage.getItem('my_name');
+            const myId = localStorage.getItem('my_id');
+            
+            if (myName && myId) {
+                // 显示用户卡片和快捷入口
+                document.getElementById('user-card').style.display = 'block';
+                document.getElementById('quick-section').style.display = 'block';
+                document.getElementById('user-name').textContent = myName;
+                document.getElementById('user-id').textContent = myId;
+                
+                // 加载简要统计信息
+                loadBriefStats(supabaseClient, myId);
             }
 
             // 核心：监听全局状态
@@ -119,6 +215,42 @@
                 } else {
                     // 💤 闲置状态，保持在首页
                     console.log("课堂空闲中");
+                }
+            }
+            
+            /**
+             * 加载简要统计信息
+             * Requirements: 5.1 - 首页显示简要统计信息
+             */
+            async function loadBriefStats(supabase, studentId) {
+                try {
+                    // 获取今日答题记录
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    
+                    const { data: todayRecords } = await supabase
+                        .from('vote_logs')
+                        .select('is_correct, created_at')
+                        .eq('student_id', studentId)
+                        .gte('created_at', today.toISOString());
+                    
+                    // 计算今日统计
+                    if (todayRecords && todayRecords.length > 0) {
+                        const todayCount = todayRecords.length;
+                        const todayCorrect = todayRecords.filter(r => r.is_correct === true).length;
+                        const todayAccuracy = todayCount > 0 ? Math.round((todayCorrect / todayCount) * 100) : 0;
+                        
+                        document.getElementById('today-count').textContent = todayCount;
+                        document.getElementById('today-accuracy').textContent = todayAccuracy + '%';
+                    }
+                    
+                    // 获取总积分
+                    if (typeof PointsSystem !== 'undefined') {
+                        const totalPoints = await PointsSystem.getStudentPoints(supabase, studentId);
+                        document.getElementById('total-points').textContent = totalPoints;
+                    }
+                } catch (e) {
+                    console.error('加载统计信息失败:', e);
                 }
             }
             

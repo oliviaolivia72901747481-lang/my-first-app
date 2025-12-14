@@ -30,6 +30,24 @@
         #submit-multi { display: none; margin-top: 15px; padding: 15px 40px; font-size: 1.2rem; background: #10b981; color: white; border: none; border-radius: 10px; cursor: pointer; }
         #submit-multi:disabled { background: #ccc; }
         .multi-hint { text-align: center; color: #666; font-size: 0.9rem; margin-bottom: 10px; }
+        
+        /* 答题反馈样式 */
+        .feedback-container { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-top: 20px; display: none; }
+        .feedback-container.show { display: block; }
+        .feedback-title { font-size: 1rem; font-weight: bold; color: #333; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+        .feedback-options { margin-bottom: 15px; }
+        .feedback-opt { padding: 12px 15px; border-radius: 8px; margin-bottom: 8px; font-size: 0.95rem; border: 2px solid transparent; }
+        .feedback-opt.correct { background: #d1fae5; border-color: #10b981; color: #047857; }
+        .feedback-opt.correct::after { content: ' ✓ 正确答案'; font-weight: bold; }
+        .feedback-opt.wrong { background: #fee2e2; border-color: #ef4444; color: #b91c1c; }
+        .feedback-opt.wrong::after { content: ' ✗ 你的选择'; font-weight: bold; }
+        .feedback-opt.correct.wrong::after { content: ' ✓ 正确答案 (你的选择)'; font-weight: bold; }
+        .feedback-explanation { background: #f0f9ff; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #3b82f6; }
+        .feedback-explanation-title { font-weight: bold; color: #1d4ed8; margin-bottom: 8px; font-size: 0.9rem; }
+        .feedback-explanation-text { color: #334155; line-height: 1.5; font-size: 0.9rem; }
+        .feedback-stats { background: #f8fafc; padding: 12px 15px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .feedback-stats-label { color: #64748b; font-size: 0.85rem; }
+        .feedback-stats-value { font-weight: bold; color: #334155; font-size: 1.1rem; }
     </style>
 </head>
 <body>
@@ -56,6 +74,23 @@
     <button id="submit-multi" onclick="submitMultiVote()">✅ 提交答案</button>
 
     <div id="status-msg"></div>
+
+    <!-- 答题反馈容器 -->
+    <div id="feedback-container" class="feedback-container">
+        <div class="feedback-title">
+            <span id="feedback-icon">📊</span>
+            <span>答题反馈</span>
+        </div>
+        <div id="feedback-options" class="feedback-options"></div>
+        <div id="feedback-explanation" class="feedback-explanation" style="display: none;">
+            <div class="feedback-explanation-title">💡 题目解析</div>
+            <div id="feedback-explanation-text" class="feedback-explanation-text"></div>
+        </div>
+        <div class="feedback-stats">
+            <span class="feedback-stats-label">📈 班级正确率</span>
+            <span id="feedback-accuracy" class="feedback-stats-value">--</span>
+        </div>
+    </div>
 
     <script>
         // 全局变量 (需要在onclick中访问)
@@ -115,11 +150,17 @@
             // 检查答题状态和权限
             if (!isRoundActive) {
                 disableButtons();
-                document.getElementById('status-msg').innerText = "⏳ 等待老师开始...";
+                document.getElementById('status-msg').innerText = "⏳ 答题已结束";
                 document.getElementById('status-msg').style.color = "#94a3b8";
                 document.getElementById('submit-multi').style.display = 'none';
+                
+                // 答题结束时显示反馈（老师公布答案）
+                // Requirements: 4.1 - WHEN 老师公布答案（停止答题）THEN Answer_Feedback SHALL 在学生端显示正确答案
+                await checkAndShowFeedback();
             } else {
-                // 答题已开始，检查是否有权回答
+                // 答题已开始，隐藏之前的反馈
+                hideAnswerFeedback();
+                // 检查是否有权回答
                 checkAnswerPermission();
             }
         }
@@ -338,6 +379,159 @@
         
         function enableButtons() { 
             document.querySelectorAll('.vote-btn').forEach(b => b.disabled = false); 
+        }
+
+        // ================= 答题反馈功能 =================
+        // Requirements: 4.1, 4.2, 4.3, 4.4, 4.5
+
+        /**
+         * 获取班级正确率
+         * @param {number} round - 题目轮次
+         * @returns {Object} { total, correct, accuracy }
+         * 
+         * Property 10: Class Accuracy Calculation
+         * Validates: Requirements 4.5
+         */
+        async function getClassAccuracy(round) {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('vote_logs')
+                    .select('is_correct')
+                    .eq('round', round);
+                
+                if (error) {
+                    console.error('获取班级正确率失败:', error);
+                    return { total: 0, correct: 0, accuracy: 0 };
+                }
+                
+                const total = data ? data.length : 0;
+                const correct = data ? data.filter(r => r.is_correct === true).length : 0;
+                const accuracy = total > 0 ? (correct / total) * 100 : 0;
+                
+                return { total, correct, accuracy };
+            } catch (e) {
+                console.error('获取班级正确率异常:', e);
+                return { total: 0, correct: 0, accuracy: 0 };
+            }
+        }
+
+        /**
+         * 显示答题反馈
+         * @param {Object} question - 题目对象
+         * @param {string} studentAnswer - 学生答案
+         * @param {Object} classStats - 班级统计 { total, correct, accuracy }
+         * 
+         * Property 9: Answer Feedback Display
+         * Validates: Requirements 4.1, 4.2, 4.3, 4.4
+         */
+        function showAnswerFeedback(question, studentAnswer, classStats) {
+            const container = document.getElementById('feedback-container');
+            const optionsDiv = document.getElementById('feedback-options');
+            const explanationDiv = document.getElementById('feedback-explanation');
+            const explanationText = document.getElementById('feedback-explanation-text');
+            const accuracySpan = document.getElementById('feedback-accuracy');
+            const feedbackIcon = document.getElementById('feedback-icon');
+            
+            if (!question || !question.answer) {
+                container.classList.remove('show');
+                return;
+            }
+            
+            // 获取正确答案（支持多选）
+            const correctAnswers = question.answer.toUpperCase().split('');
+            const studentAnswers = studentAnswer ? studentAnswer.toUpperCase().split('') : [];
+            const isCorrect = correctAnswers.sort().join('') === studentAnswers.sort().join('');
+            
+            // 更新反馈图标
+            feedbackIcon.textContent = isCorrect ? '✅' : '❌';
+            
+            // 构建选项反馈HTML
+            let optionsHtml = '';
+            const options = [
+                { key: 'A', text: question.option_a },
+                { key: 'B', text: question.option_b },
+                { key: 'C', text: question.option_c },
+                { key: 'D', text: question.option_d }
+            ].filter(opt => opt.text); // 过滤掉空选项
+            
+            options.forEach(opt => {
+                const isCorrectOption = correctAnswers.includes(opt.key);
+                const isStudentChoice = studentAnswers.includes(opt.key);
+                
+                let cssClass = 'feedback-opt';
+                if (isCorrectOption) cssClass += ' correct';
+                if (isStudentChoice && !isCorrectOption) cssClass += ' wrong';
+                
+                optionsHtml += `<div class="${cssClass}">${opt.key}. ${opt.text}</div>`;
+            });
+            
+            optionsDiv.innerHTML = optionsHtml;
+            
+            // 显示题目解析（如有）
+            if (question.explanation && question.explanation.trim()) {
+                explanationText.textContent = question.explanation;
+                explanationDiv.style.display = 'block';
+            } else {
+                explanationDiv.style.display = 'none';
+            }
+            
+            // 显示班级正确率
+            if (classStats && classStats.total > 0) {
+                accuracySpan.textContent = `${classStats.accuracy.toFixed(1)}% (${classStats.correct}/${classStats.total})`;
+            } else {
+                accuracySpan.textContent = '暂无数据';
+            }
+            
+            // 显示反馈容器
+            container.classList.add('show');
+        }
+
+        /**
+         * 隐藏答题反馈
+         */
+        function hideAnswerFeedback() {
+            const container = document.getElementById('feedback-container');
+            container.classList.remove('show');
+        }
+
+        /**
+         * 获取学生当前题目的答案
+         * @param {number} round - 题目轮次
+         * @returns {string|null} 学生答案
+         */
+        async function getStudentAnswer(round) {
+            try {
+                const { data } = await supabaseClient
+                    .from('vote_logs')
+                    .select('option')
+                    .eq('student_id', myId)
+                    .eq('round', round)
+                    .maybeSingle();
+                
+                return data ? data.option : null;
+            } catch (e) {
+                console.error('获取学生答案失败:', e);
+                return null;
+            }
+        }
+
+        /**
+         * 检查并显示答题反馈（当老师停止答题时调用）
+         */
+        async function checkAndShowFeedback() {
+            if (!currentQuestion || !currentQuestion.answer) {
+                hideAnswerFeedback();
+                return;
+            }
+            
+            // 获取学生答案
+            const studentAnswer = await getStudentAnswer(currentRound);
+            
+            // 获取班级正确率
+            const classStats = await getClassAccuracy(currentRound);
+            
+            // 显示反馈
+            showAnswerFeedback(currentQuestion, studentAnswer, classStats);
         }
     </script>
 </body>
