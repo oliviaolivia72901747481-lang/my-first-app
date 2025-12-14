@@ -108,7 +108,8 @@
                     <button onclick="openAddTask()" class="btn btn-warning" title="新建任务">➕ 任务</button>
                 </div>
                 <div class="hierarchy-actions" style="margin-top:5px;">
-                    <button onclick="manageCourses()" class="btn btn-secondary" title="管理课程" style="width:100%;">📋 管理课程</button>
+                    <button onclick="manageCourses()" class="btn btn-secondary" title="管理课程" style="flex:1;">📋 课程</button>
+                    <button onclick="manageProjects()" class="btn btn-secondary" title="管理项目" style="flex:1;">📁 项目</button>
                 </div>
                 
                 <h3 style="margin-top:25px;">📊 题型统计</h3>
@@ -338,6 +339,54 @@
         </div>
     </div>
 
+    <!-- 项目管理弹窗 -->
+    <div id="project-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:#1e293b; border-radius:20px; padding:30px; width:90%; max-width:500px;">
+            <h2 style="margin-bottom:20px;" id="project-modal-title">➕ 新建项目</h2>
+            <input type="hidden" id="edit-project-id">
+            <div style="margin-bottom:15px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">所属课程 *</label>
+                <select id="project-course" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                    <option value="">请选择课程</option>
+                </select>
+            </div>
+            <div style="margin-bottom:15px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">项目名称 *</label>
+                <input type="text" id="project-name" placeholder="如：土壤检测、水质分析" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+            </div>
+            <div style="margin-bottom:15px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">项目描述</label>
+                <textarea id="project-desc" placeholder="项目描述（可选）" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white; min-height:60px; resize:vertical;"></textarea>
+            </div>
+            <div style="margin-bottom:20px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">显示颜色</label>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <label style="cursor:pointer;"><input type="radio" name="project-color" value="#10b981" checked style="display:none;"><span class="project-color-opt" style="display:block; width:30px; height:30px; border-radius:50%; background:#10b981; border:3px solid transparent;"></span></label>
+                    <label style="cursor:pointer;"><input type="radio" name="project-color" value="#3b82f6" style="display:none;"><span class="project-color-opt" style="display:block; width:30px; height:30px; border-radius:50%; background:#3b82f6; border:3px solid transparent;"></span></label>
+                    <label style="cursor:pointer;"><input type="radio" name="project-color" value="#f59e0b" style="display:none;"><span class="project-color-opt" style="display:block; width:30px; height:30px; border-radius:50%; background:#f59e0b; border:3px solid transparent;"></span></label>
+                    <label style="cursor:pointer;"><input type="radio" name="project-color" value="#ef4444" style="display:none;"><span class="project-color-opt" style="display:block; width:30px; height:30px; border-radius:50%; background:#ef4444; border:3px solid transparent;"></span></label>
+                    <label style="cursor:pointer;"><input type="radio" name="project-color" value="#8b5cf6" style="display:none;"><span class="project-color-opt" style="display:block; width:30px; height:30px; border-radius:50%; background:#8b5cf6; border:3px solid transparent;"></span></label>
+                    <label style="cursor:pointer;"><input type="radio" name="project-color" value="#06b6d4" style="display:none;"><span class="project-color-opt" style="display:block; width:30px; height:30px; border-radius:50%; background:#06b6d4; border:3px solid transparent;"></span></label>
+                </div>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button onclick="saveProject()" class="btn btn-success" style="flex:1;">💾 保存</button>
+                <button onclick="closeProjectModal()" class="btn btn-secondary" style="flex:1;">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 项目列表管理弹窗 -->
+    <div id="projects-list-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:#1e293b; border-radius:20px; padding:30px; width:90%; max-width:700px; max-height:80vh; overflow-y:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2>📁 项目管理</h2>
+                <button onclick="closeProjectsListModal()" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">✕</button>
+            </div>
+            <div id="projects-list-content">加载中...</div>
+        </div>
+    </div>
+
     <!-- 添加分类弹窗 -->
     <div id="category-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
         <div style="background:#1e293b; border-radius:20px; padding:30px; width:90%; max-width:500px;">
@@ -500,6 +549,7 @@
         
         // 设置颜色选择器
         function setupColorPicker() {
+            // 分类颜色选择器
             document.querySelectorAll('input[name="category-color"]').forEach(input => {
                 input.addEventListener('change', () => {
                     document.querySelectorAll('.color-option').forEach(opt => opt.style.borderColor = 'transparent');
@@ -507,7 +557,28 @@
                 });
             });
             // 默认选中第一个
-            document.querySelector('.color-option').style.borderColor = 'white';
+            const firstColorOpt = document.querySelector('.color-option');
+            if (firstColorOpt) firstColorOpt.style.borderColor = 'white';
+            
+            // 课程颜色选择器
+            document.querySelectorAll('input[name="course-color"]').forEach(input => {
+                input.addEventListener('change', () => {
+                    document.querySelectorAll('.course-color-opt').forEach(opt => opt.style.borderColor = 'transparent');
+                    input.nextElementSibling.style.borderColor = 'white';
+                });
+            });
+            const firstCourseColorOpt = document.querySelector('.course-color-opt');
+            if (firstCourseColorOpt) firstCourseColorOpt.style.borderColor = 'white';
+            
+            // 项目颜色选择器
+            document.querySelectorAll('input[name="project-color"]').forEach(input => {
+                input.addEventListener('change', () => {
+                    document.querySelectorAll('.project-color-opt').forEach(opt => opt.style.borderColor = 'transparent');
+                    input.nextElementSibling.style.borderColor = 'white';
+                });
+            });
+            const firstProjectColorOpt = document.querySelector('.project-color-opt');
+            if (firstProjectColorOpt) firstProjectColorOpt.style.borderColor = 'white';
         }
         
         // 设置拖拽区域
@@ -773,13 +844,242 @@
             loadQuestions();
         }
         
-        // 项目管理占位函数（将在任务4中完整实现）
+        // ================== 项目管理 ==================
         function openAddProject() {
-            alert('项目管理功能将在后续任务中实现');
+            document.getElementById('project-modal-title').textContent = '➕ 新建项目';
+            document.getElementById('edit-project-id').value = '';
+            document.getElementById('project-name').value = '';
+            document.getElementById('project-desc').value = '';
+            // 更新课程选择列表
+            updateCourseSelects();
+            // 如果当前选择了课程，默认选中该课程
+            const projCourseSelect = document.getElementById('project-course');
+            if (projCourseSelect) {
+                if (currentFilterType === 'course' && currentFilterId !== 'all') {
+                    projCourseSelect.value = currentFilterId;
+                } else if (currentFilterType === 'project' && currentFilterId !== 'all') {
+                    const project = projects.find(p => p.project_id === currentFilterId);
+                    if (project) projCourseSelect.value = project.course_id;
+                } else if (currentFilterType === 'task' && currentFilterId !== 'all') {
+                    const task = tasks.find(t => t.task_id === currentFilterId);
+                    if (task) {
+                        const project = projects.find(p => p.project_id === task.project_id);
+                        if (project) projCourseSelect.value = project.course_id;
+                    }
+                } else {
+                    projCourseSelect.value = '';
+                }
+            }
+            // 重置颜色选择
+            document.querySelectorAll('.project-color-opt').forEach(opt => opt.style.borderColor = 'transparent');
+            document.querySelector('.project-color-opt').style.borderColor = 'white';
+            document.querySelector('input[name="project-color"]').checked = true;
+            document.getElementById('project-modal').style.display = 'flex';
         }
         
-        function editProject(projectId) {
-            alert('项目编辑功能将在后续任务中实现');
+        async function editProject(projectId) {
+            const project = projects.find(p => p.project_id === projectId);
+            if (!project) return;
+            
+            document.getElementById('project-modal-title').textContent = '✏️ 编辑项目';
+            document.getElementById('edit-project-id').value = projectId;
+            document.getElementById('project-name').value = project.name;
+            document.getElementById('project-desc').value = project.description || '';
+            
+            // 更新课程选择列表并选中
+            updateCourseSelects();
+            const projCourseSelect = document.getElementById('project-course');
+            if (projCourseSelect) {
+                projCourseSelect.value = project.course_id || '';
+            }
+            
+            // 选中对应颜色
+            document.querySelectorAll('input[name="project-color"]').forEach(input => {
+                if (input.value === project.color) {
+                    input.checked = true;
+                    input.nextElementSibling.style.borderColor = 'white';
+                } else {
+                    input.nextElementSibling.style.borderColor = 'transparent';
+                }
+            });
+            
+            document.getElementById('project-modal').style.display = 'flex';
+        }
+        
+        function closeProjectModal() {
+            document.getElementById('project-modal').style.display = 'none';
+        }
+        
+        async function saveProject() {
+            const id = document.getElementById('edit-project-id').value;
+            const courseId = document.getElementById('project-course').value;
+            const name = document.getElementById('project-name').value.trim();
+            const description = document.getElementById('project-desc').value.trim();
+            const color = document.querySelector('input[name="project-color"]:checked')?.value || '#10b981';
+            
+            if (!courseId) { alert('请选择所属课程'); return; }
+            if (!name) { alert('请输入项目名称'); return; }
+            
+            const data = { course_id: courseId, name, description, color };
+            
+            if (id) {
+                // 更新项目
+                const { error } = await supabaseClient.from('projects').update(data).eq('project_id', id);
+                if (error) { alert('更新失败: ' + error.message); return; }
+            } else {
+                // 新建项目时初始化 task_count 和 question_count 为 0
+                data.task_count = 0;
+                data.question_count = 0;
+                const { error } = await supabaseClient.from('projects').insert([data]);
+                if (error) { alert('创建失败: ' + error.message); return; }
+            }
+            
+            closeProjectModal();
+            await loadHierarchy();
+            alert('✅ 保存成功');
+        }
+        
+        // 项目列表管理
+        function manageProjects() {
+            renderProjectsList();
+            document.getElementById('projects-list-modal').style.display = 'flex';
+        }
+        
+        function closeProjectsListModal() {
+            document.getElementById('projects-list-modal').style.display = 'none';
+        }
+        
+        function renderProjectsList() {
+            const container = document.getElementById('projects-list-content');
+            if (projects.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:30px; color:#666;">暂无项目，请先创建项目</div>';
+                return;
+            }
+            
+            // 按课程分组显示项目
+            let html = '';
+            courses.forEach(course => {
+                const courseProjects = projects.filter(p => p.course_id === course.course_id);
+                if (courseProjects.length > 0) {
+                    html += `<div style="font-size:0.85rem; color:${course.color}; margin:15px 0 10px 0; font-weight:bold; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:5px;">${course.icon || '📖'} ${course.name}</div>`;
+                    courseProjects.forEach(p => {
+                        // 计算任务数量
+                        const taskCount = tasks.filter(t => t.project_id === p.project_id).length;
+                        // 计算题目数量
+                        const projectTaskIds = tasks.filter(t => t.project_id === p.project_id).map(t => t.task_id);
+                        const qCount = questions.filter(q => projectTaskIds.includes(q.task_id)).length;
+                        
+                        html += `
+                            <div style="display:flex; align-items:center; padding:12px; background:rgba(255,255,255,0.05); border-radius:10px; margin-bottom:8px; border-left:4px solid ${p.color};">
+                                <div style="font-size:1.5rem; margin-right:12px;">${p.icon || '📁'}</div>
+                                <div style="flex:1;">
+                                    <div style="font-weight:bold;">${p.name}</div>
+                                    <div style="font-size:0.8rem; color:#94a3b8; margin-top:2px;">
+                                        ${taskCount} 个任务 | ${qCount} 道题目
+                                    </div>
+                                </div>
+                                <div style="display:flex; gap:8px;">
+                                    <button onclick="editProject('${p.project_id}')" class="btn btn-secondary" style="padding:6px 10px; font-size:0.75rem;">✏️ 编辑</button>
+                                    <button onclick="deleteProject('${p.project_id}')" class="btn btn-danger" style="padding:6px 10px; font-size:0.75rem;">🗑️ 删除</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+            });
+            
+            if (!html) {
+                html = '<div style="text-align:center; padding:30px; color:#666;">暂无项目，请先创建项目</div>';
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        // 更新项目的任务数量和题目数量
+        async function updateProjectStats(projectId) {
+            const projectTasks = tasks.filter(t => t.project_id === projectId);
+            const taskCount = projectTasks.length;
+            const projectTaskIds = projectTasks.map(t => t.task_id);
+            const questionCount = questions.filter(q => projectTaskIds.includes(q.task_id)).length;
+            
+            await supabaseClient.from('projects').update({
+                task_count: taskCount,
+                question_count: questionCount
+            }).eq('project_id', projectId);
+        }
+        
+        // 删除项目（级联删除任务和题目）
+        async function deleteProject(projectId) {
+            // 计算将被删除的任务和题目数量
+            const projectTasks = tasks.filter(t => t.project_id === projectId);
+            const taskCount = projectTasks.length;
+            const projectTaskIds = projectTasks.map(t => t.task_id);
+            const questionCount = questions.filter(q => projectTaskIds.includes(q.task_id)).length;
+            
+            const project = projects.find(p => p.project_id === projectId);
+            const projectName = project ? project.name : '该项目';
+            const course = project ? courses.find(c => c.course_id === project.course_id) : null;
+            const courseName = course ? course.name : '';
+            
+            // 显示确认对话框，包含将被删除的任务和题目数量
+            const confirmMsg = `确定要删除项目「${projectName}」吗？\n\n⚠️ 此操作将同时删除：\n• ${taskCount} 个任务\n• ${questionCount} 道题目\n\n此操作不可撤销！`;
+            
+            if (!confirm(confirmMsg)) return;
+            
+            try {
+                // 级联删除：先删除题目，再删除任务，最后删除项目
+                
+                // 1. 删除该项目下所有任务的题目
+                if (projectTaskIds.length > 0) {
+                    const { error: qError } = await supabaseClient
+                        .from('questions')
+                        .delete()
+                        .in('task_id', projectTaskIds);
+                    if (qError) {
+                        console.error('删除题目失败:', qError);
+                    }
+                }
+                
+                // 2. 删除该项目下的所有任务
+                const { error: tError } = await supabaseClient
+                    .from('tasks')
+                    .delete()
+                    .eq('project_id', projectId);
+                if (tError) {
+                    console.error('删除任务失败:', tError);
+                }
+                
+                // 3. 删除项目
+                const { error } = await supabaseClient.from('projects').delete().eq('project_id', projectId);
+                if (error) { 
+                    alert('删除项目失败: ' + error.message); 
+                    return; 
+                }
+                
+                // 重置筛选状态
+                if (currentFilterType === 'project' && currentFilterId === projectId) {
+                    currentFilterType = 'all';
+                    currentFilterId = 'all';
+                } else if (currentFilterType === 'task' && projectTaskIds.includes(currentFilterId)) {
+                    currentFilterType = 'all';
+                    currentFilterId = 'all';
+                }
+                
+                // 重新加载数据
+                await loadHierarchy();
+                await loadQuestions();
+                
+                // 刷新项目列表弹窗（如果打开的话）
+                if (document.getElementById('projects-list-modal').style.display === 'flex') {
+                    renderProjectsList();
+                }
+                
+                alert(`✅ 已删除项目「${projectName}」及其下属 ${taskCount} 个任务、${questionCount} 道题目`);
+                
+            } catch (err) {
+                console.error('删除项目时发生错误:', err);
+                alert('删除失败，请重试');
+            }
         }
         
         // 任务管理占位函数（将在任务5中完整实现）
