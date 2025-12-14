@@ -708,22 +708,52 @@ const AIAssistant = {
             { id: 'gpt-4', name: 'GPT-4', provider: 'OpenAI' },
             { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', provider: 'OpenAI' },
             { id: 'claude-3-sonnet-20240229', name: 'Claude 3 Sonnet', provider: 'Anthropic' },
-            { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', provider: 'Anthropic' }
+            { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', provider: 'Anthropic' },
+            { id: 'deepseek-chat', name: 'DeepSeek Chat', provider: 'DeepSeek' },
+            { id: 'deepseek-coder', name: 'DeepSeek Coder', provider: 'DeepSeek' },
+            { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner (R1)', provider: 'DeepSeek' }
         ];
     },
 
     /**
      * 获取API端点建议
-     * @param {string} provider - 提供商 (openai, anthropic, custom)
+     * @param {string} provider - 提供商 (openai, anthropic, deepseek, custom)
      * @returns {string} API端点
      */
     getDefaultEndpoint(provider) {
         const endpoints = {
             openai: 'https://api.openai.com/v1/chat/completions',
             anthropic: 'https://api.anthropic.com/v1/messages',
+            deepseek: 'https://api.deepseek.com/chat/completions',
             custom: ''
         };
         return endpoints[provider] || endpoints.openai;
+    },
+
+    /**
+     * 获取提供商列表
+     * @returns {Array<{id: string, name: string, endpoint: string}>}
+     */
+    getProviders() {
+        return [
+            { id: 'openai', name: 'OpenAI', endpoint: 'https://api.openai.com/v1/chat/completions' },
+            { id: 'anthropic', name: 'Anthropic', endpoint: 'https://api.anthropic.com/v1/messages' },
+            { id: 'deepseek', name: 'DeepSeek', endpoint: 'https://api.deepseek.com/chat/completions' },
+            { id: 'custom', name: '自定义', endpoint: '' }
+        ];
+    },
+
+    /**
+     * 快速配置DeepSeek
+     * @param {string} apiKey - DeepSeek API密钥
+     * @param {string} [model='deepseek-chat'] - 模型名称
+     */
+    configureDeepSeek(apiKey, model = 'deepseek-chat') {
+        this.configure({
+            apiKey: apiKey,
+            apiEndpoint: 'https://api.deepseek.com/chat/completions',
+            model: model
+        });
     }
 };
 
