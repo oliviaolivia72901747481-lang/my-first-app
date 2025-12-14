@@ -34,6 +34,36 @@
         .category-count { background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; }
         .add-category { margin-top: 15px; padding: 12px; background: rgba(16,185,129,0.2); border: 2px dashed #10b981; border-radius: 10px; text-align: center; cursor: pointer; color: #10b981; }
         .add-category:hover { background: rgba(16,185,129,0.3); }
+        
+        /* 三级树形导航样式 */
+        .hierarchy-tree { display: flex; flex-direction: column; gap: 4px; }
+        .tree-node { user-select: none; }
+        .tree-header { display: flex; align-items: center; padding: 10px 12px; background: rgba(255,255,255,0.05); border-radius: 8px; cursor: pointer; transition: all 0.2s; gap: 8px; }
+        .tree-header:hover { background: rgba(255,255,255,0.1); }
+        .tree-header.active { background: rgba(59,130,246,0.3); border-left: 3px solid #3b82f6; }
+        .tree-toggle { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: #94a3b8; transition: transform 0.2s; flex-shrink: 0; }
+        .tree-toggle.expanded { transform: rotate(90deg); }
+        .tree-toggle.empty { visibility: hidden; }
+        .tree-icon { font-size: 1rem; flex-shrink: 0; }
+        .tree-name { flex: 1; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tree-count { background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; flex-shrink: 0; }
+        .tree-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.2s; }
+        .tree-header:hover .tree-actions { opacity: 1; }
+        .tree-action-btn { background: none; border: none; color: #94a3b8; cursor: pointer; padding: 2px 4px; font-size: 0.75rem; border-radius: 4px; }
+        .tree-action-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+        .tree-children { margin-left: 20px; display: flex; flex-direction: column; gap: 4px; overflow: hidden; transition: max-height 0.3s ease-out, opacity 0.2s; }
+        .tree-children.collapsed { max-height: 0; opacity: 0; padding: 0; }
+        .tree-children.expanded { max-height: 2000px; opacity: 1; padding-top: 4px; }
+        /* 层级颜色区分 */
+        .tree-node.level-course > .tree-header { border-left: 3px solid transparent; }
+        .tree-node.level-course > .tree-header .tree-icon { color: #3b82f6; }
+        .tree-node.level-project > .tree-header { border-left: 3px solid transparent; }
+        .tree-node.level-project > .tree-header .tree-icon { color: #10b981; }
+        .tree-node.level-task > .tree-header { border-left: 3px solid transparent; }
+        .tree-node.level-task > .tree-header .tree-icon { color: #f59e0b; }
+        /* 管理按钮区域 */
+        .hierarchy-actions { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
+        .hierarchy-actions .btn { flex: 1; min-width: 80px; padding: 8px; font-size: 0.75rem; }
 </style>
 </head>
 <body>
@@ -54,25 +84,29 @@
         <div class="main-content">
             <!-- 左侧分类栏 -->
             <div class="sidebar">
-                <!-- 课程选择 -->
-                <h3>📖 选择课程</h3>
-                <select id="course-select" onchange="selectCourse(this.value)" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white; margin-bottom:10px;">
-                    <option value="all">全部课程</option>
-                </select>
-                <div style="display:flex; gap:5px; margin-bottom:20px;">
-                    <button onclick="openAddCourse()" class="btn btn-success" style="flex:1; padding:8px; font-size:0.8rem;">➕ 新建课程</button>
-                    <button onclick="manageCourses()" class="btn btn-secondary" style="padding:8px; font-size:0.8rem;">⚙️</button>
+                <!-- 层级导航标题 -->
+                <h3>📚 题库层级</h3>
+                
+                <!-- 全部题目选项 -->
+                <div class="hierarchy-tree" id="hierarchy-tree">
+                    <div class="tree-node">
+                        <div class="tree-header active" onclick="selectHierarchyNode('all', 'all')" data-type="all" data-id="all">
+                            <span class="tree-toggle empty"></span>
+                            <span class="tree-icon">📋</span>
+                            <span class="tree-name">全部题目</span>
+                            <span class="tree-count" id="total-count">0</span>
+                        </div>
+                    </div>
+                    <!-- 课程树将在这里动态渲染 -->
+                    <div id="courses-tree"></div>
                 </div>
                 
-                <h3>📂 题库分类</h3>
-                <div class="category-list" id="category-list">
-                    <div class="category-item active" data-id="all">
-                        <div class="category-color" style="background:#3b82f6;"></div>
-                        <span class="category-name">全部题目</span>
-                        <span class="category-count" id="total-count">0</span>
-                    </div>
+                <!-- 层级管理按钮 -->
+                <div class="hierarchy-actions">
+                    <button onclick="openAddCourse()" class="btn btn-primary" title="新建课程">➕ 课程</button>
+                    <button onclick="openAddProject()" class="btn btn-success" title="新建项目">➕ 项目</button>
+                    <button onclick="openAddTask()" class="btn btn-warning" title="新建任务">➕ 任务</button>
                 </div>
-                <div class="add-category" onclick="openAddCategory()">➕ 新建分类</div>
                 
                 <h3 style="margin-top:25px;">📊 题型统计</h3>
                 <div id="type-stats" style="margin-top:10px;">
@@ -423,11 +457,19 @@
         
         // 状态
         let courses = [];
+        let projects = [];
+        let tasks = [];
         let currentCourse = 'all';
+        let currentProject = 'all';
+        let currentTask = 'all';
+        let currentFilterType = 'all'; // 'all', 'course', 'project', 'task'
+        let currentFilterId = 'all';
         let categories = [];
         let currentCategory = 'all';
         let questions = [];
         let pendingImport = [];
+        // 树展开状态
+        let expandedNodes = { courses: {}, projects: {} };
         
         // 题型配置
         const typeConfig = {
@@ -439,12 +481,19 @@
         
         // 初始化
         document.addEventListener('DOMContentLoaded', () => {
-            loadCourses();
-            loadCategories();
+            loadHierarchy();
             loadQuestions();
             setupColorPicker();
             setupDropArea();
         });
+        
+        // 加载完整层级数据
+        async function loadHierarchy() {
+            await loadCourses();
+            await loadProjects();
+            await loadTasks();
+            renderHierarchyTree();
+        }
         
         // 设置颜色选择器
         function setupColorPicker() {
@@ -483,8 +532,10 @@
         
         function renderCourseSelect() {
             const select = document.getElementById('course-select');
-            select.innerHTML = '<option value="all">📚 全部课程</option>' + 
-                courses.map(c => `<option value="${c.course_id}" style="color:${c.color};">${c.icon || '📖'} ${c.name}</option>`).join('');
+            if (select) {
+                select.innerHTML = '<option value="all">📚 全部课程</option>' + 
+                    courses.map(c => `<option value="${c.course_id}" style="color:${c.color};">${c.icon || '📖'} ${c.name}</option>`).join('');
+            }
         }
         
         function updateCourseSelects() {
@@ -494,6 +545,226 @@
                 catCourseSelect.innerHTML = '<option value="">不属于任何课程</option>' + 
                     courses.map(c => `<option value="${c.course_id}">${c.name}</option>`).join('');
             }
+            // 更新项目弹窗中的课程选择
+            const projCourseSelect = document.getElementById('project-course');
+            if (projCourseSelect) {
+                projCourseSelect.innerHTML = '<option value="">请选择课程</option>' + 
+                    courses.map(c => `<option value="${c.course_id}">${c.name}</option>`).join('');
+            }
+        }
+        
+        // ================== 项目管理 ==================
+        async function loadProjects() {
+            const { data, error } = await supabaseClient.from('projects').select('*').order('sort_order');
+            if (error) {
+                console.error('加载项目失败:', error);
+                if (error.code === '42P01') {
+                    console.warn('projects 表不存在，请执行 hierarchy_tables.sql');
+                }
+                return;
+            }
+            projects = data || [];
+        }
+        
+        // ================== 任务管理 ==================
+        async function loadTasks() {
+            const { data, error } = await supabaseClient.from('tasks').select('*').order('sort_order');
+            if (error) {
+                console.error('加载任务失败:', error);
+                if (error.code === '42P01') {
+                    console.warn('tasks 表不存在，请执行 hierarchy_tables.sql');
+                }
+                return;
+            }
+            tasks = data || [];
+        }
+        
+        // ================== 层级树渲染 ==================
+        function renderHierarchyTree() {
+            const container = document.getElementById('courses-tree');
+            if (!container) return;
+            
+            let html = '';
+            
+            courses.forEach(course => {
+                const courseProjects = projects.filter(p => p.course_id === course.course_id);
+                const isExpanded = expandedNodes.courses[course.course_id];
+                const hasChildren = courseProjects.length > 0;
+                const courseQuestionCount = getCourseQuestionCount(course.course_id);
+                const isActive = currentFilterType === 'course' && currentFilterId === course.course_id;
+                
+                html += `
+                    <div class="tree-node level-course" data-course-id="${course.course_id}">
+                        <div class="tree-header ${isActive ? 'active' : ''}" 
+                             onclick="selectHierarchyNode('course', '${course.course_id}')"
+                             data-type="course" data-id="${course.course_id}">
+                            <span class="tree-toggle ${hasChildren ? (isExpanded ? 'expanded' : '') : 'empty'}" 
+                                  onclick="event.stopPropagation(); toggleCourseNode('${course.course_id}')">▶</span>
+                            <span class="tree-icon">${course.icon || '📖'}</span>
+                            <span class="tree-name" style="color:${course.color};">${course.name}</span>
+                            <span class="tree-count">${courseQuestionCount}</span>
+                            <div class="tree-actions">
+                                <button class="tree-action-btn" onclick="event.stopPropagation(); editCourse('${course.course_id}')" title="编辑">✏️</button>
+                            </div>
+                        </div>
+                        <div class="tree-children ${isExpanded ? 'expanded' : 'collapsed'}">
+                            ${renderProjectNodes(courseProjects)}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+            updateTotalCount();
+        }
+        
+        function renderProjectNodes(projectList) {
+            let html = '';
+            
+            projectList.forEach(project => {
+                const projectTasks = tasks.filter(t => t.project_id === project.project_id);
+                const isExpanded = expandedNodes.projects[project.project_id];
+                const hasChildren = projectTasks.length > 0;
+                const projectQuestionCount = getProjectQuestionCount(project.project_id);
+                const isActive = currentFilterType === 'project' && currentFilterId === project.project_id;
+                
+                html += `
+                    <div class="tree-node level-project" data-project-id="${project.project_id}">
+                        <div class="tree-header ${isActive ? 'active' : ''}"
+                             onclick="selectHierarchyNode('project', '${project.project_id}')"
+                             data-type="project" data-id="${project.project_id}">
+                            <span class="tree-toggle ${hasChildren ? (isExpanded ? 'expanded' : '') : 'empty'}"
+                                  onclick="event.stopPropagation(); toggleProjectNode('${project.project_id}')">▶</span>
+                            <span class="tree-icon">${project.icon || '📁'}</span>
+                            <span class="tree-name" style="color:${project.color};">${project.name}</span>
+                            <span class="tree-count">${projectQuestionCount}</span>
+                            <div class="tree-actions">
+                                <button class="tree-action-btn" onclick="event.stopPropagation(); editProject('${project.project_id}')" title="编辑">✏️</button>
+                            </div>
+                        </div>
+                        <div class="tree-children ${isExpanded ? 'expanded' : 'collapsed'}">
+                            ${renderTaskNodes(projectTasks)}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            return html;
+        }
+        
+        function renderTaskNodes(taskList) {
+            let html = '';
+            
+            taskList.forEach(task => {
+                const taskQuestionCount = getTaskQuestionCount(task.task_id);
+                const isActive = currentFilterType === 'task' && currentFilterId === task.task_id;
+                
+                html += `
+                    <div class="tree-node level-task" data-task-id="${task.task_id}">
+                        <div class="tree-header ${isActive ? 'active' : ''}"
+                             onclick="selectHierarchyNode('task', '${task.task_id}')"
+                             data-type="task" data-id="${task.task_id}">
+                            <span class="tree-toggle empty"></span>
+                            <span class="tree-icon">${task.icon || '📋'}</span>
+                            <span class="tree-name" style="color:${task.color};">${task.name}</span>
+                            <span class="tree-count">${taskQuestionCount}</span>
+                            <div class="tree-actions">
+                                <button class="tree-action-btn" onclick="event.stopPropagation(); editTask('${task.task_id}')" title="编辑">✏️</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            return html;
+        }
+        
+        // 获取各级题目数量
+        function getCourseQuestionCount(courseId) {
+            const courseProjectIds = projects.filter(p => p.course_id === courseId).map(p => p.project_id);
+            const courseTaskIds = tasks.filter(t => courseProjectIds.includes(t.project_id)).map(t => t.task_id);
+            return questions.filter(q => courseTaskIds.includes(q.task_id)).length;
+        }
+        
+        function getProjectQuestionCount(projectId) {
+            const projectTaskIds = tasks.filter(t => t.project_id === projectId).map(t => t.task_id);
+            return questions.filter(q => projectTaskIds.includes(q.task_id)).length;
+        }
+        
+        function getTaskQuestionCount(taskId) {
+            return questions.filter(q => q.task_id === taskId).length;
+        }
+        
+        function updateTotalCount() {
+            const totalCountEl = document.getElementById('total-count');
+            if (totalCountEl) {
+                totalCountEl.textContent = questions.length;
+            }
+        }
+        
+        // 展开/收起节点
+        function toggleCourseNode(courseId) {
+            expandedNodes.courses[courseId] = !expandedNodes.courses[courseId];
+            renderHierarchyTree();
+        }
+        
+        function toggleProjectNode(projectId) {
+            expandedNodes.projects[projectId] = !expandedNodes.projects[projectId];
+            renderHierarchyTree();
+        }
+        
+        // 选择层级节点
+        function selectHierarchyNode(type, id) {
+            currentFilterType = type;
+            currentFilterId = id;
+            
+            // 更新激活状态
+            document.querySelectorAll('.tree-header').forEach(el => el.classList.remove('active'));
+            const activeEl = document.querySelector(`.tree-header[data-type="${type}"][data-id="${id}"]`);
+            if (activeEl) activeEl.classList.add('active');
+            
+            // 如果选择了课程或项目，自动展开
+            if (type === 'course') {
+                expandedNodes.courses[id] = true;
+            } else if (type === 'project') {
+                expandedNodes.projects[id] = true;
+                // 也展开父课程
+                const project = projects.find(p => p.project_id === id);
+                if (project) {
+                    expandedNodes.courses[project.course_id] = true;
+                }
+            } else if (type === 'task') {
+                // 展开父项目和父课程
+                const task = tasks.find(t => t.task_id === id);
+                if (task) {
+                    expandedNodes.projects[task.project_id] = true;
+                    const project = projects.find(p => p.project_id === task.project_id);
+                    if (project) {
+                        expandedNodes.courses[project.course_id] = true;
+                    }
+                }
+            }
+            
+            renderHierarchyTree();
+            loadQuestions();
+        }
+        
+        // 项目管理占位函数（将在任务4中完整实现）
+        function openAddProject() {
+            alert('项目管理功能将在后续任务中实现');
+        }
+        
+        function editProject(projectId) {
+            alert('项目编辑功能将在后续任务中实现');
+        }
+        
+        // 任务管理占位函数（将在任务5中完整实现）
+        function openAddTask() {
+            alert('任务管理功能将在后续任务中实现');
+        }
+        
+        function editTask(taskId) {
+            alert('任务编辑功能将在后续任务中实现');
         }
         
         function selectCourse(courseId) {
@@ -809,10 +1080,6 @@
         async function loadQuestions() {
             let query = supabaseClient.from('questions').select('*').order('round');
             
-            if (currentCategory !== 'all') {
-                query = query.eq('category_id', currentCategory);
-            }
-            
             // 筛选条件
             const typeFilter = document.getElementById('filter-type')?.value;
             const difficultyFilter = document.getElementById('filter-difficulty')?.value;
@@ -830,15 +1097,27 @@
             
             questions = data || [];
             
-            // 搜索过滤
+            // 根据层级筛选
             let filtered = questions;
+            if (currentFilterType === 'task' && currentFilterId !== 'all') {
+                filtered = questions.filter(q => q.task_id === currentFilterId);
+            } else if (currentFilterType === 'project' && currentFilterId !== 'all') {
+                const projectTaskIds = tasks.filter(t => t.project_id === currentFilterId).map(t => t.task_id);
+                filtered = questions.filter(q => projectTaskIds.includes(q.task_id));
+            } else if (currentFilterType === 'course' && currentFilterId !== 'all') {
+                const courseProjectIds = projects.filter(p => p.course_id === currentFilterId).map(p => p.project_id);
+                const courseTaskIds = tasks.filter(t => courseProjectIds.includes(t.project_id)).map(t => t.task_id);
+                filtered = questions.filter(q => courseTaskIds.includes(q.task_id));
+            }
+            
+            // 搜索过滤
             if (searchText) {
-                filtered = questions.filter(q => q.title.toLowerCase().includes(searchText) || (q.knowledge_tag || '').toLowerCase().includes(searchText));
+                filtered = filtered.filter(q => q.title.toLowerCase().includes(searchText) || (q.knowledge_tag || '').toLowerCase().includes(searchText));
             }
             
             renderQuestions(filtered);
             updateStats();
-            renderCategories();
+            renderHierarchyTree();
         }
         
         function renderQuestions(list) {
@@ -851,8 +1130,16 @@
             
             container.innerHTML = list.map(q => {
                 const type = typeConfig[q.question_type] || typeConfig.single;
-                const cat = categories.find(c => c.category_id === q.category_id);
+                const task = tasks.find(t => t.task_id === q.task_id);
+                const project = task ? projects.find(p => p.project_id === task.project_id) : null;
+                const course = project ? courses.find(c => c.course_id === project.course_id) : null;
                 const difficulty = '⭐'.repeat(q.difficulty || 1);
+                
+                // 构建层级路径显示
+                let hierarchyPath = '';
+                if (task) {
+                    hierarchyPath = `<span style="background:${task.color}20; color:${task.color}; padding:2px 8px; border-radius:4px; font-size:0.75rem;" title="${course?.name || ''} > ${project?.name || ''} > ${task.name}">${task.name}</span>`;
+                }
                 
                 return `
                     <div style="background:rgba(255,255,255,0.05); border-radius:12px; padding:15px; display:flex; gap:15px; align-items:flex-start;">
@@ -863,7 +1150,7 @@
                         <div style="flex:1;">
                             <div style="display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
                                 <span style="background:${type.color}; color:white; padding:2px 8px; border-radius:4px; font-size:0.75rem;">${type.icon} ${type.name}</span>
-                                ${cat ? `<span style="background:${cat.color}20; color:${cat.color}; padding:2px 8px; border-radius:4px; font-size:0.75rem;">${cat.name}</span>` : ''}
+                                ${hierarchyPath}
                                 ${q.knowledge_tag ? `<span style="background:rgba(255,255,255,0.1); padding:2px 8px; border-radius:4px; font-size:0.75rem;">${q.knowledge_tag}</span>` : ''}
                                 <span style="font-size:0.75rem; color:#f59e0b;">${difficulty}</span>
                             </div>
