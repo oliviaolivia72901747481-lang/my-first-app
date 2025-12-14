@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📚 答题历史</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/classroom/js/common.js"></script>
+    <script src="/classroom/js/navigation.js"></script>
+    <script src="/classroom/js/history.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            padding: 15px; 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background-color: #f3f4f6;
+            padding-bottom: 80px;
+        }
+        
+        /* 页面标题 */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .page-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #333;
+        }
+        .user-info {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        /* 筛选器区域 */
+        .filter-box {
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            margin-bottom: 15px;
+        }
+        .filter-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .filter-label {
+            font-size: 0.85rem;
+            color: #666;
+            min-width: 50px;
+        }
+        .date-input {
+            flex: 1;
+            min-width: 120px;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        .filter-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc;
+            transition: 0.3s;
+            border-radius: 24px;
+        }
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: #ef4444;
+        }
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(20px);
+        }
+        .toggle-label {
+            font-size: 0.85rem;
+            color: #666;
+        }
+        
+        /* 统计摘要 */
+        .stats-summary {
+            display: flex;
+            justify-content: space-around;
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            margin-bottom: 15px;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #333;
+            display: block;
+        }
+        .stat-value.correct { color: #10b981; }
+        .stat-value.wrong { color: #ef4444; }
+        .stat-label {
+            font-size: 0.75rem;
+            color: #999;
+        }
+        
+        /* 答题记录列表 */
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .history-item {
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            border-left: 4px solid #10b981;
+        }
+        .history-item.wrong {
+            border-left-color: #ef4444;
+        }
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .item-round {
+            font-size: 0.8rem;
+            color: #999;
+        }
+        .item-time {
+            font-size: 0.75rem;
+            color: #bbb;
+        }
+        .item-title {
+            font-size: 0.95rem;
+            color: #333;
+            line-height: 1.4;
+            margin-bottom: 10px;
+        }
+        .item-answers {
+            display: flex;
+            gap: 15px;
+            font-size: 0.85rem;
+        }
+        .answer-tag {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        .answer-tag.my-answer {
+            background: #fef3c7;
+            color: #b45309;
+        }
+        .answer-tag.my-answer.correct {
+            background: #d1fae5;
+            color: #047857;
+        }
+        .answer-tag.my-answer.wrong {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        .answer-tag.correct-answer {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+        .result-badge {
+            font-size: 0.8rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .result-badge.correct {
+            background: #d1fae5;
+            color: #047857;
+        }
+        .result-badge.wrong {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 15px;
+        }
+        .empty-text {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+        }
+        .empty-hint {
+            font-size: 0.85rem;
+            color: #bbb;
+        }
+        
+        /* 加载状态 */
+        .loading-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        .loading-spinner {
+            font-size: 2rem;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            100% { transform: rotate(360deg); }
+        }
+</style>
+</head>
+<body>
+    <div class="page-header">
+        <span class="page-title">📚 答题历史</span>
+        <span class="user-info">👤 <span id="user-name">...</span></span>
+    </div>
+
+    <!-- 筛选器 -->
+    <div class="filter-box">
+        <div class="filter-row">
+            <span class="filter-label">日期:</span>
+            <input type="date" id="start-date" class="date-input" placeholder="开始日期">
+            <span>-</span>
+            <input type="date" id="end-date" class="date-input" placeholder="结束日期">
+        </div>
+        <div class="filter-toggle">
+            <label class="toggle-switch">
+                <input type="checkbox" id="wrong-only">
+                <span class="toggle-slider"></span>
+            </label>
+            <span class="toggle-label">只看错题</span>
+        </div>
+    </div>
+
+    <!-- 统计摘要 -->
+    <div class="stats-summary" id="stats-summary">
+        <div class="stat-item">
+            <span class="stat-value" id="total-count">0</span>
+            <span class="stat-label">总题数</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value correct" id="correct-count">0</span>
+            <span class="stat-label">正确</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value wrong" id="wrong-count">0</span>
+            <span class="stat-label">错误</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value" id="accuracy-rate">0%</span>
+            <span class="stat-label">正确率</span>
+        </div>
+    </div>
+
+    <!-- 答题记录列表 -->
+    <div id="history-list" class="history-list">
+        <!-- 动态加载 -->
+    </div>
+
+    <!-- 空状态提示 -->
+    <div id="empty-state" class="empty-state" style="display: none;">
+        <div class="empty-icon">📝</div>
+        <div class="empty-text">暂无答题记录</div>
+        <div class="empty-hint">快去参与课堂答题吧！</div>
+    </div>
+
+    <!-- 加载状态 -->
+    <div id="loading-state" class="loading-state">
+        <div class="loading-spinner">⏳</div>
+        <div>加载中...</div>
+    </div>
+
+    <script>
+        // 全局变量
+        let supabaseClient = null;
+        let myName = '';
+        let myId = '';
+        let allRecords = []; // 所有答题记录缓存
+
+        // 主初始化函数
+        async function initHistory() {
+            // 使用公共配置和身份验证
+            supabaseClient = ClassroomCommon.createSupabaseClient();
+            const userAuth = ClassroomCommon.checkUserAuth();
+            if (!userAuth) return;
+            
+            myName = userAuth.name;
+            myId = userAuth.id;
+            document.getElementById('user-name').innerText = myName;
+
+            // 设置默认日期范围（最近7天）
+            const today = new Date();
+            const weekAgo = new Date(today);
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            
+            document.getElementById('end-date').value = formatDateForInput(today);
+            document.getElementById('start-date').value = formatDateForInput(weekAgo);
+
+            // 绑定筛选器事件
+            document.getElementById('start-date').addEventListener('change', applyFilters);
+            document.getElementById('end-date').addEventListener('change', applyFilters);
+            document.getElementById('wrong-only').addEventListener('change', applyFilters);
+
+            // 加载数据
+            await loadHistory();
+
+            // 启动全局控制监听
+            ClassroomCommon.initGlobalControlListener(supabaseClient);
+
+            // 初始化底部导航
+            if (typeof NavigationComponent !== 'undefined') {
+                NavigationComponent.init();
+            }
+        }
+
+        // 格式化日期为 input[type=date] 格式
+        function formatDateForInput(date) {
+            return date.toISOString().split('T')[0];
+        }
+
+        // 加载答题历史
+        async function loadHistory() {
+            showLoading(true);
+            
+            try {
+                // 使用 history.js 中的函数获取数据
+                const result = await HistoryModule.getAnswerHistory(supabaseClient, myId);
+                allRecords = result.records;
+                
+                // 应用筛选并渲染
+                applyFilters();
+            } catch (error) {
+                console.error('加载历史记录失败:', error);
+                showEmpty(true);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 应用筛选条件
+        function applyFilters() {
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            const wrongOnly = document.getElementById('wrong-only').checked;
+
+            // 使用 history.js 中的筛选函数
+            let filtered = HistoryModule.filterRecords(allRecords, {
+                startDate: startDate ? new Date(startDate) : null,
+                endDate: endDate ? new Date(endDate + 'T23:59:59') : null,
+                wrongOnly: wrongOnly
+            });
+
+            // 排序（按时间倒序）
+            filtered = HistoryModule.sortRecordsByTime(filtered);
+
+            // 更新统计和列表
+            updateStats(filtered);
+            renderList(filtered);
+        }
+
+        // 更新统计摘要
+        function updateStats(records) {
+            const total = records.length;
+            const correct = records.filter(r => r.is_correct).length;
+            const wrong = total - correct;
+            const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
+
+            document.getElementById('total-count').textContent = total;
+            document.getElementById('correct-count').textContent = correct;
+            document.getElementById('wrong-count').textContent = wrong;
+            document.getElementById('accuracy-rate').textContent = accuracy + '%';
+        }
+
+        // 渲染记录列表
+        function renderList(records) {
+            const listEl = document.getElementById('history-list');
+            
+            if (records.length === 0) {
+                listEl.innerHTML = '';
+                showEmpty(true);
+                return;
+            }
+            
+            showEmpty(false);
+            
+            listEl.innerHTML = records.map(record => {
+                const isCorrect = record.is_correct;
+                const itemClass = isCorrect ? '' : 'wrong';
+                const answerClass = isCorrect ? 'correct' : 'wrong';
+                const resultText = isCorrect ? '✓ 正确' : '✗ 错误';
+                const resultClass = isCorrect ? 'correct' : 'wrong';
+                
+                // 格式化时间
+                const time = new Date(record.created_at).toLocaleString('zh-CN', {
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                // 题目标题（如果有关联的题目数据）
+                const title = record.question_title || `第 ${record.round} 题`;
+                const correctAnswer = record.correct_answer || record.question_answer || '-';
+                
+                return `
+                    <div class="history-item ${itemClass}">
+                        <div class="item-header">
+                            <span class="item-round">第 ${record.round} 题</span>
+                            <span class="item-time">${time}</span>
+                        </div>
+                        <div class="item-title">${ClassroomCommon.escapeHtml(title)}</div>
+                        <div class="item-answers">
+                            <span class="answer-tag my-answer ${answerClass}">我的答案: ${record.option}</span>
+                            <span class="answer-tag correct-answer">正确答案: ${correctAnswer}</span>
+                            <span class="result-badge ${resultClass}">${resultText}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 显示/隐藏加载状态
+        function showLoading(show) {
+            document.getElementById('loading-state').style.display = show ? 'block' : 'none';
+            if (show) {
+                document.getElementById('history-list').style.display = 'none';
+                document.getElementById('empty-state').style.display = 'none';
+            } else {
+                document.getElementById('history-list').style.display = 'flex';
+            }
+        }
+
+        // 显示/隐藏空状态
+        function showEmpty(show) {
+            document.getElementById('empty-state').style.display = show ? 'block' : 'none';
+            document.getElementById('history-list').style.display = show ? 'none' : 'flex';
+        }
+
+        // 页面加载完成后初始化
+        window.addEventListener('load', initHistory);
+    </script>
+</body>
+</html>
