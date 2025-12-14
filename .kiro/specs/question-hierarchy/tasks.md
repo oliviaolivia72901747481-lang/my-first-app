@@ -41,7 +41,13 @@
     - Render tree with question counts at each level
     - Handle expand/collapse state
     - _Requirements: 6.1, 7.1, 7.2, 7.3_
-  - [ ]* 2.3 Write property test for hierarchy data structure
+  - [x] 2.3 Write property test for hierarchy data structure
+
+
+
+
+
+
     - **Property 1: Hierarchy Integrity**
     - **Validates: Requirements 1.2, 1.3, 1.4**
 
