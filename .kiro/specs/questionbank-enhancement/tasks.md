@@ -23,9 +23,16 @@
     - 创建 ai_generation_log 表
     - _Requirements: 8.3, 3.5_
 
-- [ ] 2. 实现批量操作模块
+- [x] 2. 实现批量操作模块
 
-  - [ ] 2.1 创建 js/batch-operations.js 模块
+
+
+
+
+
+  - [x] 2.1 创建 js/batch-operations.js 模块
+
+
     - 实现选择管理（selectAll, deselectAll, toggleSelect）
     - 实现 getSelectedCount() 函数
     - _Requirements: 1.1, 1.2, 1.6_
@@ -34,7 +41,8 @@
     - **Property 1: Select All Completeness**
     - **Validates: Requirements 1.2, 1.6**
 
-  - [ ] 2.3 实现批量删除功能
+  - [x] 2.3 实现批量删除功能
+
     - 实现 batchDelete() 函数
     - 添加确认对话框逻辑
     - 返回操作统计结果
@@ -44,7 +52,8 @@
     - **Property 2: Batch Delete Correctness**
     - **Validates: Requirements 1.3, 1.5**
 
-  - [ ] 2.5 实现批量移动和更新功能
+  - [x] 2.5 实现批量移动和更新功能
+
     - 实现 batchMove() 函数
     - 实现 batchUpdate() 函数（支持部分字段更新）
     - _Requirements: 1.4, 2.2, 2.3, 2.4, 2.5_
@@ -54,7 +63,8 @@
     - **Property 4: Batch Update Partial Fields**
     - **Validates: Requirements 1.4, 2.2, 2.3, 2.4, 2.5**
 
-  - [ ] 2.7 实现批量复制功能
+  - [x] 2.7 实现批量复制功能
+
     - 实现 batchCopy() 函数
     - 支持选择目标任务
     - _Requirements: 10.1, 10.2, 10.3_
@@ -63,12 +73,24 @@
     - **Property 15: Copy Preserves Content**
     - **Validates: Requirements 10.1, 10.2**
 
-- [ ] 3. Checkpoint - 确保批量操作测试通过
+- [x] 3. Checkpoint - 确保批量操作测试通过
+
+
+
+
+
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 4. 实现高级搜索模块
+- [x] 4. 实现高级搜索模块
 
-  - [ ] 4.1 创建 js/question-search.js 模块
+
+
+
+
+
+  - [x] 4.1 创建 js/question-search.js 模块
+
+
     - 实现 search() 全文搜索函数
     - 实现 filter() 多条件筛选函数
     - 实现 searchAndFilter() 组合函数
@@ -79,11 +101,15 @@
     - **Property 6: Filter AND Logic**
     - **Validates: Requirements 3.1, 3.2, 3.3**
 
-  - [ ] 4.3 实现关键词高亮功能
+  - [x] 4.3 实现关键词高亮功能
+
+
     - 实现 highlightKeyword() 函数
     - _Requirements: 3.4_
 
-  - [ ] 4.4 实现筛选条件保存功能
+  - [x] 4.4 实现筛选条件保存功能
+
+
     - 实现 saveFilter() 函数
     - 实现 loadSavedFilters() 函数
     - 实现 deleteSavedFilter() 函数
@@ -93,9 +119,16 @@
     - **Property 7: Saved Filter Round Trip**
     - **Validates: Requirements 3.5**
 
-- [ ] 5. 实现导入导出增强模块
 
-  - [ ] 5.1 创建 js/import-export.js 模块
+- [x] 5. 实现导入导出增强模块
+
+
+
+
+
+  - [x] 5.1 创建 js/import-export.js 模块
+
+
     - 实现 parseCSV() 增强版（支持错误标记）
     - 实现 validateQuestion() 验证函数
     - _Requirements: 6.1, 6.3_
@@ -104,17 +137,23 @@
     - **Property 9: Import Validation Accuracy**
     - **Validates: Requirements 6.3, 6.4, 6.5**
 
-  - [ ] 5.3 实现 Excel 导入功能
+
+  - [x] 5.3 实现 Excel 导入功能
+
     - 集成 SheetJS 库
     - 实现 parseExcel() 函数
     - _Requirements: 6.2_
 
-  - [ ] 5.4 实现导入选项功能
+  - [x] 5.4 实现导入选项功能
+
+
     - 支持覆盖模式选择
     - 实现 importQuestions() 增强版
     - _Requirements: 6.4, 6.5, 6.6_
 
-  - [ ] 5.5 实现多格式导出功能
+
+  - [x] 5.5 实现多格式导出功能
+
     - 实现 exportToCSV() 函数
     - 实现 exportToExcel() 函数
     - 实现 exportToJSON() 函数
@@ -124,12 +163,24 @@
     - **Property 10: Export Completeness**
     - **Validates: Requirements 7.2, 7.5**
 
-- [ ] 6. Checkpoint - 确保导入导出测试通过
+
+- [x] 6. Checkpoint - 确保导入导出测试通过
+
+
+
+
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 7. 实现版本历史模块
 
-  - [ ] 7.1 创建 js/version-history.js 模块
+- [x] 7. 实现版本历史模块
+
+
+
+
+
+
+  - [x] 7.1 创建 js/version-history.js 模块
+
     - 实现 saveVersion() 函数
     - 实现 getVersions() 函数
     - 实现 getVersion() 函数
@@ -139,7 +190,9 @@
     - **Property 12: Version Creation on Edit**
     - **Validates: Requirements 9.1**
 
-  - [ ] 7.3 实现版本恢复功能
+  - [x] 7.3 实现版本恢复功能
+
+
     - 实现 restoreVersion() 函数
     - 实现 compareVersions() 函数
     - _Requirements: 9.4_
@@ -148,7 +201,9 @@
     - **Property 13: Version Restore Correctness**
     - **Validates: Requirements 9.4**
 
-  - [ ] 7.5 实现版本清理功能
+
+  - [x] 7.5 实现版本清理功能
+
     - 实现 cleanupVersions() 函数
     - 保留最近10个版本
     - _Requirements: 9.5_
@@ -157,9 +212,16 @@
     - **Property 14: Version Limit Enforcement**
     - **Validates: Requirements 9.5**
 
-- [ ] 8. 实现题目模板模块
 
-  - [ ] 8.1 创建 js/question-templates.js 模块
+- [x] 8. 实现题目模板模块
+
+
+
+
+
+  - [x] 8.1 创建 js/question-templates.js 模块
+
+
     - 定义内置模板（单选、多选、判断、填空）
     - 实现 applyTemplate() 函数
     - _Requirements: 8.1, 8.2_
@@ -168,16 +230,25 @@
     - **Property 11: Template Application**
     - **Validates: Requirements 8.2**
 
-  - [ ] 8.3 实现自定义模板管理
+
+  - [x] 8.3 实现自定义模板管理
+
     - 实现 saveTemplate() 函数
     - 实现 getTemplates() 函数
     - 实现 deleteTemplate() 函数
     - _Requirements: 8.3, 8.4_
 
-- [ ] 9. Checkpoint - 确保模板和版本测试通过
+- [x] 9. Checkpoint - 确保模板和版本测试通过
+
+
+
+
+
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 10. 实现 AI 助手模块
+
+
 
   - [ ] 10.1 创建 js/ai-assistant.js 模块
     - 配置 API 连接（支持 OpenAI/Claude）
@@ -186,6 +257,8 @@
     - _Requirements: 4.1, 5.1_
 
   - [ ] 10.2 实现 AI 生成题目功能
+
+
     - 实现 generateQuestions() 函数
     - 支持指定题型、难度、数量
     - 验证生成数量约束
@@ -207,6 +280,8 @@
     - _Requirements: 4.7_
 
 - [ ] 11. 更新题库管理页面 UI
+
+
 
   - [ ] 11.1 添加批量操作工具栏
     - 添加复选框到题目列表
@@ -245,6 +320,8 @@
     - _Requirements: 8.1, 8.2, 8.4_
 
 - [ ] 12. 集成和完善
+
+
 
   - [ ] 12.1 集成所有模块到 questionbank.html
     - 引入所有新建的 JS 模块
