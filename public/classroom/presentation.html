@@ -301,7 +301,92 @@
             margin: 0 3px;
         }
         
-        /* 题库面板 */
+        /* 侧边栏容器 */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            right: -420px;
+            width: 400px;
+            height: 100vh;
+            background: rgba(15, 23, 42, 0.98);
+            box-shadow: -5px 0 30px rgba(0,0,0,0.5);
+            z-index: 300;
+            transition: right 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar.open { right: 0; }
+        
+        .sidebar-tabs {
+            display: flex;
+            background: rgba(0,0,0,0.3);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .sidebar-tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: bold;
+            color: #94a3b8;
+            border: none;
+            background: transparent;
+            transition: all 0.2s;
+        }
+        .sidebar-tab:hover { background: rgba(255,255,255,0.05); }
+        .sidebar-tab.active {
+            color: white;
+            background: rgba(59, 130, 246, 0.3);
+            border-bottom: 2px solid #3b82f6;
+        }
+        
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        .sidebar-panel { display: none; }
+        .sidebar-panel.active { display: block; }
+        
+        .sidebar-close {
+            position: absolute;
+            top: 15px;
+            left: -50px;
+            width: 40px;
+            height: 40px;
+            background: rgba(15, 23, 42, 0.98);
+            border: none;
+            border-radius: 10px 0 0 10px;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+        
+        /* 侧边栏排行榜样式 */
+        .sidebar-leaderboard .rank-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            margin-bottom: 8px;
+        }
+        .sidebar-leaderboard .rank-item.top-1 { background: linear-gradient(135deg, rgba(255,215,0,0.3), rgba(255,215,0,0.1)); }
+        .sidebar-leaderboard .rank-item.top-2 { background: linear-gradient(135deg, rgba(192,192,192,0.3), rgba(192,192,192,0.1)); }
+        .sidebar-leaderboard .rank-item.top-3 { background: linear-gradient(135deg, rgba(205,127,50,0.3), rgba(205,127,50,0.1)); }
+        .sidebar-leaderboard .rank-pos {
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 12px;
+        }
+        .sidebar-leaderboard .rank-name { flex: 1; font-weight: 500; }
+        .sidebar-leaderboard .rank-points { font-weight: bold; color: #f59e0b; }
+        
+        /* 题库面板 - 改为侧边栏内嵌 */
         #question-panel {
             position: fixed;
             top: 50%;
@@ -449,6 +534,7 @@
             <button class="ctrl-btn btn-danmu" onclick="toggleDanmu()">💬 弹幕</button>
             <button class="ctrl-btn" style="background:#f59e0b;" onclick="toggleLuckyOverlay()">🎰 点名</button>
             <button class="ctrl-btn" style="background:linear-gradient(135deg, #8b5cf6, #6366f1);" onclick="showLeaderboard()">🏆 排行</button>
+            <button class="ctrl-btn" style="background:linear-gradient(135deg, #06b6d4, #0891b2);" onclick="toggleSidebar()" id="sidebar-toggle-btn">📋 侧栏</button>
             <button class="ctrl-btn" style="background:#ef4444;" onclick="clearContent()" id="clear-content-btn">🗑️ 清除</button>
             <button class="ctrl-btn" style="background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);" onclick="endClass()">🔔 下课</button>
             <button class="ctrl-btn btn-nav" onclick="nextSlide()">下一页 ➡️</button>
@@ -458,11 +544,78 @@
         <div class="hotkey-hint">
             <div><kbd>←</kbd><kbd>→</kbd> 翻页</div>
             <div><kbd>Q</kbd> 题库 <kbd>D</kbd> 弹幕 <kbd>L</kbd> 点名</div>
-            <div><kbd>C</kbd> 清除内容 <kbd>F</kbd> 全屏 <kbd>ESC</kbd> 退出</div>
+            <div><kbd>S</kbd> 侧栏 <kbd>C</kbd> 清除 <kbd>F</kbd> 全屏</div>
         </div>
     </div>
     
-    <!-- 题库面板 -->
+    <!-- 侧边栏 -->
+    <div class="sidebar" id="sidebar">
+        <button class="sidebar-close" onclick="toggleSidebar()">✕</button>
+        <div class="sidebar-tabs">
+            <button class="sidebar-tab active" data-panel="questions" onclick="switchSidebarTab('questions')">📚 题库互动</button>
+            <button class="sidebar-tab" data-panel="leaderboard" onclick="switchSidebarTab('leaderboard')">🏆 排行榜</button>
+        </div>
+        <div class="sidebar-content">
+            <!-- 题库面板 -->
+            <div class="sidebar-panel active" id="sidebar-questions">
+                <div class="qp-question">
+                    <div class="qp-q-header">
+                        <div class="qp-round">第 <span id="sb-qp-round">1</span> 题</div>
+                        <div class="qp-mode-badge qp-mode-vote" id="sb-qp-mode-badge">📊 答题</div>
+                    </div>
+                    <div class="qp-q-title" id="sb-qp-title">正在加载题目...</div>
+                    <div class="qp-options" id="sb-qp-options"></div>
+                </div>
+                <!-- 抢答/点名回答结果 -->
+                <div id="sb-qp-answer-result" style="background:linear-gradient(135deg, rgba(16,185,129,0.2), rgba(59,130,246,0.2)); border-radius:15px; padding:20px; margin:15px 0; display:none; text-align:center;">
+                    <div style="font-size:0.9rem; color:#94a3b8; margin-bottom:10px;" id="sb-qp-answer-mode-label">🏆 抢答回答</div>
+                    <div style="font-size:1.5rem; font-weight:bold; color:white; margin-bottom:10px;" id="sb-qp-answer-student">--</div>
+                    <div style="display:flex; justify-content:center; gap:20px; align-items:center;">
+                        <div style="font-size:3rem; font-weight:bold;" id="sb-qp-answer-option">--</div>
+                        <div id="sb-qp-answer-correct" style="font-size:2rem;">--</div>
+                    </div>
+                </div>
+                <!-- 实时统计 -->
+                <div id="sb-qp-stats" style="background:rgba(255,255,255,0.1); border-radius:15px; padding:15px; margin-bottom:15px;">
+                    <div style="font-size:0.9rem; color:#94a3b8; margin-bottom:10px;">📊 实时统计</div>
+                    <div class="vote-stats">
+                        <div class="vote-stat-item"><div class="vote-stat-label" style="color:#FF6384;">A</div><div class="vote-stat-count" id="sb-qp-stat-a">0</div></div>
+                        <div class="vote-stat-item"><div class="vote-stat-label" style="color:#36A2EB;">B</div><div class="vote-stat-count" id="sb-qp-stat-b">0</div></div>
+                        <div class="vote-stat-item"><div class="vote-stat-label" style="color:#FFCE56;">C</div><div class="vote-stat-count" id="sb-qp-stat-c">0</div></div>
+                        <div class="vote-stat-item"><div class="vote-stat-label" style="color:#4BC0C0;">D</div><div class="vote-stat-count" id="sb-qp-stat-d">0</div></div>
+                    </div>
+                </div>
+                <!-- 模式选择 -->
+                <div style="background:rgba(255,255,255,0.05); border-radius:10px; padding:15px; margin-bottom:15px;">
+                    <div style="font-size:0.85rem; color:#94a3b8; margin-bottom:10px;">选择互动模式：</div>
+                    <div style="display:flex; gap:8px;">
+                        <button class="sb-qp-mode-select active" data-mode="vote" onclick="setQPMode('vote')" style="flex:1; padding:10px; border:2px solid #3b82f6; background:#3b82f6; color:white; border-radius:10px; cursor:pointer; font-weight:bold; font-size:0.85rem;">📊 答题</button>
+                        <button class="sb-qp-mode-select" data-mode="buzzer" onclick="setQPMode('buzzer')" style="flex:1; padding:10px; border:2px solid rgba(255,255,255,0.2); background:transparent; color:#94a3b8; border-radius:10px; cursor:pointer; font-weight:bold; font-size:0.85rem;">⚡ 抢答</button>
+                        <button class="sb-qp-mode-select" data-mode="lucky" onclick="setQPMode('lucky')" style="flex:1; padding:10px; border:2px solid rgba(255,255,255,0.2); background:transparent; color:#94a3b8; border-radius:10px; cursor:pointer; font-weight:bold; font-size:0.85rem;">🎰 点名</button>
+                    </div>
+                </div>
+                <div class="qp-controls" style="flex-wrap:wrap;">
+                    <button class="qp-btn qp-btn-start" id="sb-qp-start-btn" onclick="startQuestion()" style="min-width:auto;">▶️ 开始</button>
+                    <button class="qp-btn qp-btn-stop" onclick="stopQuestion()" style="min-width:auto;">⏹️ 停止</button>
+                    <button class="qp-btn qp-btn-prev" onclick="prevQuestion()" style="min-width:auto;">⬅️</button>
+                    <button class="qp-btn qp-btn-next" onclick="nextQuestion()" style="min-width:auto;">➡️</button>
+                </div>
+            </div>
+            
+            <!-- 排行榜面板 -->
+            <div class="sidebar-panel" id="sidebar-leaderboard">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <span style="font-size:0.9rem; color:#94a3b8;">实时积分排名</span>
+                    <button onclick="refreshSidebarLeaderboard()" style="background:rgba(255,255,255,0.1); border:none; color:white; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:0.85rem;">🔄 刷新</button>
+                </div>
+                <div class="sidebar-leaderboard" id="sidebar-rank-list">
+                    <div style="text-align:center; color:#666; padding:20px;">加载中...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 题库面板（保留原有弹窗模式） -->
     <div id="question-panel">
         <div class="qp-header">
             <div class="qp-title">📚 题库互动</div>
@@ -1123,6 +1276,8 @@
                     document.getElementById('qp-options').innerHTML = '';
                 }
                 loadQPStats();
+                // 同步更新侧边栏
+                if (isSidebarOpen) loadSidebarQuestion();
             } catch (e) { console.error(e); }
         }
         
@@ -1135,6 +1290,8 @@
                 document.getElementById('qp-stat-b').innerText = counts.B;
                 document.getElementById('qp-stat-c').innerText = counts.C;
                 document.getElementById('qp-stat-d').innerText = counts.D;
+                // 同步更新侧边栏统计
+                if (isSidebarOpen) loadSidebarStats();
             } catch (e) { console.error(e); }
         }
         
@@ -1160,6 +1317,9 @@
                 btn.style.borderColor = isActive ? btn.style.background : 'rgba(255,255,255,0.2)';
                 btn.style.color = isActive ? 'white' : '#94a3b8';
             });
+            
+            // 同步更新侧边栏模式显示
+            if (isSidebarOpen) updateSidebarModeDisplay();
         }
         
         async function setQPMode(mode) {
@@ -1353,9 +1513,24 @@
             // 显示结果区域
             resultDiv.style.display = 'block';
             
+            // 同步更新侧边栏的回答结果
+            if (isSidebarOpen) {
+                const sbResultDiv = document.getElementById('sb-qp-answer-result');
+                document.getElementById('sb-qp-answer-mode-label').innerText = modeLabel.innerText;
+                document.getElementById('sb-qp-answer-student').innerText = voteLog.student_name;
+                document.getElementById('sb-qp-answer-option').innerText = voteLog.option;
+                const sbCorrectDiv = document.getElementById('sb-qp-answer-correct');
+                sbCorrectDiv.innerHTML = correctDiv.innerHTML;
+                sbCorrectDiv.style.color = correctDiv.style.color;
+                sbResultDiv.style.background = resultDiv.style.background;
+                sbResultDiv.style.display = 'block';
+            }
+            
             // 播放音效和特效
             if (voteLog.is_correct) {
                 confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
+                // 刷新排行榜
+                if (isSidebarOpen) loadSidebarLeaderboard();
             }
             
             // 抢答/点名模式：学生回答后自动停止本题，下一题需要老师重新开始
@@ -1591,6 +1766,10 @@
                 case 'C':
                     clearContent();
                     break;
+                case 's':
+                case 'S':
+                    toggleSidebar();
+                    break;
                 case 'Escape':
                     closeUploadModal();
                     closeQuestionPanel();
@@ -1598,6 +1777,11 @@
                     document.getElementById('lucky-overlay').style.display = 'none';
                     document.getElementById('lucky-settings-panel').style.display = 'none';
                     isLuckyVisible = false;
+                    // 关闭侧边栏
+                    if (isSidebarOpen) {
+                        isSidebarOpen = false;
+                        document.getElementById('sidebar').classList.remove('open');
+                    }
                     break;
             }
         });
@@ -1849,6 +2033,150 @@
             localStorage.setItem('lucky_classes_v2', JSON.stringify(luckyData));
         }
         
+        // ================== 侧边栏功能 ==================
+        let isSidebarOpen = false;
+        
+        function toggleSidebar() {
+            isSidebarOpen = !isSidebarOpen;
+            document.getElementById('sidebar').classList.toggle('open', isSidebarOpen);
+            if (isSidebarOpen) {
+                loadSidebarQuestion();
+                loadSidebarLeaderboard();
+            }
+        }
+        
+        function switchSidebarTab(panel) {
+            // 更新标签样式
+            document.querySelectorAll('.sidebar-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.panel === panel);
+            });
+            // 显示对应面板
+            document.querySelectorAll('.sidebar-panel').forEach(p => {
+                p.classList.toggle('active', p.id === 'sidebar-' + panel);
+            });
+            // 加载数据
+            if (panel === 'leaderboard') {
+                loadSidebarLeaderboard();
+            } else if (panel === 'questions') {
+                loadSidebarQuestion();
+            }
+        }
+        
+        // 侧边栏题库加载
+        async function loadSidebarQuestion() {
+            try {
+                document.getElementById('sb-qp-answer-result').style.display = 'none';
+                const { data } = await supabaseClient.from('questions').select('*').eq('round', qpRound).maybeSingle();
+                qpQuestion = data;
+                document.getElementById('sb-qp-round').innerText = qpRound;
+                
+                if (data) {
+                    document.getElementById('sb-qp-title').innerText = data.title;
+                    const opts = document.getElementById('sb-qp-options');
+                    opts.innerHTML = `
+                        <div class="qp-opt ${showAnswerRevealed && data.answer.includes('A') ? 'correct' : ''}">A. ${data.option_a || ''}</div>
+                        <div class="qp-opt ${showAnswerRevealed && data.answer.includes('B') ? 'correct' : ''}">B. ${data.option_b || ''}</div>
+                        <div class="qp-opt ${showAnswerRevealed && data.answer.includes('C') ? 'correct' : ''}">C. ${data.option_c || ''}</div>
+                        <div class="qp-opt ${showAnswerRevealed && data.answer.includes('D') ? 'correct' : ''}">D. ${data.option_d || ''}</div>
+                    `;
+                    qpMode = data.mode || 'vote';
+                    updateSidebarModeDisplay();
+                } else {
+                    document.getElementById('sb-qp-title').innerText = '(无题目数据)';
+                    document.getElementById('sb-qp-options').innerHTML = '';
+                }
+                loadSidebarStats();
+            } catch (e) { console.error(e); }
+        }
+        
+        async function loadSidebarStats() {
+            try {
+                const { data } = await supabaseClient.from('vote_logs').select('option').eq('round', qpRound);
+                const counts = { A: 0, B: 0, C: 0, D: 0 };
+                if (data) data.forEach(row => { if (counts[row.option] !== undefined) counts[row.option]++; });
+                document.getElementById('sb-qp-stat-a').innerText = counts.A;
+                document.getElementById('sb-qp-stat-b').innerText = counts.B;
+                document.getElementById('sb-qp-stat-c').innerText = counts.C;
+                document.getElementById('sb-qp-stat-d').innerText = counts.D;
+            } catch (e) { console.error(e); }
+        }
+        
+        function updateSidebarModeDisplay() {
+            const badge = document.getElementById('sb-qp-mode-badge');
+            const stats = document.getElementById('sb-qp-stats');
+            const modeConfig = {
+                'vote': { text: '📊 答题', class: 'qp-mode-vote' },
+                'buzzer': { text: '⚡ 抢答', class: 'qp-mode-buzzer' },
+                'lucky': { text: '🎰 点名', class: 'qp-mode-lucky' }
+            };
+            const config = modeConfig[qpMode] || modeConfig['vote'];
+            badge.innerText = config.text;
+            badge.className = 'qp-mode-badge ' + config.class;
+            stats.style.display = qpMode === 'vote' ? 'block' : 'none';
+            
+            document.querySelectorAll('.sb-qp-mode-select').forEach(btn => {
+                const isActive = btn.dataset.mode === qpMode;
+                btn.style.background = isActive ? (qpMode === 'vote' ? '#3b82f6' : qpMode === 'buzzer' ? '#ef4444' : '#f59e0b') : 'transparent';
+                btn.style.borderColor = isActive ? btn.style.background : 'rgba(255,255,255,0.2)';
+                btn.style.color = isActive ? 'white' : '#94a3b8';
+            });
+        }
+        
+        // 侧边栏排行榜加载
+        async function loadSidebarLeaderboard() {
+            const list = document.getElementById('sidebar-rank-list');
+            list.innerHTML = '<div style="text-align:center; color:#666; padding:20px;">加载中...</div>';
+            
+            try {
+                const { data, error } = await supabaseClient
+                    .from('student_points')
+                    .select('*')
+                    .order('total_points', { ascending: false })
+                    .limit(20);
+                
+                if (error) throw error;
+                
+                if (!data || data.length === 0) {
+                    list.innerHTML = '<div style="text-align:center; color:#666; padding:20px;">暂无数据</div>';
+                    return;
+                }
+                
+                list.innerHTML = data.map((student, index) => {
+                    const rank = index + 1;
+                    const topClass = rank <= 3 ? `top-${rank}` : '';
+                    let medal = '';
+                    if (rank === 1) medal = '🥇';
+                    else if (rank === 2) medal = '🥈';
+                    else if (rank === 3) medal = '🥉';
+                    
+                    return `
+                        <div class="rank-item ${topClass}">
+                            <div class="rank-pos">${medal || rank}</div>
+                            <div class="rank-name">${student.student_name}</div>
+                            <div class="rank-points">${student.total_points}</div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                console.error('加载排行榜失败:', e);
+                list.innerHTML = '<div style="text-align:center; color:#ef4444; padding:20px;">加载失败</div>';
+            }
+        }
+        
+        function refreshSidebarLeaderboard() {
+            loadSidebarLeaderboard();
+        }
+        
+        // 同步更新侧边栏和弹窗的题目显示
+        function syncQuestionDisplay() {
+            if (isSidebarOpen) {
+                loadSidebarQuestion();
+            }
+            if (isQuestionPanelVisible) {
+                loadQPQuestion();
+            }
+        }
+        
         // ================== 页面初始化 ==================
         (function init() {
             // 🔥 关键：页面加载时就订阅弹幕频道，确保弹幕能实时显示
@@ -1861,8 +2189,18 @@
                 .subscribe();
             danmuSubscribed = true;
             
+            // 订阅积分变化，实时更新侧边栏排行榜
+            supabaseClient.channel('presentation-points')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'student_points' }, () => {
+                    if (isSidebarOpen) {
+                        loadSidebarLeaderboard();
+                    }
+                })
+                .subscribe();
+            
             console.log('🎬 课件播放器已初始化');
             console.log('📡 弹幕频道已订阅');
+            console.log('📡 积分频道已订阅');
         })();
     </script>
 </body>
