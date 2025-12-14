@@ -110,6 +110,7 @@
                 <div class="hierarchy-actions" style="margin-top:5px;">
                     <button onclick="manageCourses()" class="btn btn-secondary" title="管理课程" style="flex:1;">📋 课程</button>
                     <button onclick="manageProjects()" class="btn btn-secondary" title="管理项目" style="flex:1;">📁 项目</button>
+                    <button onclick="manageTasks()" class="btn btn-secondary" title="管理任务" style="flex:1;">📋 任务</button>
                 </div>
                 
                 <h3 style="margin-top:25px;">📊 题型统计</h3>
@@ -387,6 +388,60 @@
         </div>
     </div>
 
+    <!-- 任务管理弹窗 -->
+    <div id="task-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:#1e293b; border-radius:20px; padding:30px; width:90%; max-width:500px;">
+            <h2 style="margin-bottom:20px;" id="task-modal-title">➕ 新建任务</h2>
+            <input type="hidden" id="edit-task-id">
+            <div style="margin-bottom:15px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">所属课程 *</label>
+                <select id="task-course" onchange="updateTaskProjectSelect()" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                    <option value="">请选择课程</option>
+                </select>
+            </div>
+            <div style="margin-bottom:15px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">所属项目 *</label>
+                <select id="task-project" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                    <option value="">请先选择课程</option>
+                </select>
+            </div>
+            <div style="margin-bottom:15px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">任务名称 *</label>
+                <input type="text" id="task-name" placeholder="如：土壤水分测定、重金属检测" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+            </div>
+            <div style="margin-bottom:15px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">任务描述</label>
+                <textarea id="task-desc" placeholder="任务描述（可选）" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white; min-height:60px; resize:vertical;"></textarea>
+            </div>
+            <div style="margin-bottom:20px;">
+                <label style="display:block; margin-bottom:8px; color:#94a3b8;">显示颜色</label>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <label style="cursor:pointer;"><input type="radio" name="task-color" value="#f59e0b" checked style="display:none;"><span class="task-color-opt" style="display:block; width:30px; height:30px; border-radius:50%; background:#f59e0b; border:3px solid transparent;"></span></label>
+                    <label style="cursor:pointer;"><input type="radio" name="task-color" value="#3b82f6" style="display:none;"><span class="task-color-opt" style="display:block; width:30px; height:30px; border-radius:50%; background:#3b82f6; border:3px solid transparent;"></span></label>
+                    <label style="cursor:pointer;"><input type="radio" name="task-color" value="#10b981" style="display:none;"><span class="task-color-opt" style="display:block; width:30px; height:30px; border-radius:50%; background:#10b981; border:3px solid transparent;"></span></label>
+                    <label style="cursor:pointer;"><input type="radio" name="task-color" value="#ef4444" style="display:none;"><span class="task-color-opt" style="display:block; width:30px; height:30px; border-radius:50%; background:#ef4444; border:3px solid transparent;"></span></label>
+                    <label style="cursor:pointer;"><input type="radio" name="task-color" value="#8b5cf6" style="display:none;"><span class="task-color-opt" style="display:block; width:30px; height:30px; border-radius:50%; background:#8b5cf6; border:3px solid transparent;"></span></label>
+                    <label style="cursor:pointer;"><input type="radio" name="task-color" value="#06b6d4" style="display:none;"><span class="task-color-opt" style="display:block; width:30px; height:30px; border-radius:50%; background:#06b6d4; border:3px solid transparent;"></span></label>
+                </div>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button onclick="saveTask()" class="btn btn-success" style="flex:1;">💾 保存</button>
+                <button onclick="closeTaskModal()" class="btn btn-secondary" style="flex:1;">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 任务列表管理弹窗 -->
+    <div id="tasks-list-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:#1e293b; border-radius:20px; padding:30px; width:90%; max-width:700px; max-height:80vh; overflow-y:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2>📋 任务管理</h2>
+                <button onclick="closeTasksListModal()" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">✕</button>
+            </div>
+            <div id="tasks-list-content">加载中...</div>
+        </div>
+    </div>
+
     <!-- 添加分类弹窗 -->
     <div id="category-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
         <div style="background:#1e293b; border-radius:20px; padding:30px; width:90%; max-width:500px;">
@@ -579,6 +634,16 @@
             });
             const firstProjectColorOpt = document.querySelector('.project-color-opt');
             if (firstProjectColorOpt) firstProjectColorOpt.style.borderColor = 'white';
+            
+            // 任务颜色选择器
+            document.querySelectorAll('input[name="task-color"]').forEach(input => {
+                input.addEventListener('change', () => {
+                    document.querySelectorAll('.task-color-opt').forEach(opt => opt.style.borderColor = 'transparent');
+                    input.nextElementSibling.style.borderColor = 'white';
+                });
+            });
+            const firstTaskColorOpt = document.querySelector('.task-color-opt');
+            if (firstTaskColorOpt) firstTaskColorOpt.style.borderColor = 'white';
         }
         
         // 设置拖拽区域
@@ -1082,13 +1147,275 @@
             }
         }
         
-        // 任务管理占位函数（将在任务5中完整实现）
+        // ================== 任务管理 ==================
         function openAddTask() {
-            alert('任务管理功能将在后续任务中实现');
+            document.getElementById('task-modal-title').textContent = '➕ 新建任务';
+            document.getElementById('edit-task-id').value = '';
+            document.getElementById('task-name').value = '';
+            document.getElementById('task-desc').value = '';
+            
+            // 更新课程选择列表
+            updateTaskCourseSelect();
+            
+            // 根据当前选择的层级预设课程和项目
+            const taskCourseSelect = document.getElementById('task-course');
+            const taskProjectSelect = document.getElementById('task-project');
+            
+            if (currentFilterType === 'course' && currentFilterId !== 'all') {
+                taskCourseSelect.value = currentFilterId;
+                updateTaskProjectSelect();
+            } else if (currentFilterType === 'project' && currentFilterId !== 'all') {
+                const project = projects.find(p => p.project_id === currentFilterId);
+                if (project) {
+                    taskCourseSelect.value = project.course_id;
+                    updateTaskProjectSelect();
+                    taskProjectSelect.value = currentFilterId;
+                }
+            } else if (currentFilterType === 'task' && currentFilterId !== 'all') {
+                const task = tasks.find(t => t.task_id === currentFilterId);
+                if (task) {
+                    const project = projects.find(p => p.project_id === task.project_id);
+                    if (project) {
+                        taskCourseSelect.value = project.course_id;
+                        updateTaskProjectSelect();
+                        taskProjectSelect.value = task.project_id;
+                    }
+                }
+            } else {
+                taskCourseSelect.value = '';
+                taskProjectSelect.innerHTML = '<option value="">请先选择课程</option>';
+            }
+            
+            // 重置颜色选择
+            document.querySelectorAll('.task-color-opt').forEach(opt => opt.style.borderColor = 'transparent');
+            document.querySelector('.task-color-opt').style.borderColor = 'white';
+            document.querySelector('input[name="task-color"]').checked = true;
+            
+            document.getElementById('task-modal').style.display = 'flex';
         }
         
-        function editTask(taskId) {
-            alert('任务编辑功能将在后续任务中实现');
+        async function editTask(taskId) {
+            const task = tasks.find(t => t.task_id === taskId);
+            if (!task) return;
+            
+            document.getElementById('task-modal-title').textContent = '✏️ 编辑任务';
+            document.getElementById('edit-task-id').value = taskId;
+            document.getElementById('task-name').value = task.name;
+            document.getElementById('task-desc').value = task.description || '';
+            
+            // 更新课程选择列表
+            updateTaskCourseSelect();
+            
+            // 找到任务所属的项目和课程
+            const project = projects.find(p => p.project_id === task.project_id);
+            if (project) {
+                document.getElementById('task-course').value = project.course_id;
+                updateTaskProjectSelect();
+                document.getElementById('task-project').value = task.project_id;
+            }
+            
+            // 选中对应颜色
+            document.querySelectorAll('input[name="task-color"]').forEach(input => {
+                if (input.value === task.color) {
+                    input.checked = true;
+                    input.nextElementSibling.style.borderColor = 'white';
+                } else {
+                    input.nextElementSibling.style.borderColor = 'transparent';
+                }
+            });
+            
+            document.getElementById('task-modal').style.display = 'flex';
+        }
+        
+        function closeTaskModal() {
+            document.getElementById('task-modal').style.display = 'none';
+        }
+        
+        function updateTaskCourseSelect() {
+            const taskCourseSelect = document.getElementById('task-course');
+            if (taskCourseSelect) {
+                taskCourseSelect.innerHTML = '<option value="">请选择课程</option>' + 
+                    courses.map(c => `<option value="${c.course_id}">${c.name}</option>`).join('');
+            }
+        }
+        
+        function updateTaskProjectSelect() {
+            const courseId = document.getElementById('task-course').value;
+            const taskProjectSelect = document.getElementById('task-project');
+            
+            if (!courseId) {
+                taskProjectSelect.innerHTML = '<option value="">请先选择课程</option>';
+                return;
+            }
+            
+            const courseProjects = projects.filter(p => p.course_id === courseId);
+            if (courseProjects.length === 0) {
+                taskProjectSelect.innerHTML = '<option value="">该课程下暂无项目</option>';
+            } else {
+                taskProjectSelect.innerHTML = '<option value="">请选择项目</option>' + 
+                    courseProjects.map(p => `<option value="${p.project_id}">${p.name}</option>`).join('');
+            }
+        }
+        
+        async function saveTask() {
+            const id = document.getElementById('edit-task-id').value;
+            const projectId = document.getElementById('task-project').value;
+            const name = document.getElementById('task-name').value.trim();
+            const description = document.getElementById('task-desc').value.trim();
+            const color = document.querySelector('input[name="task-color"]:checked')?.value || '#f59e0b';
+            
+            if (!projectId) { alert('请选择所属项目'); return; }
+            if (!name) { alert('请输入任务名称'); return; }
+            
+            const data = { project_id: projectId, name, description, color };
+            
+            if (id) {
+                // 更新任务
+                const { error } = await supabaseClient.from('tasks').update(data).eq('task_id', id);
+                if (error) { alert('更新失败: ' + error.message); return; }
+            } else {
+                // 新建任务时初始化 question_count 为 0
+                data.question_count = 0;
+                const { error } = await supabaseClient.from('tasks').insert([data]);
+                if (error) { alert('创建失败: ' + error.message); return; }
+            }
+            
+            closeTaskModal();
+            await loadHierarchy();
+            alert('✅ 保存成功');
+        }
+        
+        // 任务列表管理
+        function manageTasks() {
+            renderTasksList();
+            document.getElementById('tasks-list-modal').style.display = 'flex';
+        }
+        
+        function closeTasksListModal() {
+            document.getElementById('tasks-list-modal').style.display = 'none';
+        }
+        
+        function renderTasksList() {
+            const container = document.getElementById('tasks-list-content');
+            if (tasks.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:30px; color:#666;">暂无任务，请先创建任务</div>';
+                return;
+            }
+            
+            // 按课程和项目分组显示任务
+            let html = '';
+            courses.forEach(course => {
+                const courseProjects = projects.filter(p => p.course_id === course.course_id);
+                let courseHasContent = false;
+                let courseHtml = '';
+                
+                courseProjects.forEach(project => {
+                    const projectTasks = tasks.filter(t => t.project_id === project.project_id);
+                    if (projectTasks.length > 0) {
+                        courseHasContent = true;
+                        courseHtml += `<div style="font-size:0.8rem; color:${project.color}; margin:10px 0 8px 15px; font-weight:bold;">${project.icon || '📁'} ${project.name}</div>`;
+                        projectTasks.forEach(t => {
+                            const qCount = questions.filter(q => q.task_id === t.task_id).length;
+                            courseHtml += `
+                                <div style="display:flex; align-items:center; padding:10px; background:rgba(255,255,255,0.05); border-radius:8px; margin:0 0 6px 30px; border-left:3px solid ${t.color};">
+                                    <div style="font-size:1.2rem; margin-right:10px;">${t.icon || '📋'}</div>
+                                    <div style="flex:1;">
+                                        <div style="font-weight:bold; font-size:0.9rem;">${t.name}</div>
+                                        <div style="font-size:0.75rem; color:#94a3b8; margin-top:2px;">
+                                            ${qCount} 道题目
+                                        </div>
+                                    </div>
+                                    <div style="display:flex; gap:6px;">
+                                        <button onclick="editTask('${t.task_id}')" class="btn btn-secondary" style="padding:5px 8px; font-size:0.7rem;">✏️ 编辑</button>
+                                        <button onclick="deleteTask('${t.task_id}')" class="btn btn-danger" style="padding:5px 8px; font-size:0.7rem;">🗑️ 删除</button>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+                });
+                
+                if (courseHasContent) {
+                    html += `<div style="font-size:0.85rem; color:${course.color}; margin:15px 0 10px 0; font-weight:bold; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:5px;">${course.icon || '📖'} ${course.name}</div>`;
+                    html += courseHtml;
+                }
+            });
+            
+            if (!html) {
+                html = '<div style="text-align:center; padding:30px; color:#666;">暂无任务，请先创建任务</div>';
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        // 更新任务的题目数量
+        async function updateTaskStats(taskId) {
+            const questionCount = questions.filter(q => q.task_id === taskId).length;
+            
+            await supabaseClient.from('tasks').update({
+                question_count: questionCount
+            }).eq('task_id', taskId);
+        }
+        
+        // 删除任务（级联删除题目）
+        async function deleteTask(taskId) {
+            // 计算将被删除的题目数量
+            const questionCount = questions.filter(q => q.task_id === taskId).length;
+            
+            const task = tasks.find(t => t.task_id === taskId);
+            const taskName = task ? task.name : '该任务';
+            const project = task ? projects.find(p => p.project_id === task.project_id) : null;
+            const projectName = project ? project.name : '';
+            const course = project ? courses.find(c => c.course_id === project.course_id) : null;
+            const courseName = course ? course.name : '';
+            
+            // 显示确认对话框，包含将被删除的题目数量
+            const confirmMsg = `确定要删除任务「${taskName}」吗？\n\n⚠️ 此操作将同时删除：\n• ${questionCount} 道题目\n\n此操作不可撤销！`;
+            
+            if (!confirm(confirmMsg)) return;
+            
+            try {
+                // 级联删除：先删除题目，再删除任务
+                
+                // 1. 删除该任务下的所有题目
+                if (questionCount > 0) {
+                    const { error: qError } = await supabaseClient
+                        .from('questions')
+                        .delete()
+                        .eq('task_id', taskId);
+                    if (qError) {
+                        console.error('删除题目失败:', qError);
+                    }
+                }
+                
+                // 2. 删除任务
+                const { error } = await supabaseClient.from('tasks').delete().eq('task_id', taskId);
+                if (error) { 
+                    alert('删除任务失败: ' + error.message); 
+                    return; 
+                }
+                
+                // 重置筛选状态
+                if (currentFilterType === 'task' && currentFilterId === taskId) {
+                    currentFilterType = 'all';
+                    currentFilterId = 'all';
+                }
+                
+                // 重新加载数据
+                await loadHierarchy();
+                await loadQuestions();
+                
+                // 刷新任务列表弹窗（如果打开的话）
+                if (document.getElementById('tasks-list-modal').style.display === 'flex') {
+                    renderTasksList();
+                }
+                
+                alert(`✅ 已删除任务「${taskName}」及其下属 ${questionCount} 道题目`);
+                
+            } catch (err) {
+                console.error('删除任务时发生错误:', err);
+                alert('删除失败，请重试');
+            }
         }
         
         function selectCourse(courseId) {
