@@ -70,7 +70,13 @@
     - Add confirmation dialog showing affected items count
     - Implement cascade delete for projects, tasks, questions
     - _Requirements: 2.4_
-  - [ ]* 3.3 Write property test for cascade delete
+  - [x] 3.3 Write property test for cascade delete
+
+
+
+
+
+
     - **Property 4: Cascade Delete - Course Level**
     - **Validates: Requirements 2.4**
 
@@ -93,7 +99,13 @@
     - Add confirmation dialog
     - Cascade delete tasks and questions
     - _Requirements: 3.4_
-  - [ ]* 4.3 Write property test for project cascade delete
+  - [x] 4.3 Write property test for project cascade delete
+
+
+
+
+
+
     - **Property 5: Cascade Delete - Project Level**
     - **Validates: Requirements 3.4**
 
@@ -116,7 +128,13 @@
     - Add confirmation dialog
     - Cascade delete questions
     - _Requirements: 4.4_
-  - [ ]* 5.3 Write property test for task cascade delete
+  - [x] 5.3 Write property test for task cascade delete
+
+
+
+
+
+
     - **Property 6: Cascade Delete - Task Level**
     - **Validates: Requirements 4.4**
 
@@ -134,7 +152,13 @@
   - [x] 6.3 Implement filter by task
     - Filter questions where task matches selected task
     - _Requirements: 4.5, 6.4_
-  - [ ]* 6.4 Write property test for filtering
+  - [x] 6.4 Write property test for filtering
+
+
+
+
+
+
     - **Property 7, 8, 9, 10: Filter Correctness**
     - **Validates: Requirements 2.5, 3.5, 4.5, 6.5**
 
@@ -149,7 +173,13 @@
     - Add cascading selector for task selection
     - Update save function to use task_id
     - _Requirements: 5.3, 5.4_
-  - [ ]* 7.3 Write property test for import association
+  - [x] 7.3 Write property test for import association
+
+
+
+
+
+
     - **Property 12: Import Task Association**
     - **Validates: Requirements 5.1, 5.2**
 
@@ -172,7 +202,13 @@
     - Call count updates after question add/delete
     - Call count updates after task/project/course delete
     - _Requirements: 7.1, 7.2, 7.3, 7.4_
-  - [ ]* 8.3 Write property test for count accuracy
+  - [x] 8.3 Write property test for count accuracy
+
+
+
+
+
+
     - **Property 11: Question Count Accuracy**
     - **Validates: Requirements 7.1, 7.2, 7.3, 7.4**
 
@@ -203,5 +239,10 @@
     - Clean up unused CSS and HTML
     - _Requirements: All_
 
-- [ ] 11. Final Checkpoint - Ensure all tests pass
+- [x] 11. Final Checkpoint - Ensure all tests pass
+
+
+
+
+
   - Ensure all tests pass, ask the user if questions arise.
