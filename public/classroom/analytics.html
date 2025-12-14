@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 课堂数据分析</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="/classroom/js/common.js"></script>
+    <script src="/classroom/js/points.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background: #f1f5f9;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .header h1 { font-size: 1.5rem; margin-bottom: 5px; }
+        .header p { opacity: 0.7; font-size: 0.9rem; }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* 统计卡片 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .stat-card .icon { font-size: 2rem; margin-bottom: 10px; }
+        .stat-card .value { font-size: 2rem; font-weight: bold; color: #1e293b; }
+        .stat-card .label { color: #64748b; font-size: 0.9rem; }
+        .stat-card.highlight { background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; }
+        .stat-card.highlight .value { color: white; }
+        .stat-card.highlight .label { color: rgba(255,255,255,0.8); }
+        
+        /* 标签页 */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            background: white;
+            color: #64748b;
+            transition: all 0.2s;
+        }
+        .tab-btn.active {
+            background: #3b82f6;
+            color: white;
+        }
+        .tab-btn:hover { transform: translateY(-2px); }
+        
+        /* 面板 */
+        .panel {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            display: none;
+        }
+        .panel.active { display: block; }
+        .panel-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #1e293b;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        /* 图表容器 */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 20px;
+        }
+        
+        /* 表格 */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .data-table th, .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .data-table th {
+            background: #f8fafc;
+            font-weight: bold;
+            color: #475569;
+        }
+        .data-table tr:hover { background: #f8fafc; }
+        
+        /* 正确率条 */
+        .rate-bar {
+            width: 100px;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        .rate-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+        .rate-high { background: #10b981; }
+        .rate-medium { background: #f59e0b; }
+        .rate-low { background: #ef4444; }
+        
+        /* 学生列表 */
+        .student-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 8px;
+            background: #f8fafc;
+        }
+        .student-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 12px;
+        }
+        .student-info { flex: 1; }
+        .student-name { font-weight: bold; color: #1e293b; }
+        .student-id { font-size: 0.8rem; color: #64748b; }
+        .student-stats { text-align: right; }
+        .student-points { font-size: 1.2rem; font-weight: bold; color: #f59e0b; }
+        .student-rate { font-size: 0.8rem; color: #64748b; }
+        
+        /* 刷新按钮 */
+        .refresh-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            box-shadow: 0 4px 15px rgba(59,130,246,0.4);
+            cursor: pointer;
+            font-size: 1.5rem;
+        }
+        .refresh-btn:hover { transform: scale(1.1); }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinning { animation: spin 1s linear infinite; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 课堂数据分析</h1>
+        <p>实时监控学生表现，优化教学策略</p>
+    </div>
+    
+    <div class="container">
+        <!-- 概览统计 -->
+        <div class="stats-grid">
+            <div class="stat-card highlight">
+                <div class="icon">👥</div>
+                <div class="value" id="stat-attendance">0</div>
+                <div class="label">今日签到</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon">📝</div>
+                <div class="value" id="stat-answers">0</div>
+                <div class="label">答题次数</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon">✅</div>
+                <div class="value" id="stat-correct-rate">0%</div>
+                <div class="label">平均正确率</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon">⭐</div>
+                <div class="value" id="stat-total-points">0</div>
+                <div class="label">今日发放积分</div>
+            </div>
+        </div>
+        
+        <!-- 标签页 -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('questions')">📚 题目分析</button>
+            <button class="tab-btn" onclick="switchTab('students')">👤 学生表现</button>
+            <button class="tab-btn" onclick="switchTab('points')">🏆 积分管理</button>
+        </div>
+        
+        <!-- 题目分析面板 -->
+        <div class="panel active" id="panel-questions">
+            <div class="panel-title">📚 题目正确率分析</div>
+            <div class="chart-container">
+                <canvas id="questionChart"></canvas>
+            </div>
+            <table class="data-table" id="question-table">
+                <thead>
+                    <tr>
+                        <th>题号</th>
+                        <th>题目</th>
+                        <th>正确率</th>
+                        <th>作答人数</th>
+                        <th>难度</th>
+                    </tr>
+                </thead>
+                <tbody id="question-tbody"></tbody>
+            </table>
+        </div>
+        
+        <!-- 学生表现面板 -->
+        <div class="panel" id="panel-students">
+            <div class="panel-title">👤 学生表现排名</div>
+            <div id="student-list"></div>
+        </div>
+        
+        <!-- 积分管理面板 -->
+        <div class="panel" id="panel-points">
+            <div class="panel-title">🏆 积分管理</div>
+            <div style="margin-bottom:20px; padding:15px; background:#f8fafc; border-radius:10px;">
+                <h4 style="margin-bottom:10px;">手动加减分</h4>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <select id="point-student" style="flex:1; min-width:150px; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                        <option value="">选择学生...</option>
+                    </select>
+                    <input type="number" id="point-amount" placeholder="积分数" style="width:100px; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                    <input type="text" id="point-reason" placeholder="原因" style="flex:1; min-width:150px; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                    <button onclick="addManualPoints()" style="padding:10px 20px; background:#10b981; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">添加</button>
+                </div>
+            </div>
+            <div class="panel-title">📜 积分记录</div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>时间</th>
+                        <th>学生</th>
+                        <th>积分</th>
+                        <th>类型</th>
+                        <th>原因</th>
+                    </tr>
+                </thead>
+                <tbody id="points-log-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+    
+    <button class="refresh-btn" onclick="refreshAll()" id="refresh-btn">🔄</button>
+
+    <script>
+        const supabaseClient = ClassroomCommon.createSupabaseClient();
+        let questionChart = null;
+        
+        // 切换标签页
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach(panel => panel.classList.remove('active'));
+            
+            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            document.getElementById(`panel-${tabName}`).classList.add('active');
+        }
+        
+        // 加载概览统计
+        async function loadOverviewStats() {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const todayStr = today.toISOString();
+            
+            // 今日签到数
+            const { data: attendance } = await supabaseClient
+                .from('attendance')
+                .select('id')
+                .gte('created_at', todayStr);
+            document.getElementById('stat-attendance').innerText = attendance?.length || 0;
+            
+            // 今日答题数
+            const { data: answers } = await supabaseClient
+                .from('vote_logs')
+                .select('id, is_correct')
+                .gte('created_at', todayStr);
+            document.getElementById('stat-answers').innerText = answers?.length || 0;
+            
+            // 平均正确率
+            if (answers && answers.length > 0) {
+                const correctCount = answers.filter(a => a.is_correct).length;
+                const rate = Math.round((correctCount / answers.length) * 100);
+                document.getElementById('stat-correct-rate').innerText = rate + '%';
+            }
+            
+            // 今日发放积分
+            const { data: points } = await supabaseClient
+                .from('points_log')
+                .select('points')
+                .gte('created_at', todayStr)
+                .gt('points', 0);
+            const totalPoints = points?.reduce((sum, p) => sum + p.points, 0) || 0;
+            document.getElementById('stat-total-points').innerText = totalPoints;
+        }
+        
+        // 加载题目分析
+        async function loadQuestionAnalysis() {
+            // 获取所有题目
+            const { data: questions } = await supabaseClient
+                .from('questions')
+                .select('*')
+                .order('round', { ascending: true });
+            
+            if (!questions || questions.length === 0) {
+                document.getElementById('question-tbody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">暂无题目数据</td></tr>';
+                return;
+            }
+            
+            // 获取答题记录
+            const { data: logs } = await supabaseClient
+                .from('vote_logs')
+                .select('round, is_correct');
+            
+            // 计算每题的统计
+            const stats = questions.map(q => {
+                const qLogs = logs?.filter(l => l.round === q.round) || [];
+                const total = qLogs.length;
+                const correct = qLogs.filter(l => l.is_correct).length;
+                const rate = total > 0 ? Math.round((correct / total) * 100) : 0;
+                
+                return {
+                    round: q.round,
+                    title: q.title,
+                    total,
+                    correct,
+                    rate
+                };
+            });
+            
+            // 渲染表格
+            document.getElementById('question-tbody').innerHTML = stats.map(s => {
+                const rateClass = s.rate >= 70 ? 'rate-high' : s.rate >= 40 ? 'rate-medium' : 'rate-low';
+                const difficulty = s.rate >= 70 ? '简单' : s.rate >= 40 ? '中等' : '困难';
+                const diffColor = s.rate >= 70 ? '#10b981' : s.rate >= 40 ? '#f59e0b' : '#ef4444';
+                
+                return `
+                    <tr>
+                        <td>第${s.round}题</td>
+                        <td>${s.title?.substring(0, 30) || '--'}${s.title?.length > 30 ? '...' : ''}</td>
+                        <td>
+                            <div class="rate-bar"><div class="rate-bar-fill ${rateClass}" style="width:${s.rate}%"></div></div>
+                            ${s.rate}%
+                        </td>
+                        <td>${s.total}人</td>
+                        <td style="color:${diffColor}; font-weight:bold;">${difficulty}</td>
+                    </tr>
+                `;
+            }).join('');
+            
+            // 更新图表
+            updateQuestionChart(stats);
+        }
+        
+        // 更新题目图表
+        function updateQuestionChart(stats) {
+            const ctx = document.getElementById('questionChart').getContext('2d');
+            
+            if (questionChart) {
+                questionChart.destroy();
+            }
+            
+            questionChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: stats.map(s => `第${s.round}题`),
+                    datasets: [{
+                        label: '正确率 (%)',
+                        data: stats.map(s => s.rate),
+                        backgroundColor: stats.map(s => 
+                            s.rate >= 70 ? 'rgba(16, 185, 129, 0.7)' : 
+                            s.rate >= 40 ? 'rgba(245, 158, 11, 0.7)' : 
+                            'rgba(239, 68, 68, 0.7)'
+                        ),
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: { callback: v => v + '%' }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 加载学生表现
+        async function loadStudentPerformance() {
+            // 获取学生积分
+            const { data: students } = await supabaseClient
+                .from('student_points')
+                .select('*')
+                .order('total_points', { ascending: false });
+            
+            if (!students || students.length === 0) {
+                document.getElementById('student-list').innerHTML = '<div style="text-align:center;color:#999;padding:40px;">暂无学生数据</div>';
+                return;
+            }
+            
+            // 获取答题记录计算正确率
+            const { data: logs } = await supabaseClient
+                .from('vote_logs')
+                .select('student_id, is_correct');
+            
+            const studentStats = students.map(s => {
+                const sLogs = logs?.filter(l => l.student_id === s.student_id) || [];
+                const total = sLogs.length;
+                const correct = sLogs.filter(l => l.is_correct).length;
+                const rate = total > 0 ? Math.round((correct / total) * 100) : 0;
+                
+                return { ...s, answerCount: total, correctRate: rate };
+            });
+            
+            document.getElementById('student-list').innerHTML = studentStats.map((s, i) => `
+                <div class="student-item">
+                    <div class="student-avatar">${i < 3 ? ['🥇','🥈','🥉'][i] : s.student_name?.charAt(0) || '?'}</div>
+                    <div class="student-info">
+                        <div class="student-name">${s.student_name}</div>
+                        <div class="student-id">${s.student_id} · 答题${s.answerCount}次</div>
+                    </div>
+                    <div class="student-stats">
+                        <div class="student-points">${s.total_points}分</div>
+                        <div class="student-rate">正确率 ${s.correctRate}%</div>
+                    </div>
+                </div>
+            `).join('');
+            
+            // 更新学生选择下拉框
+            document.getElementById('point-student').innerHTML = 
+                '<option value="">选择学生...</option>' +
+                students.map(s => `<option value="${s.student_id}" data-name="${s.student_name}">${s.student_name} (${s.student_id})</option>`).join('');
+        }
+        
+        // 加载积分记录
+        async function loadPointsLog() {
+            const { data: logs } = await supabaseClient
+                .from('points_log')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(50);
+            
+            if (!logs || logs.length === 0) {
+                document.getElementById('points-log-tbody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">暂无积分记录</td></tr>';
+                return;
+            }
+            
+            const typeLabels = {
+                'sign_in': '📅 签到',
+                'answer': '📝 答题',
+                'buzzer': '⚡ 抢答',
+                'lucky': '🎰 点名',
+                'bonus': '🎁 奖励',
+                'penalty': '⚠️ 扣分'
+            };
+            
+            document.getElementById('points-log-tbody').innerHTML = logs.map(log => `
+                <tr>
+                    <td>${new Date(log.created_at).toLocaleString()}</td>
+                    <td>${log.student_name}</td>
+                    <td style="color:${log.points >= 0 ? '#10b981' : '#ef4444'}; font-weight:bold;">
+                        ${log.points >= 0 ? '+' : ''}${log.points}
+                    </td>
+                    <td>${typeLabels[log.type] || log.type}</td>
+                    <td>${log.reason || '--'}</td>
+                </tr>
+            `).join('');
+        }
+        
+        // 手动加减分
+        async function addManualPoints() {
+            const select = document.getElementById('point-student');
+            const studentId = select.value;
+            const studentName = select.options[select.selectedIndex]?.dataset?.name;
+            const amount = parseInt(document.getElementById('point-amount').value);
+            const reason = document.getElementById('point-reason').value.trim();
+            
+            if (!studentId || !studentName) {
+                alert('请选择学生');
+                return;
+            }
+            if (isNaN(amount) || amount === 0) {
+                alert('请输入有效的积分数');
+                return;
+            }
+            
+            const type = amount > 0 ? 'bonus' : 'penalty';
+            const result = await PointsSystem.addPoints(
+                supabaseClient, studentId, studentName, amount, type, reason || (amount > 0 ? '教师奖励' : '教师扣分')
+            );
+            
+            if (result.success) {
+                alert(`✅ 已${amount > 0 ? '奖励' : '扣除'} ${studentName} ${Math.abs(amount)} 积分`);
+                document.getElementById('point-amount').value = '';
+                document.getElementById('point-reason').value = '';
+                loadPointsLog();
+                loadStudentPerformance();
+                loadOverviewStats();
+            } else {
+                alert('操作失败: ' + (result.error?.message || '未知错误'));
+            }
+        }
+        
+        // 刷新所有数据
+        async function refreshAll() {
+            const btn = document.getElementById('refresh-btn');
+            btn.classList.add('spinning');
+            
+            await Promise.all([
+                loadOverviewStats(),
+                loadQuestionAnalysis(),
+                loadStudentPerformance(),
+                loadPointsLog()
+            ]);
+            
+            btn.classList.remove('spinning');
+        }
+        
+        // 初始化
+        window.addEventListener('load', refreshAll);
+    </script>
+</body>
+</html>

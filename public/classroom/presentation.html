@@ -437,6 +437,7 @@
             </div>
             <div style="display:flex; gap:10px;">
                 <button class="ctrl-btn btn-upload" onclick="openUploadModal()">📤 上传课件</button>
+                <button class="ctrl-btn" style="background:#3b82f6; color:white;" onclick="openAnalytics()">📊 数据</button>
                 <button class="ctrl-btn" style="background:#f59e0b; color:white;" onclick="toggleFullscreen()">⛶ 全屏</button>
             </div>
         </div>
@@ -1525,6 +1526,11 @@
             
             // 同时在新窗口打开教师端排行榜
             window.open('/classroom/leaderboard.html', '_blank', 'width=500,height=700');
+        }
+        
+        // ================== 数据分析 ==================
+        function openAnalytics() {
+            window.open('/classroom/analytics.html', '_blank', 'width=1000,height=800');
         }
         
         // ================== 模态框 ==================
