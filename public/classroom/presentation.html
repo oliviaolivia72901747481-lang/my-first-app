@@ -546,7 +546,6 @@
             <button class="ctrl-btn btn-nav" onclick="prevSlide()">⬅️ 上一页</button>
             <button class="ctrl-btn" style="background:#10b981;" onclick="toggleQuestionPanel()">📚 题库</button>
             <button class="ctrl-btn btn-danmu" onclick="toggleDanmu()">💬 弹幕</button>
-            <button class="ctrl-btn" style="background:#f59e0b;" onclick="toggleLuckyOverlay()">🎰 点名</button>
             <button class="ctrl-btn" style="background:linear-gradient(135deg, #8b5cf6, #6366f1);" onclick="showLeaderboard()">🏆 排行</button>
             <button class="ctrl-btn" style="background:linear-gradient(135deg, #06b6d4, #0891b2);" onclick="toggleSidebar()" id="sidebar-toggle-btn">📋 侧栏</button>
             <button class="ctrl-btn" style="background:#ef4444;" onclick="clearContent()" id="clear-content-btn">🗑️ 清除</button>
@@ -557,8 +556,8 @@
         <!-- 快捷键提示 -->
         <div class="hotkey-hint">
             <div><kbd>←</kbd><kbd>→</kbd> 翻页</div>
-            <div><kbd>Q</kbd> 题库 <kbd>D</kbd> 弹幕 <kbd>L</kbd> 点名</div>
-            <div><kbd>S</kbd> 侧栏 <kbd>C</kbd> 清除 <kbd>F</kbd> 全屏 <kbd>A</kbd> 中控</div>
+            <div><kbd>Q</kbd> 题库 <kbd>D</kbd> 弹幕 <kbd>S</kbd> 侧栏</div>
+            <div><kbd>C</kbd> 清除 <kbd>F</kbd> 全屏 <kbd>A</kbd> 中控</div>
         </div>
     </div>
     
@@ -688,14 +687,22 @@
     </div>
     
     <!-- 随机点名悬浮窗 -->
-    <div id="lucky-overlay" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); width:500px; background:linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d); border-radius:20px; padding:30px; box-shadow:0 20px 60px rgba(0,0,0,0.5); display:none; z-index:200; text-align:center;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-            <select id="lucky-class-select" onchange="switchLuckyClass()" style="padding:8px 15px; font-size:1rem; border-radius:20px; border:none; background:rgba(255,255,255,0.2); color:white; cursor:pointer;">
+    <div id="lucky-overlay" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); width:550px; background:linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d); border-radius:20px; padding:30px; box-shadow:0 20px 60px rgba(0,0,0,0.5); display:none; z-index:200; text-align:center;">
+        <!-- 当前题目信息 -->
+        <div id="lucky-question-info" style="background:rgba(0,0,0,0.3); border-radius:10px; padding:12px; margin-bottom:15px; text-align:left;">
+            <div style="font-size:0.85rem; color:rgba(255,255,255,0.7); margin-bottom:5px;">📝 当前题目</div>
+            <div id="lucky-question-title" style="font-size:1rem; color:white; font-weight:bold;">第 1 题：等待加载...</div>
+        </div>
+        
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <select id="lucky-class-select" onchange="switchLuckyClass()" style="padding:8px 15px; font-size:0.9rem; border-radius:20px; border:none; background:rgba(255,255,255,0.2); color:white; cursor:pointer; max-width:200px;">
             </select>
-            <div style="display:flex; gap:10px;">
-                <button onclick="toggleLuckyMute()" id="lucky-mute-btn" style="background:rgba(255,255,255,0.2); border:none; color:white; width:40px; height:40px; border-radius:50%; cursor:pointer; font-size:1.2rem;">🔊</button>
-                <button onclick="openLuckySettings()" style="background:rgba(255,255,255,0.2); border:none; color:white; width:40px; height:40px; border-radius:50%; cursor:pointer; font-size:1.2rem;">⚙️</button>
-                <button onclick="closeLuckyOverlay()" style="background:rgba(255,255,255,0.2); border:none; color:white; width:40px; height:40px; border-radius:50%; cursor:pointer; font-size:1.2rem;">✕</button>
+            <div id="lucky-count-info" style="font-size:0.9rem; color:#10b981; font-weight:bold;">已签到 0 人</div>
+            <div style="display:flex; gap:8px;">
+                <button onclick="loadAttendanceStudents()" title="刷新签到列表" style="background:rgba(255,255,255,0.2); border:none; color:white; width:36px; height:36px; border-radius:50%; cursor:pointer; font-size:1rem;">🔄</button>
+                <button onclick="toggleLuckyMute()" id="lucky-mute-btn" style="background:rgba(255,255,255,0.2); border:none; color:white; width:36px; height:36px; border-radius:50%; cursor:pointer; font-size:1rem;">🔊</button>
+                <button onclick="openLuckySettings()" title="自定义名单" style="background:rgba(255,255,255,0.2); border:none; color:white; width:36px; height:36px; border-radius:50%; cursor:pointer; font-size:1rem;">⚙️</button>
+                <button onclick="closeLuckyOverlay()" style="background:rgba(255,255,255,0.2); border:none; color:white; width:36px; height:36px; border-radius:50%; cursor:pointer; font-size:1rem;">✕</button>
             </div>
         </div>
         <div id="lucky-display" style="font-size:5rem; font-weight:bold; color:white; text-shadow:0 5px 15px rgba(0,0,0,0.5); min-height:100px; display:flex; align-items:center; justify-content:center; margin:20px 0;">
@@ -704,6 +711,9 @@
         <button id="lucky-action-btn" onclick="toggleLuckyRoll()" style="padding:15px 50px; font-size:1.5rem; border:none; border-radius:50px; cursor:pointer; background:white; color:#333; box-shadow:0 10px 20px rgba(0,0,0,0.3); font-weight:bold;">
             开始
         </button>
+        <div style="margin-top:15px; font-size:0.8rem; color:rgba(255,255,255,0.6);">
+            💡 点名后，被选中的同学将回答当前题目
+        </div>
     </div>
     
     <!-- 点名设置面板 -->
@@ -2340,6 +2350,17 @@
             document.getElementById('lucky-overlay').style.display = isLuckyVisible ? 'block' : 'none';
             if (isLuckyVisible) {
                 initLuckyData();
+                updateLuckyQuestionInfo();
+            }
+        }
+        
+        // 更新点名面板中的当前题目信息
+        function updateLuckyQuestionInfo() {
+            const titleEl = document.getElementById('lucky-question-title');
+            if (qpQuestion) {
+                titleEl.innerText = `第 ${qpRound} 题：${qpQuestion.title}`;
+            } else {
+                titleEl.innerText = `第 ${qpRound} 题：暂无题目`;
             }
         }
         
@@ -2353,44 +2374,106 @@
             }
         }
         
-        function initLuckyData() {
+        // 点名数据源类型：'attendance' = 已签到学生, 'custom' = 自定义名单
+        let luckyDataSource = 'attendance';
+        let attendanceStudents = []; // 已签到学生列表
+        
+        async function initLuckyData() {
+            // 默认从已签到学生中点名
+            await loadAttendanceStudents();
+            
+            // 同时加载自定义名单作为备选
             const saved = localStorage.getItem('lucky_classes_v2');
             if (saved) {
                 luckyData = JSON.parse(saved);
             } else {
-                luckyData = { "演示班级": ["张三", "李四", "王五", "赵六", "孙七"] };
+                luckyData = { "自定义名单": [] };
             }
             renderLuckySelect();
+        }
+        
+        // 加载今日已签到学生
+        async function loadAttendanceStudents() {
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const { data } = await supabaseClient.from('attendance')
+                    .select('student_name, student_id')
+                    .gte('created_at', today)
+                    .order('created_at', { ascending: true });
+                attendanceStudents = data || [];
+                updateLuckyDisplay();
+            } catch (e) {
+                console.error('加载签到学生失败:', e);
+                attendanceStudents = [];
+            }
+        }
+        
+        function updateLuckyDisplay() {
+            const display = document.getElementById('lucky-display');
+            const countInfo = document.getElementById('lucky-count-info');
+            
+            if (luckyDataSource === 'attendance') {
+                luckyNames = attendanceStudents.map(s => s.student_name);
+                if (countInfo) {
+                    countInfo.innerText = `已签到 ${luckyNames.length} 人`;
+                    countInfo.style.color = luckyNames.length > 0 ? '#10b981' : '#ef4444';
+                }
+            } else {
+                luckyNames = luckyData[luckyCurrentClass] || [];
+                if (countInfo) {
+                    countInfo.innerText = `${luckyCurrentClass}: ${luckyNames.length} 人`;
+                    countInfo.style.color = luckyNames.length > 0 ? '#10b981' : '#ef4444';
+                }
+            }
+            
+            display.innerText = luckyNames.length > 0 ? '准备点名' : '暂无学生';
+            display.style.color = 'white';
         }
         
         function renderLuckySelect() {
             const select = document.getElementById('lucky-class-select');
             select.innerHTML = '';
+            
+            // 添加"已签到学生"选项
+            const attendanceOpt = document.createElement('option');
+            attendanceOpt.value = '__attendance__';
+            attendanceOpt.innerText = `📋 已签到学生 (${attendanceStudents.length}人)`;
+            select.appendChild(attendanceOpt);
+            
+            // 添加分隔线
+            const separator = document.createElement('option');
+            separator.disabled = true;
+            separator.innerText = '── 自定义名单 ──';
+            select.appendChild(separator);
+            
+            // 添加自定义班级
             const keys = Object.keys(luckyData);
-            if (keys.length === 0) {
-                luckyData["默认班级"] = [];
-                keys.push("默认班级");
-            }
             keys.forEach(key => {
                 const opt = document.createElement('option');
                 opt.value = key;
-                opt.innerText = key;
+                opt.innerText = `${key} (${luckyData[key].length}人)`;
                 select.appendChild(opt);
             });
-            if (luckyCurrentClass && luckyData[luckyCurrentClass]) {
-                select.value = luckyCurrentClass;
-            } else {
-                select.value = keys[0];
-                luckyCurrentClass = keys[0];
-            }
+            
+            // 默认选择已签到学生
+            select.value = '__attendance__';
+            luckyDataSource = 'attendance';
             switchLuckyClass();
         }
         
         function switchLuckyClass() {
-            luckyCurrentClass = document.getElementById('lucky-class-select').value;
-            luckyNames = luckyData[luckyCurrentClass] || [];
-            document.getElementById('lucky-display').innerText = '准备点名';
-            document.getElementById('lucky-display').style.color = 'white';
+            const selectedValue = document.getElementById('lucky-class-select').value;
+            
+            if (selectedValue === '__attendance__') {
+                luckyDataSource = 'attendance';
+                luckyNames = attendanceStudents.map(s => s.student_name);
+            } else {
+                luckyDataSource = 'custom';
+                luckyCurrentClass = selectedValue;
+                luckyNames = luckyData[luckyCurrentClass] || [];
+            }
+            
+            updateLuckyDisplay();
         }
         
         function toggleLuckyMute() {
@@ -2402,7 +2485,11 @@
         
         function toggleLuckyRoll() {
             if (!luckyNames || luckyNames.length === 0) {
-                alert(`班级 "${luckyCurrentClass}" 是空的！请点击⚙️添加名单。`);
+                if (luckyDataSource === 'attendance') {
+                    alert('⚠️ 暂无已签到学生！\n\n请先让学生完成签到，或切换到自定义名单。');
+                } else {
+                    alert(`班级 "${luckyCurrentClass}" 是空的！请点击⚙️添加名单。`);
+                }
                 return;
             }
             
@@ -2426,10 +2513,14 @@
                     luckyWinSound.play();
                 }
                 
-                // 如果是从题库面板触发的点名，设置该学生为有权回答者
+                // 点名成功后，设置该学生为有权回答者
                 const selectedName = display.innerText;
-                if (qpMode === 'lucky' && isQuestionPanelVisible && selectedName) {
+                if (selectedName && qpQuestion) {
+                    // 触发彩带效果
+                    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                    
                     setTimeout(async () => {
+                        // 设置该学生为有权回答者，并跳转到答题页面
                         await supabaseClient.from('vote_config').update({ 
                             current_round: qpRound, 
                             is_active: true,
@@ -2437,6 +2528,12 @@
                             answer_mode: 'lucky'
                         }).eq('id', 1);
                         await supabaseClient.from('global_state').update({ status: 'active', current_page: 'vote.html' }).eq('id', 1);
+                        
+                        // 更新侧边栏显示
+                        document.getElementById('sb-qp-answer-mode-label').innerText = '🎰 点名回答';
+                        document.getElementById('sb-qp-answer-student').innerText = selectedName;
+                        document.getElementById('sb-qp-answer-result').style.display = 'block';
+                        
                         closeLuckyOverlay();
                     }, 1500);
                 }
