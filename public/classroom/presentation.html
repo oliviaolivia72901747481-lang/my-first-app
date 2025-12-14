@@ -852,18 +852,33 @@
             const oldPlayer = document.getElementById('media-player');
             if (oldPlayer) oldPlayer.remove();
             
-            // 创建视频播放器容器（放在presentation-container中，而不是slide-background）
+            // 创建视频播放器容器（放在presentation-container中）
             const container = document.querySelector('.presentation-container');
+            
+            // 创建一个包装div来确保视频正确显示
+            const wrapper = document.createElement('div');
+            wrapper.id = 'media-player';
+            wrapper.style.cssText = 'width:100%; height:100%; position:absolute; top:0; left:0; background:#000; z-index:5; display:flex; align-items:center; justify-content:center;';
+            
             const video = document.createElement('video');
-            video.id = 'media-player';
             video.src = src;
             video.controls = true;
             video.autoplay = false;
-            video.style.cssText = 'width:100%; height:100%; position:absolute; top:0; left:0; background:#000; z-index:5; object-fit:contain;';
-            container.appendChild(video);
+            video.playsInline = true;
+            video.style.cssText = 'max-width:100%; max-height:100%; width:auto; height:auto;';
             
-            // 确保视频加载后可以播放
-            video.load();
+            // 添加错误处理
+            video.onerror = function(e) {
+                console.error('视频加载错误:', e);
+                alert('视频加载失败，请检查文件格式');
+            };
+            
+            video.onloadeddata = function() {
+                console.log('视频加载成功，尺寸:', video.videoWidth, 'x', video.videoHeight);
+            };
+            
+            wrapper.appendChild(video);
+            container.appendChild(wrapper);
             
             document.getElementById('current-page').innerText = '1';
             document.getElementById('total-pages').innerText = '1';
