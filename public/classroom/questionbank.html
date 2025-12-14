@@ -3655,11 +3655,11 @@
             const select = document.getElementById('ai-gen-target-task');
             let options = '<option value="">请选择目标任务...</option>';
             
-            // 遍历课程、项目、任务层级
-            hierarchyData.courses.forEach(course => {
-                const courseProjects = hierarchyData.projects.filter(p => p.course_id === course.course_id);
+            // 遍历课程、项目、任务层级（使用全局变量 courses, projects, tasks）
+            courses.forEach(course => {
+                const courseProjects = projects.filter(p => p.course_id === course.course_id);
                 courseProjects.forEach(project => {
-                    const projectTasks = hierarchyData.tasks.filter(t => t.project_id === project.project_id);
+                    const projectTasks = tasks.filter(t => t.project_id === project.project_id);
                     projectTasks.forEach(task => {
                         options += `<option value="${task.task_id}">[${course.name}] ${project.name} / ${task.name}</option>`;
                     });
