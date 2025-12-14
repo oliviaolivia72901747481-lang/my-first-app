@@ -2379,8 +2379,8 @@
                             <div style="background:#10b981; color:white; padding:5px 12px; border-radius:6px; font-weight:bold;">${q.answer}</div>
                             <div style="display:flex; gap:5px;">
                                 <button onclick="showVersionHistory('${q.id}')" class="btn btn-secondary" style="padding:5px 10px; font-size:0.75rem;" title="版本历史">📜</button>
-                                <button onclick="editQuestion(${q.round})" class="btn btn-secondary" style="padding:5px 10px; font-size:0.75rem;">✏️ 编辑</button>
-                                <button onclick="deleteQuestion(${q.round})" class="btn btn-danger" style="padding:5px 10px; font-size:0.75rem;">🗑️</button>
+                                <button onclick="editQuestion('${q.id}')" class="btn btn-secondary" style="padding:5px 10px; font-size:0.75rem;">✏️ 编辑</button>
+                                <button onclick="deleteQuestion('${q.id}')" class="btn btn-danger" style="padding:5px 10px; font-size:0.75rem;">🗑️</button>
                             </div>
                         </div>
                     </div>
@@ -2528,8 +2528,8 @@
             }
         }
         
-        async function editQuestion(round) {
-            const { data: q } = await supabaseClient.from('questions').select('*').eq('round', round).single();
+        async function editQuestion(questionId) {
+            const { data: q } = await supabaseClient.from('questions').select('*').eq('id', questionId).single();
             if (!q) { alert('题目不存在'); return; }
             
             document.getElementById('question-modal-title').textContent = '✏️ 编辑题目';
@@ -2648,19 +2648,17 @@
             const editId = document.getElementById('edit-question-id').value;
             let oldTaskId = null;
             if (editId) {
-                const oldQuestion = questions.find(q => q.round === round);
+                const oldQuestion = questions.find(q => String(q.id) === String(editId));
                 if (oldQuestion) {
                     oldTaskId = oldQuestion.task_id;
                 }
             }
             
-            // 检查是否是编辑现有题目
-            const existingQuestion = questions.find(q => q.round === round);
             let error;
             
-            if (existingQuestion) {
-                // 更新现有题目
-                const result = await supabaseClient.from('questions').update(data).eq('round', round);
+            if (editId) {
+                // 更新现有题目（使用id）
+                const result = await supabaseClient.from('questions').update(data).eq('id', editId);
                 error = result.error;
             } else {
                 // 插入新题目
@@ -2686,14 +2684,16 @@
             alert('✅ 保存成功');
         }
         
-        async function deleteQuestion(round) {
-            if (!confirm(`确定要删除第 ${round} 题吗？`)) return;
+        async function deleteQuestion(questionId) {
+            // 获取题目信息
+            const question = questions.find(q => String(q.id) === String(questionId));
+            const roundNum = question ? question.round : '';
             
-            // 获取题目的task_id以便更新计数
-            const question = questions.find(q => q.round === round);
+            if (!confirm(`确定要删除第 ${roundNum} 题吗？`)) return;
+            
             const taskId = question ? question.task_id : null;
             
-            const { error } = await supabaseClient.from('questions').delete().eq('round', round);
+            const { error } = await supabaseClient.from('questions').delete().eq('id', questionId);
             if (error) {
                 alert('删除失败: ' + error.message);
                 return;
