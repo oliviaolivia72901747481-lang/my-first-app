@@ -589,7 +589,13 @@
                 <div id="ai-gen-result" style="display:none; margin-top:20px;">
                     <h4 style="margin-bottom:10px;">📝 生成结果 (<span id="ai-gen-result-count">0</span> 道题目)</h4>
                     <div id="ai-gen-result-list" style="max-height:300px; overflow-y:auto; background:rgba(0,0,0,0.2); border-radius:8px; padding:10px;"></div>
-                    <div style="display:flex; gap:10px; margin-top:15px;">
+                    <div style="margin-top:15px;">
+                        <label style="display:block; margin-bottom:8px; color:#94a3b8;">保存到任务</label>
+                        <select id="ai-gen-target-task" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white; margin-bottom:10px;">
+                            <option value="">请选择目标任务...</option>
+                        </select>
+                    </div>
+                    <div style="display:flex; gap:10px;">
                         <button onclick="saveGeneratedQuestions()" class="btn btn-success" style="flex:1;">💾 保存到题库</button>
                         <button onclick="clearGeneratedQuestions()" class="btn btn-secondary" style="flex:1;">🗑️ 清空</button>
                     </div>
@@ -3640,6 +3646,32 @@
                     <div style="font-size:0.85rem; color:#10b981; margin-top:5px;">答案: ${q.answer}</div>
                 </div>
             `).join('');
+            
+            // 填充目标任务选择器
+            populateTargetTaskSelect();
+        }
+        
+        function populateTargetTaskSelect() {
+            const select = document.getElementById('ai-gen-target-task');
+            let options = '<option value="">请选择目标任务...</option>';
+            
+            // 遍历课程、项目、任务层级
+            hierarchyData.courses.forEach(course => {
+                const courseProjects = hierarchyData.projects.filter(p => p.course_id === course.course_id);
+                courseProjects.forEach(project => {
+                    const projectTasks = hierarchyData.tasks.filter(t => t.project_id === project.project_id);
+                    projectTasks.forEach(task => {
+                        options += `<option value="${task.task_id}">[${course.name}] ${project.name} / ${task.name}</option>`;
+                    });
+                });
+            });
+            
+            select.innerHTML = options;
+            
+            // 如果当前已选择任务，自动选中
+            if (currentFilterType === 'task' && currentFilterId !== 'all') {
+                select.value = currentFilterId;
+            }
         }
         
         async function saveGeneratedQuestions() {
@@ -3648,11 +3680,11 @@
                 return;
             }
             
-            // 获取目标任务
-            const taskId = currentFilterType === 'task' && currentFilterId !== 'all' ? currentFilterId : null;
+            // 从选择器获取目标任务
+            const taskId = document.getElementById('ai-gen-target-task').value;
             
             if (!taskId) {
-                alert('请先在左侧选择一个任务，再保存生成的题目');
+                alert('请选择要保存到的目标任务');
                 return;
             }
             
@@ -3721,7 +3753,8 @@
                 return;
             }
             
-            currentOptimizeQuestion = currentDisplayedQuestions.find(q => q.id === questionId);
+            // 使用 == 进行比较，因为 questionId 是字符串，q.id 可能是数字
+            currentOptimizeQuestion = currentDisplayedQuestions.find(q => String(q.id) === String(questionId));
             if (!currentOptimizeQuestion) return;
             
             const q = currentOptimizeQuestion;
