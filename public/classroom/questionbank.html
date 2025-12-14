@@ -25,16 +25,6 @@
         /* 左侧分类栏 */
         .sidebar { background: #1e293b; border-radius: 15px; padding: 20px; height: fit-content; }
         .sidebar h3 { margin-bottom: 15px; color: #94a3b8; font-size: 0.9rem; }
-        .category-list { display: flex; flex-direction: column; gap: 8px; }
-        .category-item { display: flex; align-items: center; padding: 12px 15px; background: rgba(255,255,255,0.05); border-radius: 10px; cursor: pointer; transition: all 0.2s; }
-        .category-item:hover { background: rgba(255,255,255,0.1); }
-        .category-item.active { background: rgba(59,130,246,0.3); border-left: 3px solid #3b82f6; }
-        .category-color { width: 12px; height: 12px; border-radius: 50%; margin-right: 10px; }
-        .category-name { flex: 1; font-size: 0.95rem; }
-        .category-count { background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; }
-        .add-category { margin-top: 15px; padding: 12px; background: rgba(16,185,129,0.2); border: 2px dashed #10b981; border-radius: 10px; text-align: center; cursor: pointer; color: #10b981; }
-        .add-category:hover { background: rgba(16,185,129,0.3); }
-        
         /* 三级树形导航样式 */
         .hierarchy-tree { display: flex; flex-direction: column; gap: 4px; }
         .tree-node { user-select: none; }
@@ -459,47 +449,6 @@
         </div>
     </div>
 
-    <!-- 添加分类弹窗 -->
-    <div id="category-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
-        <div style="background:#1e293b; border-radius:20px; padding:30px; width:90%; max-width:500px;">
-            <h2 style="margin-bottom:20px;" id="category-modal-title">➕ 新建分类</h2>
-            <input type="hidden" id="edit-category-id">
-            <div style="margin-bottom:15px;">
-                <label style="display:block; margin-bottom:8px; color:#94a3b8;">分类名称 *</label>
-                <input type="text" id="category-name" placeholder="如：土壤水分测定、重金属检测" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
-            </div>
-            <div style="margin-bottom:15px;">
-                <label style="display:block; margin-bottom:8px; color:#94a3b8;">所属课程</label>
-                <select id="category-course" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
-                    <option value="">不属于任何课程</option>
-                </select>
-            </div>
-            <div style="margin-bottom:15px;">
-                <label style="display:block; margin-bottom:8px; color:#94a3b8;">学科</label>
-                <input type="text" id="category-subject" placeholder="如：环境科学" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
-            </div>
-            <div style="margin-bottom:15px;">
-                <label style="display:block; margin-bottom:8px; color:#94a3b8;">描述</label>
-                <textarea id="category-desc" placeholder="分类描述（可选）" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white; min-height:80px; resize:vertical;"></textarea>
-            </div>
-            <div style="margin-bottom:20px;">
-                <label style="display:block; margin-bottom:8px; color:#94a3b8;">显示颜色</label>
-                <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                    <label style="cursor:pointer;"><input type="radio" name="category-color" value="#3b82f6" checked style="display:none;"><span class="color-option" style="display:block; width:30px; height:30px; border-radius:50%; background:#3b82f6; border:3px solid transparent;"></span></label>
-                    <label style="cursor:pointer;"><input type="radio" name="category-color" value="#10b981" style="display:none;"><span class="color-option" style="display:block; width:30px; height:30px; border-radius:50%; background:#10b981; border:3px solid transparent;"></span></label>
-                    <label style="cursor:pointer;"><input type="radio" name="category-color" value="#f59e0b" style="display:none;"><span class="color-option" style="display:block; width:30px; height:30px; border-radius:50%; background:#f59e0b; border:3px solid transparent;"></span></label>
-                    <label style="cursor:pointer;"><input type="radio" name="category-color" value="#ef4444" style="display:none;"><span class="color-option" style="display:block; width:30px; height:30px; border-radius:50%; background:#ef4444; border:3px solid transparent;"></span></label>
-                    <label style="cursor:pointer;"><input type="radio" name="category-color" value="#8b5cf6" style="display:none;"><span class="color-option" style="display:block; width:30px; height:30px; border-radius:50%; background:#8b5cf6; border:3px solid transparent;"></span></label>
-                    <label style="cursor:pointer;"><input type="radio" name="category-color" value="#ec4899" style="display:none;"><span class="color-option" style="display:block; width:30px; height:30px; border-radius:50%; background:#ec4899; border:3px solid transparent;"></span></label>
-                </div>
-            </div>
-            <div style="display:flex; gap:10px;">
-                <button onclick="saveCategory()" class="btn btn-success" style="flex:1;">💾 保存</button>
-                <button onclick="closeCategoryModal()" class="btn btn-secondary" style="flex:1;">取消</button>
-            </div>
-        </div>
-    </div>
-
     <!-- 添加/编辑题目弹窗 -->
     <div id="question-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
         <div style="background:#1e293b; border-radius:20px; padding:30px; width:90%; max-width:700px; max-height:90vh; overflow-y:auto;">
@@ -606,8 +555,6 @@
         let currentTask = 'all';
         let currentFilterType = 'all'; // 'all', 'course', 'project', 'task'
         let currentFilterId = 'all';
-        let categories = [];
-        let currentCategory = 'all';
         let questions = [];
         let pendingImport = [];
         // 树展开状态
@@ -639,17 +586,6 @@
         
         // 设置颜色选择器
         function setupColorPicker() {
-            // 分类颜色选择器
-            document.querySelectorAll('input[name="category-color"]').forEach(input => {
-                input.addEventListener('change', () => {
-                    document.querySelectorAll('.color-option').forEach(opt => opt.style.borderColor = 'transparent');
-                    input.nextElementSibling.style.borderColor = 'white';
-                });
-            });
-            // 默认选中第一个
-            const firstColorOpt = document.querySelector('.color-option');
-            if (firstColorOpt) firstColorOpt.style.borderColor = 'white';
-            
             // 课程颜色选择器
             document.querySelectorAll('input[name="course-color"]').forEach(input => {
                 input.addEventListener('change', () => {
@@ -723,12 +659,6 @@
         }
         
         function updateCourseSelects() {
-            // 更新分类弹窗中的课程选择
-            const catCourseSelect = document.getElementById('category-course');
-            if (catCourseSelect) {
-                catCourseSelect.innerHTML = '<option value="">不属于任何课程</option>' + 
-                    courses.map(c => `<option value="${c.course_id}">${c.name}</option>`).join('');
-            }
             // 更新项目弹窗中的课程选择
             const projCourseSelect = document.getElementById('project-course');
             if (projCourseSelect) {
@@ -1567,13 +1497,6 @@
             }
         }
         
-        function selectCourse(courseId) {
-            currentCourse = courseId;
-            currentCategory = 'all';
-            loadCategories();
-            loadQuestions();
-        }
-        
         function openAddCourse() {
             document.getElementById('course-modal-title').textContent = '➕ 新建课程';
             document.getElementById('edit-course-id').value = '';
@@ -1778,177 +1701,6 @@
             }).join('');
         }
         
-        // ================== 分类管理 ==================
-        async function loadCategories() {
-            let query = supabaseClient.from('question_categories').select('*').order('sort_order');
-            
-            // 如果选择了特定课程，只显示该课程的分类
-            if (currentCourse !== 'all') {
-                query = query.eq('course_id', currentCourse);
-            }
-            
-            const { data, error } = await query;
-            if (error) {
-                console.error('加载分类失败:', error);
-                if (error.code === '42P01') {
-                    alert('请先执行 questionbank_v2.sql 创建数据库表');
-                }
-                return;
-            }
-            categories = data || [];
-            renderCategories();
-            updateCategorySelects();
-        }
-        
-        function renderCategories() {
-            const list = document.getElementById('category-list');
-            const totalCount = questions.length;
-            
-            // 按课程分组显示分类
-            let html = `
-                <div class="category-item ${currentCategory === 'all' ? 'active' : ''}" data-id="all" onclick="selectCategory('all')">
-                    <div class="category-color" style="background:#3b82f6;"></div>
-                    <span class="category-name">全部题目</span>
-                    <span class="category-count" id="total-count">${totalCount}</span>
-                </div>
-            `;
-            
-            if (currentCourse === 'all') {
-                // 显示所有课程的分类，按课程分组
-                courses.forEach(course => {
-                    const courseCats = categories.filter(c => c.course_id === course.course_id);
-                    if (courseCats.length > 0) {
-                        html += `<div style="font-size:0.75rem; color:${course.color}; margin:15px 0 8px 0; font-weight:bold;">${course.icon || '📖'} ${course.name}</div>`;
-                        courseCats.forEach(cat => {
-                            const count = questions.filter(q => q.category_id === cat.category_id).length;
-                            html += renderCategoryItem(cat, count);
-                        });
-                    }
-                });
-                
-                // 未分类的分类
-                const uncategorized = categories.filter(c => !c.course_id);
-                if (uncategorized.length > 0) {
-                    html += `<div style="font-size:0.75rem; color:#94a3b8; margin:15px 0 8px 0; font-weight:bold;">📁 未归类</div>`;
-                    uncategorized.forEach(cat => {
-                        const count = questions.filter(q => q.category_id === cat.category_id).length;
-                        html += renderCategoryItem(cat, count);
-                    });
-                }
-            } else {
-                // 只显示当前课程的分类
-                categories.forEach(cat => {
-                    const count = questions.filter(q => q.category_id === cat.category_id).length;
-                    html += renderCategoryItem(cat, count);
-                });
-            }
-            
-            list.innerHTML = html;
-        }
-        
-        function renderCategoryItem(cat, count) {
-            return `
-                <div class="category-item ${currentCategory === cat.category_id ? 'active' : ''}" data-id="${cat.category_id}" onclick="selectCategory('${cat.category_id}')">
-                    <div class="category-color" style="background:${cat.color};"></div>
-                    <span class="category-name">${cat.name}</span>
-                    <span class="category-count">${count}</span>
-                    <button onclick="event.stopPropagation(); editCategory('${cat.category_id}')" style="background:none; border:none; color:#94a3b8; cursor:pointer; padding:2px 5px;">✏️</button>
-                </div>
-            `;
-        }
-        
-        function selectCategory(id) {
-            currentCategory = id;
-            renderCategories();
-            loadQuestions();
-        }
-        
-        function updateCategorySelects() {
-            // Note: import-category and q-category have been replaced with cascading task selectors
-            // This function is kept for backward compatibility with category management
-        }
-        
-        function openAddCategory() {
-            document.getElementById('category-modal-title').textContent = '➕ 新建分类';
-            document.getElementById('edit-category-id').value = '';
-            document.getElementById('category-name').value = '';
-            document.getElementById('category-subject').value = '';
-            document.getElementById('category-desc').value = '';
-            // 更新课程选择列表
-            updateCourseSelects();
-            // 如果当前选择了课程，默认选中该课程
-            const catCourseSelect = document.getElementById('category-course');
-            if (catCourseSelect) {
-                catCourseSelect.value = currentCourse !== 'all' ? currentCourse : '';
-            }
-            // 重置颜色选择
-            document.querySelectorAll('.color-option').forEach(opt => opt.style.borderColor = 'transparent');
-            document.querySelector('.color-option').style.borderColor = 'white';
-            document.querySelector('input[name="category-color"]').checked = true;
-            document.getElementById('category-modal').style.display = 'flex';
-        }
-        
-        async function editCategory(id) {
-            // 需要从数据库重新获取，因为可能不在当前筛选的categories中
-            const { data: cat } = await supabaseClient.from('question_categories').select('*').eq('category_id', id).single();
-            if (!cat) return;
-            
-            document.getElementById('category-modal-title').textContent = '✏️ 编辑分类';
-            document.getElementById('edit-category-id').value = id;
-            document.getElementById('category-name').value = cat.name;
-            document.getElementById('category-subject').value = cat.subject || '';
-            document.getElementById('category-desc').value = cat.description || '';
-            
-            // 更新课程选择列表并选中
-            updateCourseSelects();
-            const catCourseSelect = document.getElementById('category-course');
-            if (catCourseSelect) {
-                catCourseSelect.value = cat.course_id || '';
-            }
-            
-            // 选中对应颜色
-            document.querySelectorAll('input[name="category-color"]').forEach(input => {
-                if (input.value === cat.color) {
-                    input.checked = true;
-                    input.nextElementSibling.style.borderColor = 'white';
-                } else {
-                    input.nextElementSibling.style.borderColor = 'transparent';
-                }
-            });
-            
-            document.getElementById('category-modal').style.display = 'flex';
-        }
-        
-        function closeCategoryModal() {
-            document.getElementById('category-modal').style.display = 'none';
-        }
-        
-        async function saveCategory() {
-            const id = document.getElementById('edit-category-id').value;
-            const name = document.getElementById('category-name').value.trim();
-            const courseId = document.getElementById('category-course').value || null;
-            const subject = document.getElementById('category-subject').value.trim();
-            const description = document.getElementById('category-desc').value.trim();
-            const color = document.querySelector('input[name="category-color"]:checked')?.value || '#3b82f6';
-            
-            if (!name) { alert('请输入分类名称'); return; }
-            
-            const data = { name, course_id: courseId, subject, description, color };
-            
-            if (id) {
-                const { error } = await supabaseClient.from('question_categories').update(data).eq('category_id', id);
-                if (error) { alert('更新失败: ' + error.message); return; }
-            } else {
-                const { error } = await supabaseClient.from('question_categories').insert([data]);
-                if (error) { alert('创建失败: ' + error.message); return; }
-            }
-            
-            closeCategoryModal();
-            loadCategories();
-            loadCourses(); // 刷新课程统计
-            alert('✅ 保存成功');
-        }
-
         // ================== 题目管理 ==================
         async function loadQuestions() {
             let query = supabaseClient.from('questions').select('*').order('round');
