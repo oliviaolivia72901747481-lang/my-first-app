@@ -3688,16 +3688,15 @@
                 return;
             }
             
-            // 获取该任务下最大的序号
+            // 获取全局最大的序号（跨所有任务，确保round全局唯一）
             const { data: existingQuestions } = await supabaseClient
                 .from('questions')
                 .select('round')
-                .eq('task_id', taskId)
                 .not('round', 'is', null)
                 .order('round', { ascending: false })
                 .limit(1);
             
-            // 计算下一个可用序号
+            // 计算下一个可用序号（全局唯一）
             let nextRound = 1;
             if (existingQuestions && existingQuestions.length > 0 && existingQuestions[0].round) {
                 nextRound = existingQuestions[0].round + 1;
