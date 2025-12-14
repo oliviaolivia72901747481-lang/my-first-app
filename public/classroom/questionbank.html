@@ -12,6 +12,7 @@
     <script src="js/version-history.js"></script>
     <script src="js/question-templates.js"></script>
     <script src="js/ai-assistant.js"></script>
+    <script src="js/question-dedup.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: white; min-height: 100vh; }
@@ -2628,6 +2629,22 @@
                 return;
             }
             
+            // 重复检测
+            const editId = document.getElementById('edit-question-id').value;
+            const newQuestion = { id: editId || null, title };
+            const dupResult = QuestionDedup.checkDuplicate(newQuestion, questions);
+            
+            if (dupResult.isDuplicate) {
+                const topSimilar = dupResult.similarQuestions[0];
+                const confirmMsg = `⚠️ 发现相似题目（相似度 ${topSimilar.similarityPercent}%）：\n\n` +
+                    `"${topSimilar.question.title.substring(0, 100)}${topSimilar.question.title.length > 100 ? '...' : ''}"\n\n` +
+                    `是否仍要保存？`;
+                
+                if (!confirm(confirmMsg)) {
+                    return;
+                }
+            }
+            
             const data = {
                 round,
                 question_type: type,
@@ -2645,7 +2662,6 @@
             };
             
             // 获取旧题目的task_id（如果是编辑操作）
-            const editId = document.getElementById('edit-question-id').value;
             let oldTaskId = null;
             if (editId) {
                 const oldQuestion = questions.find(q => String(q.id) === String(editId));
@@ -3708,6 +3724,19 @@
                 round: nextRound + i,
                 task_id: taskId
             }));
+            
+            // 重复检测
+            const dupResults = QuestionDedup.checkDuplicateBatch(questionsToInsert, questions);
+            const dupReport = QuestionDedup.generateBatchReport(dupResults);
+            
+            if (dupReport.duplicateCount > 0) {
+                const confirmMsg = `⚠️ 发现 ${dupReport.duplicateCount} 个可能重复的题目，${dupReport.uniqueCount} 个唯一题目。\n\n是否仍要保存所有题目？`;
+                if (!confirm(confirmMsg)) {
+                    // 显示详细报告
+                    document.getElementById('ai-gen-result-list').innerHTML += dupReport.html;
+                    return;
+                }
+            }
             
             const { error } = await supabaseClient.from('questions').insert(questionsToInsert);
             
