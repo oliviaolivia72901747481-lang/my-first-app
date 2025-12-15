@@ -871,11 +871,16 @@ class HazwasteDetective {
         // 加载案件库
         this.loadCaseLibrary();
         
+        // 设置自动保存事件监听器
+        // Requirements: 7.1 - 自动保存游戏状态到localStorage
+        this.setupAutoSave();
+        
         // 检查是否有保存的进度
         const savedState = this.loadProgress();
         
         if (savedState) {
             // 有保存的进度，询问是否继续
+            // Requirements: 7.2 - 提供继续/重新开始选项
             this.showContinuePrompt(savedState);
         } else {
             // 检查是否首次访问
@@ -889,6 +894,34 @@ class HazwasteDetective {
         
         this.isInitialized = true;
         console.log('✅ 游戏初始化完成');
+    }
+    
+    /**
+     * 设置自动保存事件监听器
+     * Requirements: 7.1 - 学生中途退出游戏时自动保存当前进度到本地存储
+     */
+    setupAutoSave() {
+        // 页面关闭或刷新前保存进度
+        window.addEventListener('beforeunload', () => {
+            if (this.hasUnsavedProgress()) {
+                this.saveProgress();
+            }
+        });
+        
+        // 页面可见性变化时保存进度（切换标签页）
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden' && this.hasUnsavedProgress()) {
+                this.saveProgress();
+            }
+        });
+        
+        // 定期自动保存（每30秒）
+        this.autoSaveInterval = setInterval(() => {
+            if (this.hasUnsavedProgress()) {
+                this.saveProgress();
+                console.log('⏰ 自动保存进度');
+            }
+        }, 30000);
     }
 
     // ==================== 本地存储操作 ====================
@@ -1400,6 +1433,16 @@ class HazwasteDetective {
         // 更新案件标识
         document.getElementById('case-badge').textContent = `案件 #${this.currentCase.id.split('_')[1] || '001'}`;
         
+        // 更新案件名称和描述 - Requirements: 1.2
+        const caseNameEl = document.getElementById('case-name');
+        const caseDescEl = document.getElementById('case-description');
+        if (caseNameEl) {
+            caseNameEl.textContent = this.currentCase.name || '未命名案件';
+        }
+        if (caseDescEl) {
+            caseDescEl.textContent = this.currentCase.description || '';
+        }
+        
         // 更新卷宗内容
         document.getElementById('waste-source').textContent = cf.wasteSource;
         document.getElementById('waste-appearance').textContent = cf.appearance;
@@ -1412,13 +1455,27 @@ class HazwasteDetective {
         if (cf.preliminaryData.moisture !== undefined) prelimData.push(`含水率: ${cf.preliminaryData.moisture}%`);
         document.getElementById('preliminary-data').textContent = prelimData.join(' | ') || '无';
         
-        // 照片
+        // 其他信息 - Requirements: 1.2
+        const additionalInfoSection = document.getElementById('additional-info-section');
+        const additionalInfoEl = document.getElementById('additional-info');
+        if (cf.additionalInfo && cf.additionalInfo.trim()) {
+            additionalInfoSection.style.display = 'block';
+            additionalInfoEl.textContent = cf.additionalInfo;
+        } else {
+            additionalInfoSection.style.display = 'none';
+        }
+        
+        // 照片 - Requirements: 1.4
         const photoSection = document.getElementById('photo-section');
         const photoGallery = document.getElementById('photo-gallery');
+        const photoCount = document.getElementById('photo-count');
         if (cf.photos && cf.photos.length > 0) {
             photoSection.style.display = 'block';
-            photoGallery.innerHTML = cf.photos.map(url => 
-                `<img src="${url}" class="photo-thumb" onclick="viewPhoto('${url}')" alt="废物照片" />`
+            if (photoCount) {
+                photoCount.textContent = `(${cf.photos.length}张)`;
+            }
+            photoGallery.innerHTML = cf.photos.map((url, index) => 
+                `<img src="${url}" class="photo-thumb" onclick="viewPhoto('${url}')" alt="废物照片 ${index + 1}" title="点击放大查看" />`
             ).join('');
         } else {
             photoSection.style.display = 'none';
@@ -1429,6 +1486,12 @@ class HazwasteDetective {
         const diffBadge = document.getElementById('difficulty-badge');
         diffBadge.innerHTML = `<span class="diff-icon">${'⭐'.repeat(diffConfig.stars)}</span><span class="diff-text">${diffConfig.name}</span>`;
         diffBadge.style.background = diffConfig.color;
+        
+        // 预算额度 - Requirements: 1.5
+        const budgetBadge = document.getElementById('case-budget-text');
+        if (budgetBadge) {
+            budgetBadge.textContent = this.currentCase.budget.toLocaleString();
+        }
     }
 
     /**
@@ -1625,6 +1688,7 @@ class HazwasteDetective {
     
     /**
      * 显示继续游戏提示
+     * Requirements: 7.2 - 检测是否有未完成的游戏，提供继续/重新开始选项
      * @param {GameState} savedState
      */
     showContinuePrompt(savedState) {
@@ -1635,21 +1699,133 @@ class HazwasteDetective {
             return;
         }
         
-        if (confirm(`发现未完成的游戏进度：\n案件：${caseData.name}\n已收集线索：${savedState.purchasedItems.length}条\n剩余预算：${savedState.remainingBudget}\n\n是否继续？`)) {
-            // 恢复进度
-            this.currentCase = caseData;
-            this.gameState = savedState;
-            this.gameState.startTime = Date.now() - (savedState.elapsedTime * 1000);
-            
-            this.renderCaseFile();
-            this.renderClues();
-            this.updateBudgetDisplay();
-            this.startTimer();
-        } else {
-            // 重新开始
-            this.clearProgress();
-            this.loadCase(this.caseLibrary[0]?.id || 'case_001');
+        // 格式化用时显示
+        const minutes = Math.floor(savedState.elapsedTime / 60);
+        const seconds = savedState.elapsedTime % 60;
+        const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        
+        // 创建继续游戏提示模态框
+        const modalHtml = `
+            <div class="modal-overlay active" id="continue-modal" style="z-index: 1001;">
+                <div class="modal-content" style="width: 500px;">
+                    <div class="modal-header">
+                        <div class="modal-title">📂 发现未完成的游戏</div>
+                    </div>
+                    <div class="modal-body" style="text-align: center;">
+                        <div style="font-size: 4rem; margin-bottom: 20px;">🔍</div>
+                        <h3 style="margin-bottom: 20px; color: var(--detective-gold);">${caseData.name}</h3>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 25px;">
+                            <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;">
+                                <div style="font-size: 1.5rem; font-weight: bold; color: var(--detective-accent);">${savedState.purchasedItems.length}</div>
+                                <div style="font-size: 0.85rem; color: var(--text-muted);">已收集线索</div>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;">
+                                <div style="font-size: 1.5rem; font-weight: bold; color: var(--detective-gold);">${savedState.remainingBudget.toLocaleString()}</div>
+                                <div style="font-size: 0.85rem; color: var(--text-muted);">剩余预算</div>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;">
+                                <div style="font-size: 1.5rem; font-weight: bold; color: var(--detective-blue);">${timeStr}</div>
+                                <div style="font-size: 0.85rem; color: var(--text-muted);">已用时间</div>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 15px;">
+                            <button onclick="game.continueGame()" style="
+                                flex: 1;
+                                padding: 15px;
+                                border: none;
+                                border-radius: 10px;
+                                background: linear-gradient(135deg, var(--detective-green) 0%, #238b7e 100%);
+                                color: white;
+                                font-size: 1rem;
+                                font-weight: bold;
+                                cursor: pointer;
+                                transition: all 0.2s;
+                            " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                                ▶️ 继续游戏
+                            </button>
+                            <button onclick="game.startNewGame()" style="
+                                flex: 1;
+                                padding: 15px;
+                                border: 2px solid var(--detective-accent);
+                                border-radius: 10px;
+                                background: transparent;
+                                color: var(--detective-accent);
+                                font-size: 1rem;
+                                font-weight: bold;
+                                cursor: pointer;
+                                transition: all 0.2s;
+                            " onmouseover="this.style.background='rgba(233, 69, 96, 0.1)'" onmouseout="this.style.background='transparent'">
+                                🔄 重新开始
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // 添加模态框到页面
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // 保存待恢复的状态
+        this._pendingSavedState = savedState;
+        this._pendingCaseData = caseData;
+    }
+    
+    /**
+     * 继续之前的游戏
+     * Requirements: 7.2 - 继续上次进度
+     */
+    continueGame() {
+        if (!this._pendingSavedState || !this._pendingCaseData) return;
+        
+        // 恢复进度
+        this.currentCase = this._pendingCaseData;
+        this.gameState = this._pendingSavedState;
+        // 恢复计时器起始时间，使得计时能够继续
+        this.gameState.startTime = Date.now() - (this._pendingSavedState.elapsedTime * 1000);
+        
+        this.renderCaseFile();
+        this.renderClues();
+        this.updateBudgetDisplay();
+        this.startTimer();
+        
+        // 关闭模态框
+        const modal = document.getElementById('continue-modal');
+        if (modal) modal.remove();
+        
+        // 清理临时状态
+        this._pendingSavedState = null;
+        this._pendingCaseData = null;
+        
+        this.showToast('游戏进度已恢复', 'success');
+    }
+    
+    /**
+     * 开始新游戏（放弃之前的进度）
+     * Requirements: 7.2 - 重新开始选项
+     */
+    startNewGame() {
+        // 清除保存的进度
+        this.clearProgress();
+        
+        // 关闭模态框
+        const modal = document.getElementById('continue-modal');
+        if (modal) modal.remove();
+        
+        // 清理临时状态
+        this._pendingSavedState = null;
+        this._pendingCaseData = null;
+        
+        // 检查是否首次访问
+        if (this.isFirstVisit()) {
+            this.showRulesModal();
+            this.markVisited();
         }
+        
+        // 加载默认案件
+        this.loadCase(this.caseLibrary[0]?.id || 'case_001');
     }
     
     /**
@@ -2553,6 +2729,34 @@ class HazwasteDetective {
         }, 100);
     }
     
+    /**
+     * 打开知识库并展示指定分类
+     * Requirements: 5.7 - 显示相关知识点链接
+     * @param {string} category - 分类键名（如 'corrosivity', 'leaching_toxicity' 等）
+     */
+    showKnowledgeCategory(category) {
+        // 关闭结果模态框
+        closeModal('result-modal');
+        
+        // 打开知识库模态框
+        this.openKnowledgeBase();
+        openModal('knowledge-modal');
+        
+        // 延迟执行以确保DOM已渲染
+        setTimeout(() => {
+            // 展开对应分类
+            this.toggleKnowledgeCategory(category);
+            
+            // 滚动到分类位置
+            const categoryEl = document.querySelector(`[data-category="${category}"]`);
+            if (categoryEl) {
+                categoryEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // 添加高亮动画
+                categoryEl.style.animation = 'highlight-pulse 1s ease-out';
+            }
+        }, 100);
+    }
+    
     // ==================== 术语解释系统 ====================
     // Requirements: 3.2, 3.3 - 专业术语悬停tooltip和检测项目详情中显示适用场景
     
@@ -3078,6 +3282,23 @@ class HazwasteDetective {
         // 保存记录
         this.saveGameRecord(scoreResult);
         
+        // 如果在竞赛模式中，提交成绩到排行榜
+        // Requirements: 8.3 - 学生提交后实时更新排行榜
+        if (typeof competitionManager !== 'undefined' && competitionManager.getCurrentCompetition()) {
+            const studentId = this.getStudentId();
+            const studentName = this.getStudentName();
+            const detectionPath = this.gameState.purchasedItems.map(p => p.itemId);
+            
+            competitionManager.submitScore(
+                studentId,
+                studentName,
+                scoreResult.totalScore,
+                this.gameState.elapsedTime,
+                scoreResult.grade,
+                detectionPath
+            );
+        }
+        
         // 清除进度
         this.clearProgress();
         
@@ -3087,6 +3308,34 @@ class HazwasteDetective {
         // 显示结果
         // Requirements: 4.5, 4.6 - 显示成功/失败结局
         this.showResult(validationResult.isCorrect, scoreResult, validationResult.details);
+    }
+    
+    /**
+     * 获取学生ID（用于竞赛模式）
+     * @returns {string}
+     */
+    getStudentId() {
+        // 尝试从localStorage获取学生ID
+        let studentId = localStorage.getItem('hazwaste_student_id');
+        if (!studentId) {
+            studentId = 'student_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('hazwaste_student_id', studentId);
+        }
+        return studentId;
+    }
+    
+    /**
+     * 获取学生姓名（用于竞赛模式）
+     * @returns {string}
+     */
+    getStudentName() {
+        // 尝试从localStorage获取学生姓名
+        let studentName = localStorage.getItem('hazwaste_student_name');
+        if (!studentName) {
+            studentName = '学生' + Math.floor(Math.random() * 1000);
+            localStorage.setItem('hazwaste_student_name', studentName);
+        }
+        return studentName;
     }
 
     /**
@@ -3199,20 +3448,23 @@ class HazwasteDetective {
         // 检查成就 - Requirements: 5.3
         const achievements = calculator.getAchievements(state, isCorrect, purchasedIds, caseData.optimalPath);
         
-        // 生成反馈 - Requirements: 5.5, 5.7
-        const feedback = this.generateFeedback(totalScore, isCorrect);
+        // 构建分项得分对象
+        const breakdown = {
+            accuracy: Math.round(accuracyScore),
+            budgetEfficiency: Math.round(budgetScore),
+            pathRationality: Math.round(pathScore),
+            timeScore: Math.round(timeScore)
+        };
+        
+        // 生成反馈 - Requirements: 5.5, 5.7 - 传入分项得分以生成针对性建议
+        const feedback = this.generateFeedback(totalScore, isCorrect, breakdown);
         
         // 生成路径对比 - Requirements: 3.5, 5.5
         const optimalPathComparison = calculator.generatePathComparison(purchasedIds, caseData.optimalPath, spent, caseData.optimalCost, this.detectionItems);
         
         return {
             totalScore,
-            breakdown: {
-                accuracy: Math.round(accuracyScore),
-                budgetEfficiency: Math.round(budgetScore),
-                pathRationality: Math.round(pathScore),
-                timeScore: Math.round(timeScore)
-            },
+            breakdown,
             grade,
             achievements,
             feedback,
@@ -3225,10 +3477,11 @@ class HazwasteDetective {
      * Requirements: 5.5, 5.7 - 生成文字反馈和改进建议
      * @param {number} score - 总分
      * @param {boolean} isCorrect - 判定是否正确
+     * @param {Object} [breakdown] - 分项得分（可选）
      * @returns {Feedback} 反馈对象
      */
-    generateFeedback(score, isCorrect) {
-        // Requirements: 5.7 - 得分低于60分显示详细的改进建议
+    generateFeedback(score, isCorrect, breakdown = null) {
+        // Requirements: 5.7 - 得分低于60分显示详细的改进建议和相关知识点链接
         if (!isCorrect) {
             return {
                 title: '判定失误',
@@ -3238,30 +3491,122 @@ class HazwasteDetective {
                     '注意分析废物来源和产生工艺特征',
                     '关注超标检测项目与危险特性的对应关系',
                     '建议重新挑战本案件，加深理解'
-                ]
+                ],
+                knowledgeLinks: this.getRelevantKnowledgeLinks()
             };
         }
         
-        // Requirements: 5.6 - 得分达到90分以上显示"金牌侦探"成就
+        // Requirements: 5.6 - 得分达到90分以上显示"金牌侦探"成就和庆祝动画
         if (score >= 90) {
             return {
                 title: '完美破案！',
                 message: '你展现了出色的危废鉴别能力，高效精准地完成了任务！',
-                suggestions: []
+                suggestions: [],
+                knowledgeLinks: []
             };
         } else if (score >= 70) {
+            // 银牌侦探 - 提供针对性建议
+            const suggestions = this.generateTargetedSuggestions(breakdown);
             return {
                 title: '案件告破',
                 message: '你成功完成了鉴别任务，但还有提升空间。',
-                suggestions: ['尝试减少不必要的检测', '提高检测选择的针对性']
+                suggestions: suggestions.length > 0 ? suggestions : ['尝试减少不必要的检测', '提高检测选择的针对性'],
+                knowledgeLinks: []
             };
-        } else {
+        } else if (score >= 60) {
+            // 铜牌侦探 - 提供更多建议
+            const suggestions = this.generateTargetedSuggestions(breakdown);
             return {
                 title: '勉强过关',
                 message: '虽然判定正确，但检测效率有待提高。',
-                suggestions: ['学习更多危废鉴别知识', '分析最优检测路径', '控制预算使用']
+                suggestions: suggestions.length > 0 ? suggestions : ['学习更多危废鉴别知识', '分析最优检测路径', '控制预算使用'],
+                knowledgeLinks: []
+            };
+        } else {
+            // Requirements: 5.7 - 得分低于60分显示详细的改进建议和相关知识点链接
+            const suggestions = this.generateTargetedSuggestions(breakdown);
+            return {
+                title: '需要加强学习',
+                message: '判定正确但效率较低，建议系统学习危废鉴别知识。',
+                suggestions: suggestions.length > 0 ? suggestions : [
+                    '深入学习GB 5085系列标准',
+                    '理解各类检测项目的适用场景',
+                    '掌握危险特性与检测指标的对应关系',
+                    '多练习案例，积累鉴别经验'
+                ],
+                knowledgeLinks: this.getRelevantKnowledgeLinks()
             };
         }
+    }
+    
+    /**
+     * 根据分项得分生成针对性建议
+     * Requirements: 5.5, 5.7 - 生成改进建议
+     * @param {Object} breakdown - 分项得分
+     * @returns {string[]} 建议列表
+     */
+    generateTargetedSuggestions(breakdown) {
+        const suggestions = [];
+        
+        if (!breakdown) return suggestions;
+        
+        // 预算效率低于70分
+        if (breakdown.budgetEfficiency < 70) {
+            suggestions.push('💰 预算使用效率较低，尝试减少不必要的检测项目');
+        }
+        
+        // 路径合理性低于70分
+        if (breakdown.pathRationality < 70) {
+            suggestions.push('🔍 检测路径不够合理，建议先分析废物来源再选择检测项目');
+        }
+        
+        // 用时得分低于70分
+        if (breakdown.timeScore < 70) {
+            suggestions.push('⏱️ 用时较长，熟悉标准后可以更快做出判断');
+        }
+        
+        return suggestions;
+    }
+    
+    /**
+     * 获取相关知识点链接
+     * Requirements: 5.7 - 显示相关知识点链接
+     * @returns {Array<{name: string, category: string}>} 知识点链接列表
+     */
+    getRelevantKnowledgeLinks() {
+        // 根据当前案件的正确答案，返回相关的知识点
+        const links = [];
+        const correctAnswer = this.currentCase?.correctAnswer;
+        
+        if (!correctAnswer) {
+            // 返回通用知识点
+            return [
+                { name: 'GB 5085.1 腐蚀性鉴别', category: 'corrosivity' },
+                { name: 'GB 5085.3 浸出毒性鉴别', category: 'leaching_toxicity' },
+                { name: 'GB 5085.6 毒性物质含量鉴别', category: 'toxic_content' }
+            ];
+        }
+        
+        // 根据正确答案的危险特性，返回对应的知识点
+        if (correctAnswer.hazardCharacteristics) {
+            correctAnswer.hazardCharacteristics.forEach(char => {
+                const categoryMap = {
+                    'corrosivity': { name: 'GB 5085.1 腐蚀性鉴别', category: 'corrosivity' },
+                    'toxicity': { name: 'GB 5085.3 浸出毒性鉴别', category: 'leaching_toxicity' },
+                    'flammability': { name: 'GB 5085.4 易燃性鉴别', category: 'flammability' },
+                    'reactivity': { name: 'GB 5085.5 反应性鉴别', category: 'reactivity' },
+                    'infectivity': { name: '感染性废物鉴别', category: 'acute_toxicity' }
+                };
+                if (categoryMap[char]) {
+                    links.push(categoryMap[char]);
+                }
+            });
+        }
+        
+        return links.length > 0 ? links : [
+            { name: 'GB 5085.1 腐蚀性鉴别', category: 'corrosivity' },
+            { name: 'GB 5085.3 浸出毒性鉴别', category: 'leaching_toxicity' }
+        ];
     }
 
     /**
@@ -3397,7 +3742,22 @@ class HazwasteDetective {
                         </ul>
                     </div>
                 ` : ''}
+                ${scoreResult.feedback.knowledgeLinks && scoreResult.feedback.knowledgeLinks.length > 0 ? `
+                    <div style="font-size: 0.9rem; margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+                        <div style="margin-bottom: 8px; color: var(--text-muted);">📚 相关知识点：</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            ${scoreResult.feedback.knowledgeLinks.map(link => `
+                                <button onclick="game.showKnowledgeCategory('${link.category}')" style="padding: 6px 12px; border: 1px solid var(--detective-blue); border-radius: 20px; background: rgba(69, 123, 157, 0.1); color: var(--detective-blue); font-size: 0.85rem; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(69, 123, 157, 0.2)'" onmouseout="this.style.background='rgba(69, 123, 157, 0.1)'">
+                                    📖 ${link.name}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
             </div>
+            
+            <!-- 最优路径对比 - Requirements: 3.5, 5.5 -->
+            ${this.renderPathComparison(scoreResult.optimalPathComparison)}
             
             <!-- 操作按钮 -->
             <div style="display: flex; gap: 10px;">
@@ -3498,7 +3858,22 @@ class HazwasteDetective {
                     <li>复习GB 5085系列标准的判定条件</li>
                     <li>注意危险特性与检测项目的对应关系</li>
                 </ul>
+                ${scoreResult.feedback.knowledgeLinks && scoreResult.feedback.knowledgeLinks.length > 0 ? `
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+                        <div style="margin-bottom: 8px; color: var(--text-muted); font-size: 0.9rem;">📖 相关知识点（点击学习）：</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            ${scoreResult.feedback.knowledgeLinks.map(link => `
+                                <button onclick="game.showKnowledgeCategory('${link.category}')" style="padding: 6px 12px; border: 1px solid var(--detective-blue); border-radius: 20px; background: rgba(69, 123, 157, 0.1); color: var(--detective-blue); font-size: 0.85rem; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(69, 123, 157, 0.2)'" onmouseout="this.style.background='rgba(69, 123, 157, 0.1)'">
+                                    ${link.name}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
             </div>
+            
+            <!-- 最优路径对比 - Requirements: 3.5, 5.5 -->
+            ${this.renderPathComparison(scoreResult.optimalPathComparison)}
             
             <!-- 操作按钮 -->
             <div style="display: flex; gap: 10px;">
@@ -3600,6 +3975,151 @@ class HazwasteDetective {
     }
     
     /**
+     * 渲染最优路径对比
+     * Requirements: 3.5, 5.5 - 显示学生路径与最优路径的对比
+     * @param {PathComparison} pathComparison - 路径对比数据
+     * @returns {string} HTML字符串
+     */
+    renderPathComparison(pathComparison) {
+        if (!pathComparison) return '';
+        
+        const { userPath, optimalPath, extraCost, unnecessaryItems, unnecessaryCost, missingItems, isOptimal } = pathComparison;
+        
+        // 如果是最优路径，显示简短的祝贺信息
+        if (isOptimal) {
+            return `
+                <div style="background: linear-gradient(135deg, rgba(42, 157, 143, 0.15) 0%, rgba(42, 157, 143, 0.05) 100%); border: 2px solid var(--detective-green); border-radius: 15px; padding: 20px; margin-bottom: 20px;">
+                    <div style="font-weight: bold; margin-bottom: 10px; color: var(--detective-green); display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 1.3rem;">🎯</span>
+                        <span>最优检测路径</span>
+                    </div>
+                    <div style="color: var(--text-light);">
+                        恭喜！您选择了最优的检测路径，以最少的检测项目完成了准确判定。
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 获取检测项目名称的辅助函数
+        const getItemName = (itemId) => {
+            const item = this.detectionItems.find(i => i.id === itemId);
+            return item ? item.name : itemId;
+        };
+        
+        // 构建路径对比HTML
+        let html = `
+            <div style="background: rgba(255,255,255,0.05); border-radius: 15px; padding: 20px; margin-bottom: 20px;">
+                <div style="font-weight: bold; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 1.3rem;">🔍</span>
+                    <span>检测路径对比</span>
+                </div>
+                
+                <!-- 路径对比图 -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                    <!-- 您的路径 -->
+                    <div style="background: rgba(69, 123, 157, 0.1); border: 1px solid var(--detective-blue); border-radius: 10px; padding: 15px;">
+                        <div style="font-size: 0.85rem; color: var(--detective-blue); margin-bottom: 10px; font-weight: bold;">📋 您的检测路径 (${userPath.length}项)</div>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            ${userPath.map((id, index) => {
+                                const isUnnecessary = !optimalPath.includes(id);
+                                return `
+                                    <div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: ${isUnnecessary ? 'rgba(233, 69, 96, 0.1)' : 'rgba(255,255,255,0.05)'}; border-radius: 6px; ${isUnnecessary ? 'border: 1px dashed var(--detective-accent);' : ''}">
+                                        <span style="font-size: 0.75rem; color: var(--text-muted);">${index + 1}.</span>
+                                        <span style="font-size: 0.85rem; ${isUnnecessary ? 'color: var(--detective-accent);' : ''}">${getItemName(id)}</span>
+                                        ${isUnnecessary ? '<span style="font-size: 0.7rem; color: var(--detective-accent); margin-left: auto;">⚠️ 非必要</span>' : ''}
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                    
+                    <!-- 最优路径 -->
+                    <div style="background: rgba(42, 157, 143, 0.1); border: 1px solid var(--detective-green); border-radius: 10px; padding: 15px;">
+                        <div style="font-size: 0.85rem; color: var(--detective-green); margin-bottom: 10px; font-weight: bold;">✨ 最优检测路径 (${optimalPath.length}项)</div>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            ${optimalPath.map((id, index) => {
+                                const isMissing = !userPath.includes(id);
+                                return `
+                                    <div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: ${isMissing ? 'rgba(244, 162, 97, 0.1)' : 'rgba(255,255,255,0.05)'}; border-radius: 6px; ${isMissing ? 'border: 1px dashed var(--detective-gold);' : ''}">
+                                        <span style="font-size: 0.75rem; color: var(--text-muted);">${index + 1}.</span>
+                                        <span style="font-size: 0.85rem; ${isMissing ? 'color: var(--detective-gold);' : ''}">${getItemName(id)}</span>
+                                        ${isMissing ? '<span style="font-size: 0.7rem; color: var(--detective-gold); margin-left: auto;">❌ 您未检测</span>' : ''}
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+        `;
+        
+        // 添加统计信息
+        if (unnecessaryItems.length > 0 || extraCost > 0) {
+            html += `
+                <!-- 统计信息 -->
+                <div style="background: rgba(233, 69, 96, 0.1); border: 1px solid rgba(233, 69, 96, 0.3); border-radius: 10px; padding: 15px;">
+                    <div style="font-size: 0.85rem; color: var(--detective-accent); margin-bottom: 10px; font-weight: bold;">📊 路径分析</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+                        ${unnecessaryItems.length > 0 ? `
+                            <div style="text-align: center; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                                <div style="font-size: 1.5rem; font-weight: bold; color: var(--detective-accent);">${unnecessaryItems.length}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">不必要检测项</div>
+                            </div>
+                        ` : ''}
+                        ${extraCost > 0 ? `
+                            <div style="text-align: center; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                                <div style="font-size: 1.5rem; font-weight: bold; color: var(--detective-gold);">¥${extraCost}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">多花费预算</div>
+                            </div>
+                        ` : ''}
+                        ${unnecessaryCost > 0 ? `
+                            <div style="text-align: center; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                                <div style="font-size: 1.5rem; font-weight: bold; color: var(--detective-accent);">¥${unnecessaryCost}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">非必要检测花费</div>
+                            </div>
+                        ` : ''}
+                    </div>
+            `;
+            
+            // 列出不必要的检测项目详情
+            if (unnecessaryItems.length > 0) {
+                html += `
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
+                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">⚠️ 不必要的检测项目：</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                            ${unnecessaryItems.map(item => `
+                                <span style="padding: 4px 10px; background: rgba(233, 69, 96, 0.15); border-radius: 15px; font-size: 0.8rem; color: var(--detective-accent);">
+                                    ${item.name} (¥${item.price})
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            html += `</div>`;
+        }
+        
+        // 添加改进建议
+        html += `
+                <div style="margin-top: 15px; padding: 12px; background: rgba(69, 123, 157, 0.1); border-radius: 8px;">
+                    <div style="font-size: 0.85rem; color: var(--detective-blue); display: flex; align-items: flex-start; gap: 8px;">
+                        <span>💡</span>
+                        <span>
+                            ${unnecessaryItems.length > 0 
+                                ? `下次可以更精准地选择检测项目，避免${unnecessaryItems.length}项不必要的检测，节省¥${unnecessaryCost}预算。` 
+                                : missingItems.length > 0 
+                                    ? `您遗漏了${missingItems.length}项关键检测，建议仔细分析废物来源和特征，选择更有针对性的检测项目。`
+                                    : '继续保持良好的检测策略！'}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        return html;
+    }
+    
+    /**
      * 重玩当前案件
      */
     replayCurrentCase() {
@@ -3613,6 +4133,7 @@ class HazwasteDetective {
     
     /**
      * 渲染案件列表
+     * Requirements: 6.1 - 显示所有预设案件列表，包含难度、完成状态、最高分
      */
     renderCaseList() {
         const container = document.getElementById('case-list');
@@ -3620,27 +4141,109 @@ class HazwasteDetective {
         
         const caseList = this.getCaseList();
         
-        container.innerHTML = caseList.map(c => {
-            const diffConfig = DIFFICULTY_CONFIG[c.difficulty];
-            return `
-                <div class="case-list-item" style="
-                    background: rgba(255,255,255,0.05);
-                    border: 2px solid rgba(255,255,255,0.1);
-                    border-radius: 15px;
-                    padding: 20px;
-                    margin-bottom: 15px;
+        // 分离预设案件和自定义案件
+        const presetCases = caseList.filter(c => {
+            const fullCase = this.caseLibrary.find(fc => fc.id === c.id);
+            return fullCase && fullCase.isPreset;
+        });
+        const customCases = caseList.filter(c => {
+            const fullCase = this.caseLibrary.find(fc => fc.id === c.id);
+            return fullCase && !fullCase.isPreset;
+        });
+        
+        // 统计信息
+        const totalCases = caseList.length;
+        const completedCases = caseList.filter(c => c.completed).length;
+        
+        // 头部统计
+        let headerHtml = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                <div style="display: flex; gap: 20px;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 1.5rem; font-weight: bold; color: var(--detective-blue);">${totalCases}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">总案件数</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 1.5rem; font-weight: bold; color: var(--detective-green);">${completedCases}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">已完成</div>
+                    </div>
+                </div>
+                <button onclick="game.openCaseEditor()" style="
+                    padding: 12px 20px;
+                    border: none;
+                    border-radius: 10px;
+                    background: linear-gradient(135deg, var(--detective-green) 0%, #238b7e 100%);
+                    color: white;
+                    font-size: 0.9rem;
+                    font-weight: bold;
                     cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
                     transition: all 0.2s;
-                " onclick="game.selectCase('${c.id}')" onmouseover="this.style.borderColor='var(--detective-accent)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)'">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: 5px;">${c.name}</div>
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <span style="font-size: 0.85rem; color: ${diffConfig.color};">${'⭐'.repeat(diffConfig.stars)} ${diffConfig.name}</span>
-                                ${c.completed ? `<span style="font-size: 0.85rem; color: var(--detective-green);">✓ 已完成</span>` : ''}
-                            </div>
+                " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                    <span>➕</span>
+                    <span>创建新案件</span>
+                </button>
+            </div>
+        `;
+        
+        // 预设案件区域
+        let presetHtml = `
+            <div style="margin-bottom: 25px;">
+                <div style="font-size: 0.9rem; font-weight: bold; color: var(--detective-gold); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <span>📁</span>
+                    <span>预设案件 (${presetCases.length})</span>
+                </div>
+                ${presetCases.map(c => this.renderCaseListItem(c, true)).join('')}
+            </div>
+        `;
+        
+        // 自定义案件区域
+        let customHtml = '';
+        if (customCases.length > 0) {
+            customHtml = `
+                <div>
+                    <div style="font-size: 0.9rem; font-weight: bold; color: var(--detective-accent); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <span>✏️</span>
+                        <span>自定义案件 (${customCases.length})</span>
+                    </div>
+                    ${customCases.map(c => this.renderCaseListItem(c, false)).join('')}
+                </div>
+            `;
+        }
+        
+        container.innerHTML = headerHtml + presetHtml + customHtml;
+    }
+    
+    /**
+     * 渲染单个案件列表项
+     * @param {Object} c - 案件信息
+     * @param {boolean} isPreset - 是否为预设案件
+     * @returns {string} HTML字符串
+     */
+    renderCaseListItem(c, isPreset) {
+        const diffConfig = DIFFICULTY_CONFIG[c.difficulty];
+        return `
+            <div class="case-list-item" style="
+                background: rgba(255,255,255,0.05);
+                border: 2px solid rgba(255,255,255,0.1);
+                border-radius: 15px;
+                padding: 20px;
+                margin-bottom: 12px;
+                transition: all 0.2s;
+            " onmouseover="this.style.borderColor='var(--detective-accent)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)'">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="flex: 1; cursor: pointer;" onclick="game.selectCase('${c.id}')">
+                        <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: 5px;">${c.name}</div>
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <span style="font-size: 0.85rem; color: ${diffConfig.color};">${'⭐'.repeat(diffConfig.stars)} ${diffConfig.name}</span>
+                            ${c.completed ? `<span style="font-size: 0.85rem; color: var(--detective-green);">✓ 已完成</span>` : ''}
+                            ${!isPreset ? `<span style="font-size: 0.75rem; padding: 2px 8px; background: rgba(233, 69, 96, 0.2); color: var(--detective-accent); border-radius: 10px;">自定义</span>` : ''}
                         </div>
-                        <div style="text-align: right;">
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="text-align: right; cursor: pointer;" onclick="game.selectCase('${c.id}')">
                             ${c.highScore > 0 ? `
                                 <div style="font-size: 1.5rem; font-weight: bold; color: var(--detective-gold);">${c.highScore}</div>
                                 <div style="font-size: 0.75rem; color: var(--text-muted);">最高分</div>
@@ -3648,10 +4251,34 @@ class HazwasteDetective {
                                 <div style="font-size: 0.9rem; color: var(--text-muted);">未挑战</div>
                             `}
                         </div>
+                        ${!isPreset ? `
+                            <div style="display: flex; flex-direction: column; gap: 5px;">
+                                <button onclick="event.stopPropagation(); game.editCase('${c.id}')" style="
+                                    padding: 6px 12px;
+                                    border: 1px solid var(--detective-blue);
+                                    border-radius: 6px;
+                                    background: transparent;
+                                    color: var(--detective-blue);
+                                    font-size: 0.75rem;
+                                    cursor: pointer;
+                                    transition: all 0.2s;
+                                " onmouseover="this.style.background='rgba(69, 123, 157, 0.2)'" onmouseout="this.style.background='transparent'">✏️ 编辑</button>
+                                <button onclick="event.stopPropagation(); game.deleteCase('${c.id}')" style="
+                                    padding: 6px 12px;
+                                    border: 1px solid var(--detective-accent);
+                                    border-radius: 6px;
+                                    background: transparent;
+                                    color: var(--detective-accent);
+                                    font-size: 0.75rem;
+                                    cursor: pointer;
+                                    transition: all 0.2s;
+                                " onmouseover="this.style.background='rgba(233, 69, 96, 0.2)'" onmouseout="this.style.background='transparent'">🗑️ 删除</button>
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
-            `;
-        }).join('');
+            </div>
+        `;
     }
     
     /**
@@ -3672,6 +4299,7 @@ class HazwasteDetective {
     
     /**
      * 渲染历史记录
+     * Requirements: 7.3, 7.4 - 完成游戏后保存完整记录，显示历史记录列表
      */
     renderHistory() {
         const container = document.getElementById('history-list');
@@ -3684,50 +4312,176 @@ class HazwasteDetective {
                 <div style="text-align: center; padding: 60px; color: var(--text-muted);">
                     <div style="font-size: 3rem; margin-bottom: 15px;">📜</div>
                     <div>暂无游戏记录</div>
+                    <div style="font-size: 0.85rem; margin-top: 10px;">完成案件后，记录将显示在这里</div>
                 </div>
             `;
             return;
         }
         
-        container.innerHTML = history.map(record => {
+        // 添加统计信息头部
+        const totalGames = history.length;
+        const avgScore = Math.round(history.reduce((sum, r) => sum + r.score, 0) / totalGames);
+        const goldCount = history.filter(r => r.grade === 'gold_detective').length;
+        
+        let headerHtml = `
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                <div style="text-align: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px;">
+                    <div style="font-size: 1.8rem; font-weight: bold; color: var(--detective-blue);">${totalGames}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">总游戏次数</div>
+                </div>
+                <div style="text-align: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px;">
+                    <div style="font-size: 1.8rem; font-weight: bold; color: var(--detective-gold);">${avgScore}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">平均得分</div>
+                </div>
+                <div style="text-align: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px;">
+                    <div style="font-size: 1.8rem; font-weight: bold; color: #f4a261;">🥇 ${goldCount}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">金牌侦探</div>
+                </div>
+            </div>
+        `;
+        
+        // 渲染历史记录列表
+        const recordsHtml = history.map((record, index) => {
             const gradeConfig = GRADE_CONFIG[record.grade];
             const date = new Date(record.timestamp);
             const timeStr = `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
             const durationStr = `${Math.floor(record.elapsedTime / 60)}:${(record.elapsedTime % 60).toString().padStart(2, '0')}`;
+            const clueCount = record.purchasePath ? record.purchasePath.length : 0;
+            
+            // 判定结果显示
+            const judgmentResult = record.judgment?.result === 'hazardous' ? '危险废物' : 
+                                   record.judgment?.result === 'non_hazardous' ? '一般固废' : '需进一步鉴别';
             
             return `
                 <div class="history-item" style="
                     background: rgba(255,255,255,0.05);
+                    border: 2px solid rgba(255,255,255,0.1);
                     border-radius: 12px;
                     padding: 15px 20px;
-                    margin-bottom: 10px;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                ">
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <div style="font-size: 2rem;">${gradeConfig.icon}</div>
-                        <div>
-                            <div style="font-weight: bold;">${record.caseName}</div>
-                            <div style="font-size: 0.85rem; color: var(--text-muted);">${timeStr} · 用时 ${durationStr}</div>
+                    margin-bottom: 12px;
+                    transition: all 0.2s;
+                " onmouseover="this.style.borderColor='var(--detective-gold)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)'">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <div style="font-size: 2.5rem;">${gradeConfig.icon}</div>
+                            <div>
+                                <div style="font-weight: bold; font-size: 1.1rem; margin-bottom: 5px;">${record.caseName}</div>
+                                <div style="display: flex; flex-wrap: wrap; gap: 10px; font-size: 0.8rem; color: var(--text-muted);">
+                                    <span>📅 ${timeStr}</span>
+                                    <span>⏱️ ${durationStr}</span>
+                                    <span>🔎 ${clueCount}条线索</span>
+                                    <span>⚖️ ${judgmentResult}</span>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div style="text-align: right;">
-                        <div style="font-size: 1.5rem; font-weight: bold; color: ${gradeConfig.color};">${record.score}</div>
-                        <button onclick="game.selectCase('${record.caseId}')" style="
-                            margin-top: 5px;
-                            padding: 5px 12px;
-                            border: 1px solid var(--detective-accent);
-                            border-radius: 5px;
-                            background: transparent;
-                            color: var(--detective-accent);
-                            font-size: 0.8rem;
-                            cursor: pointer;
-                        ">重玩</button>
+                        <div style="text-align: right; display: flex; align-items: center; gap: 20px;">
+                            <div>
+                                <div style="font-size: 2rem; font-weight: bold; color: ${gradeConfig.color};">${record.score}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">${gradeConfig.name}</div>
+                            </div>
+                            <button onclick="game.replayFromHistory('${record.caseId}')" style="
+                                padding: 10px 18px;
+                                border: 2px solid var(--detective-accent);
+                                border-radius: 8px;
+                                background: transparent;
+                                color: var(--detective-accent);
+                                font-size: 0.85rem;
+                                font-weight: bold;
+                                cursor: pointer;
+                                transition: all 0.2s;
+                            " onmouseover="this.style.background='rgba(233, 69, 96, 0.15)'" onmouseout="this.style.background='transparent'">
+                                🔄 重玩
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
         }).join('');
+        
+        // 添加清除历史按钮
+        const footerHtml = `
+            <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+                <button onclick="game.clearHistory()" style="
+                    padding: 10px 20px;
+                    border: 1px solid rgba(255,255,255,0.2);
+                    border-radius: 8px;
+                    background: transparent;
+                    color: var(--text-muted);
+                    font-size: 0.85rem;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                " onmouseover="this.style.borderColor='var(--detective-accent)'; this.style.color='var(--detective-accent)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.2)'; this.style.color='var(--text-muted)'">
+                    🗑️ 清除所有记录
+                </button>
+            </div>
+        `;
+        
+        container.innerHTML = headerHtml + recordsHtml + footerHtml;
+    }
+    
+    /**
+     * 从历史记录重玩案件
+     * Requirements: 7.5 - 支持重玩该案件（清空之前的检测记录）
+     * @param {string} caseId - 案件ID
+     */
+    replayFromHistory(caseId) {
+        if (this.hasUnsavedProgress()) {
+            if (!confirm('当前游戏进度将丢失，确定要重玩此案件吗？')) {
+                return;
+            }
+        }
+        
+        // 关闭历史记录模态框
+        closeModal('history-modal');
+        
+        // 清除当前进度
+        this.clearProgress();
+        
+        // 加载案件（会重置游戏状态）
+        // Requirements: 7.5 - 重玩时清空之前的检测记录
+        this.loadCase(caseId);
+        
+        this.showToast('开始重玩案件', 'info');
+    }
+    
+    /**
+     * 清除所有历史记录
+     */
+    clearHistory() {
+        if (!confirm('确定要清除所有历史记录吗？此操作不可恢复。')) {
+            return;
+        }
+        
+        try {
+            localStorage.removeItem(STORAGE_KEYS.GAME_HISTORY);
+            this.renderHistory();
+            this.showToast('历史记录已清除', 'success');
+        } catch (e) {
+            console.error('清除历史记录失败:', e);
+            this.showToast('清除失败', 'error');
+        }
+    }
+    
+    /**
+     * 获取指定案件的历史记录
+     * Requirements: 7.4 - 显示已完成案件列表和各项得分
+     * @param {string} caseId - 案件ID
+     * @returns {GameRecord[]} 该案件的历史记录
+     */
+    getCaseHistory(caseId) {
+        const history = this.getHistory();
+        return history.filter(record => record.caseId === caseId);
+    }
+    
+    /**
+     * 获取指定案件的最高分
+     * @param {string} caseId - 案件ID
+     * @returns {number} 最高分，如果没有记录则返回0
+     */
+    getCaseHighScore(caseId) {
+        const caseHistory = this.getCaseHistory(caseId);
+        if (caseHistory.length === 0) return 0;
+        return Math.max(...caseHistory.map(r => r.score));
     }
 
     // ==================== 数据加载 ====================
@@ -4380,18 +5134,560 @@ function updateJudgmentWarning(result) {
 }
 
 /**
+ * 当前照片索引和照片列表（用于导航）
+ * Requirements: 1.4 - 图片证据放大查看功能
+ */
+let currentPhotoIndex = 0;
+let currentPhotoList = [];
+
+/**
  * 查看照片
+ * Requirements: 1.4 - 支持点击放大查看废物照片
  * @param {string} url
  */
 function viewPhoto(url) {
     const viewer = document.getElementById('photo-viewer');
     if (viewer) {
+        // 获取当前案件的所有照片
+        if (window.game && window.game.currentCase && window.game.currentCase.caseFile.photos) {
+            currentPhotoList = window.game.currentCase.caseFile.photos;
+            currentPhotoIndex = currentPhotoList.indexOf(url);
+            if (currentPhotoIndex === -1) currentPhotoIndex = 0;
+        } else {
+            currentPhotoList = [url];
+            currentPhotoIndex = 0;
+        }
+        
         viewer.src = url;
+        updatePhotoIndicator();
+        updatePhotoNavButtons();
         openModal('photo-modal');
     }
 }
 
+/**
+ * 导航到上一张/下一张照片
+ * Requirements: 1.4 - 图片证据放大查看功能
+ * @param {number} direction - -1 为上一张，1 为下一张
+ */
+function navigatePhoto(direction) {
+    if (currentPhotoList.length <= 1) return;
+    
+    currentPhotoIndex += direction;
+    if (currentPhotoIndex < 0) {
+        currentPhotoIndex = currentPhotoList.length - 1;
+    } else if (currentPhotoIndex >= currentPhotoList.length) {
+        currentPhotoIndex = 0;
+    }
+    
+    const viewer = document.getElementById('photo-viewer');
+    if (viewer) {
+        viewer.src = currentPhotoList[currentPhotoIndex];
+        updatePhotoIndicator();
+    }
+}
+
+/**
+ * 更新照片指示器
+ * Requirements: 1.4 - 图片证据放大查看功能
+ */
+function updatePhotoIndicator() {
+    const indicator = document.getElementById('photo-indicator');
+    if (!indicator) return;
+    
+    if (currentPhotoList.length <= 1) {
+        indicator.innerHTML = '';
+        return;
+    }
+    
+    indicator.innerHTML = currentPhotoList.map((_, index) => 
+        `<div class="photo-indicator-dot ${index === currentPhotoIndex ? 'active' : ''}" onclick="event.stopPropagation(); goToPhoto(${index})"></div>`
+    ).join('');
+}
+
+/**
+ * 更新照片导航按钮显示
+ * Requirements: 1.4 - 图片证据放大查看功能
+ */
+function updatePhotoNavButtons() {
+    const prevBtn = document.querySelector('.photo-prev');
+    const nextBtn = document.querySelector('.photo-next');
+    
+    if (prevBtn && nextBtn) {
+        const showNav = currentPhotoList.length > 1;
+        prevBtn.style.display = showNav ? 'block' : 'none';
+        nextBtn.style.display = showNav ? 'block' : 'none';
+    }
+}
+
+/**
+ * 跳转到指定照片
+ * Requirements: 1.4 - 图片证据放大查看功能
+ * @param {number} index - 照片索引
+ */
+function goToPhoto(index) {
+    if (index >= 0 && index < currentPhotoList.length) {
+        currentPhotoIndex = index;
+        const viewer = document.getElementById('photo-viewer');
+        if (viewer) {
+            viewer.src = currentPhotoList[currentPhotoIndex];
+            updatePhotoIndicator();
+        }
+    }
+}
+
+/**
+ * 关闭照片模态框
+ * Requirements: 1.4 - 图片证据放大查看功能
+ * @param {Event} event
+ */
+function closePhotoModal(event) {
+    // 只有点击背景时才关闭
+    if (event.target.id === 'photo-modal') {
+        closeModal('photo-modal');
+    }
+}
+
+// ==================== 竞赛模式管理器 ====================
+// Requirements: 8.1, 8.2, 8.3, 8.4, 8.5 - 多人竞赛模式
+
+/**
+ * 竞赛状态枚举
+ * @typedef {'waiting'|'active'|'ended'} CompetitionStatus
+ */
+
+/**
+ * 竞赛数据结构
+ * @typedef {Object} Competition
+ * @property {string} id - 竞赛ID
+ * @property {string} caseId - 案件ID
+ * @property {string} caseName - 案件名称
+ * @property {number} timeLimit - 时间限制（秒）
+ * @property {CompetitionStatus} status - 竞赛状态
+ * @property {number} startTime - 开始时间戳
+ * @property {number} endTime - 结束时间戳
+ * @property {LeaderboardEntry[]} leaderboard - 排行榜
+ * @property {number} createdAt - 创建时间戳
+ */
+
+/**
+ * 排行榜条目
+ * @typedef {Object} LeaderboardEntry
+ * @property {string} oderId - 排名
+ * @property {string} oderId - 排名
+ * @property {string} oderId - 排名
+ * @property {string} oderId - 排名
+ * @property {string} studentId - 学生ID
+ * @property {string} studentName - 学生姓名
+ * @property {number} score - 得分
+ * @property {number} elapsedTime - 用时（秒）
+ * @property {string} grade - 评级
+ * @property {string[]} detectionPath - 检测路径
+ * @property {number} submitTime - 提交时间戳
+ */
+
+const COMPETITION_STORAGE_KEY = 'hazwaste_detective_competition';
+const COMPETITION_RESULTS_KEY = 'hazwaste_detective_competition_results';
+
+/**
+ * 竞赛管理器类
+ * Requirements: 8.1, 8.2, 8.3, 8.4, 8.5
+ */
+class CompetitionManager {
+    constructor() {
+        /** @type {Competition|null} */
+        this.currentCompetition = null;
+        
+        /** @type {number|null} */
+        this.countdownInterval = null;
+        
+        /** @type {boolean} */
+        this.isTeacher = false;
+    }
+    
+    /**
+     * 初始化竞赛管理器
+     * @param {boolean} isTeacher - 是否为教师模式
+     */
+    init(isTeacher = false) {
+        this.isTeacher = isTeacher;
+        
+        // 检查是否有进行中的竞赛
+        const savedCompetition = this.loadCompetition();
+        if (savedCompetition && savedCompetition.status === 'active') {
+            this.currentCompetition = savedCompetition;
+            // 检查是否已超时
+            if (Date.now() > savedCompetition.endTime) {
+                this.endCompetition();
+            }
+        }
+    }
+    
+    /**
+     * 开启竞赛
+     * Requirements: 8.1 - 教师开启竞赛，选择案件和时间限制
+     * @param {string} caseId - 案件ID
+     * @param {number} timeLimit - 时间限制（秒）
+     * @param {string} caseName - 案件名称
+     * @returns {Competition} 竞赛对象
+     */
+    startCompetition(caseId, timeLimit, caseName) {
+        const now = Date.now();
+        
+        /** @type {Competition} */
+        const competition = {
+            id: `comp_${now}`,
+            caseId: caseId,
+            caseName: caseName,
+            timeLimit: timeLimit,
+            status: 'active',
+            startTime: now,
+            endTime: now + (timeLimit * 1000),
+            leaderboard: [],
+            createdAt: now
+        };
+        
+        this.currentCompetition = competition;
+        this.saveCompetition();
+        
+        // 启动倒计时
+        this.startCountdown();
+        
+        console.log('🏆 竞赛已开启:', competition);
+        return competition;
+    }
+    
+    /**
+     * 结束竞赛
+     * Requirements: 8.4 - 竞赛结束显示最终排名
+     * @returns {Competition|null} 结束的竞赛
+     */
+    endCompetition() {
+        if (!this.currentCompetition) return null;
+        
+        this.currentCompetition.status = 'ended';
+        this.currentCompetition.endTime = Date.now();
+        
+        // 停止倒计时
+        this.stopCountdown();
+        
+        // 保存竞赛结果到历史
+        this.saveCompetitionResult(this.currentCompetition);
+        
+        // 清除当前竞赛
+        const endedCompetition = { ...this.currentCompetition };
+        this.clearCompetition();
+        
+        console.log('🏁 竞赛已结束:', endedCompetition);
+        return endedCompetition;
+    }
+    
+    /**
+     * 提交竞赛成绩
+     * Requirements: 8.3 - 学生提交后实时更新排行榜
+     * @param {string} studentId - 学生ID
+     * @param {string} studentName - 学生姓名
+     * @param {number} score - 得分
+     * @param {number} elapsedTime - 用时（秒）
+     * @param {string} grade - 评级
+     * @param {string[]} detectionPath - 检测路径
+     * @returns {LeaderboardEntry|null} 排行榜条目
+     */
+    submitScore(studentId, studentName, score, elapsedTime, grade, detectionPath) {
+        if (!this.currentCompetition || this.currentCompetition.status !== 'active') {
+            console.warn('竞赛未进行中，无法提交成绩');
+            return null;
+        }
+        
+        // 检查是否已提交过
+        const existingEntry = this.currentCompetition.leaderboard.find(e => e.studentId === studentId);
+        if (existingEntry) {
+            console.warn('该学生已提交过成绩');
+            return existingEntry;
+        }
+        
+        /** @type {LeaderboardEntry} */
+        const entry = {
+            studentId,
+            studentName,
+            score,
+            elapsedTime,
+            grade,
+            detectionPath,
+            submitTime: Date.now()
+        };
+        
+        // 添加到排行榜
+        this.currentCompetition.leaderboard.push(entry);
+        
+        // 排序排行榜
+        // Requirements: 8.3 - 按得分降序、用时升序排列
+        this.sortLeaderboard();
+        
+        // 保存竞赛状态
+        this.saveCompetition();
+        
+        console.log('📊 成绩已提交:', entry);
+        return entry;
+    }
+    
+    /**
+     * 排序排行榜
+     * Requirements: 8.3 - 按得分降序、用时升序排列
+     * Property 12: 排行榜排序正确性
+     */
+    sortLeaderboard() {
+        if (!this.currentCompetition) return;
+        
+        this.currentCompetition.leaderboard.sort((a, b) => {
+            // 首先按得分降序
+            if (b.score !== a.score) {
+                return b.score - a.score;
+            }
+            // 得分相同时按用时升序
+            return a.elapsedTime - b.elapsedTime;
+        });
+    }
+    
+    /**
+     * 获取排行榜
+     * Requirements: 8.3 - 实时排行榜
+     * @returns {LeaderboardEntry[]} 排行榜
+     */
+    getLeaderboard() {
+        if (!this.currentCompetition) return [];
+        return this.currentCompetition.leaderboard;
+    }
+    
+    /**
+     * 获取当前竞赛
+     * @returns {Competition|null}
+     */
+    getCurrentCompetition() {
+        return this.currentCompetition;
+    }
+    
+    /**
+     * 获取剩余时间（秒）
+     * Requirements: 8.2 - 显示倒计时
+     * @returns {number}
+     */
+    getRemainingTime() {
+        if (!this.currentCompetition || this.currentCompetition.status !== 'active') {
+            return 0;
+        }
+        const remaining = Math.max(0, this.currentCompetition.endTime - Date.now());
+        return Math.ceil(remaining / 1000);
+    }
+    
+    /**
+     * 启动倒计时
+     * Requirements: 8.2 - 显示倒计时
+     */
+    startCountdown() {
+        this.stopCountdown();
+        
+        this.countdownInterval = setInterval(() => {
+            const remaining = this.getRemainingTime();
+            
+            // 更新UI显示
+            this.updateCountdownDisplay(remaining);
+            
+            // 检查是否结束
+            if (remaining <= 0) {
+                this.endCompetition();
+                this.onCompetitionEnd();
+            }
+        }, 1000);
+    }
+    
+    /**
+     * 停止倒计时
+     */
+    stopCountdown() {
+        if (this.countdownInterval) {
+            clearInterval(this.countdownInterval);
+            this.countdownInterval = null;
+        }
+    }
+    
+    /**
+     * 更新倒计时显示
+     * @param {number} seconds - 剩余秒数
+     */
+    updateCountdownDisplay(seconds) {
+        const el = document.getElementById('competition-countdown');
+        if (el) {
+            const minutes = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            el.textContent = `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            
+            // 最后30秒变红
+            if (seconds <= 30) {
+                el.style.color = 'var(--detective-accent)';
+                el.style.animation = 'pulse-warning 1s infinite';
+            }
+        }
+    }
+    
+    /**
+     * 竞赛结束回调
+     */
+    onCompetitionEnd() {
+        // 显示竞赛结束提示
+        if (window.game) {
+            window.game.showToast('⏰ 竞赛时间到！', 'warning');
+        }
+        
+        // 触发自定义事件
+        window.dispatchEvent(new CustomEvent('competitionEnd', {
+            detail: this.currentCompetition
+        }));
+    }
+    
+    /**
+     * 保存竞赛状态
+     */
+    saveCompetition() {
+        if (this.currentCompetition) {
+            try {
+                localStorage.setItem(COMPETITION_STORAGE_KEY, JSON.stringify(this.currentCompetition));
+            } catch (e) {
+                console.error('保存竞赛状态失败:', e);
+            }
+        }
+    }
+    
+    /**
+     * 加载竞赛状态
+     * @returns {Competition|null}
+     */
+    loadCompetition() {
+        try {
+            const saved = localStorage.getItem(COMPETITION_STORAGE_KEY);
+            return saved ? JSON.parse(saved) : null;
+        } catch (e) {
+            console.error('加载竞赛状态失败:', e);
+            return null;
+        }
+    }
+    
+    /**
+     * 清除当前竞赛
+     */
+    clearCompetition() {
+        this.currentCompetition = null;
+        localStorage.removeItem(COMPETITION_STORAGE_KEY);
+    }
+    
+    /**
+     * 保存竞赛结果到历史
+     * @param {Competition} competition
+     */
+    saveCompetitionResult(competition) {
+        try {
+            const results = this.getCompetitionHistory();
+            results.unshift(competition);
+            // 最多保存20条竞赛记录
+            if (results.length > 20) {
+                results.pop();
+            }
+            localStorage.setItem(COMPETITION_RESULTS_KEY, JSON.stringify(results));
+        } catch (e) {
+            console.error('保存竞赛结果失败:', e);
+        }
+    }
+    
+    /**
+     * 获取竞赛历史
+     * @returns {Competition[]}
+     */
+    getCompetitionHistory() {
+        try {
+            const saved = localStorage.getItem(COMPETITION_RESULTS_KEY);
+            return saved ? JSON.parse(saved) : [];
+        } catch (e) {
+            return [];
+        }
+    }
+    
+    /**
+     * 导出竞赛结果为Excel格式数据
+     * Requirements: 8.5 - 支持导出竞赛结果为Excel报告
+     * @param {Competition} competition - 竞赛数据
+     * @returns {string} CSV格式字符串
+     */
+    exportToExcel(competition) {
+        if (!competition || !competition.leaderboard) {
+            return '';
+        }
+        
+        // CSV头部
+        const headers = ['排名', '学生ID', '学生姓名', '得分', '用时(秒)', '评级', '检测路径', '提交时间'];
+        
+        // 数据行
+        const rows = competition.leaderboard.map((entry, index) => {
+            const submitTime = new Date(entry.submitTime).toLocaleString('zh-CN');
+            const path = entry.detectionPath ? entry.detectionPath.join(' → ') : '';
+            const gradeName = GRADE_CONFIG[entry.grade]?.name || entry.grade;
+            
+            return [
+                index + 1,
+                entry.studentId,
+                entry.studentName,
+                entry.score,
+                entry.elapsedTime,
+                gradeName,
+                path,
+                submitTime
+            ];
+        });
+        
+        // 组合CSV
+        const csvContent = [
+            `竞赛名称: ${competition.caseName}`,
+            `竞赛时间: ${new Date(competition.startTime).toLocaleString('zh-CN')}`,
+            `时间限制: ${competition.timeLimit}秒`,
+            `参赛人数: ${competition.leaderboard.length}`,
+            '',
+            headers.join(','),
+            ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+        ].join('\n');
+        
+        return csvContent;
+    }
+    
+    /**
+     * 下载Excel报告
+     * Requirements: 8.5 - 支持导出竞赛结果为Excel报告
+     * @param {Competition} competition - 竞赛数据
+     */
+    downloadExcelReport(competition) {
+        const csvContent = this.exportToExcel(competition);
+        if (!csvContent) {
+            console.error('无法生成报告');
+            return;
+        }
+        
+        // 添加BOM以支持中文
+        const BOM = '\uFEFF';
+        const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `竞赛结果_${competition.caseName}_${new Date(competition.startTime).toLocaleDateString('zh-CN')}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
+}
+
+// 创建全局竞赛管理器实例
+const competitionManager = new CompetitionManager();
+
 // 导出类供外部使用
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HazwasteDetective, STORAGE_KEYS, DETECTION_CATEGORIES, HAZARD_CHARACTERISTICS, GRADE_CONFIG, DIFFICULTY_CONFIG };
+    module.exports = { HazwasteDetective, CompetitionManager, STORAGE_KEYS, DETECTION_CATEGORIES, HAZARD_CHARACTERISTICS, GRADE_CONFIG, DIFFICULTY_CONFIG, COMPETITION_STORAGE_KEY, COMPETITION_RESULTS_KEY };
 }

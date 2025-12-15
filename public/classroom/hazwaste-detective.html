@@ -185,6 +185,27 @@
             overflow-y: auto;
         }
         
+        /* 案件头部样式 - Requirements: 1.2 */
+        .case-header {
+            margin-bottom: 18px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--clue-border);
+            text-align: center;
+        }
+        
+        .case-name {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #3a3a3a;
+            margin-bottom: 6px;
+        }
+        
+        .case-description {
+            font-size: 0.85rem;
+            color: #666;
+            line-height: 1.5;
+        }
+        
         .case-section {
             margin-bottom: 18px;
             padding-bottom: 15px;
@@ -229,6 +250,101 @@
             transform: scale(1.1);
         }
         
+        /* 照片计数样式 - Requirements: 1.4 */
+        .photo-count {
+            font-size: 0.75rem;
+            font-weight: normal;
+            color: #888;
+            margin-left: 5px;
+        }
+        
+        /* 图片查看器增强样式 - Requirements: 1.4 */
+        .photo-viewer-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            max-width: 90%;
+            max-height: 90%;
+        }
+        
+        #photo-viewer {
+            max-width: 100%;
+            max-height: 85vh;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        
+        .photo-nav-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 50px;
+            height: 50px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            z-index: 10;
+        }
+        
+        .photo-nav-btn:hover {
+            background: rgba(255,255,255,0.4);
+        }
+        
+        .photo-prev {
+            left: -70px;
+        }
+        
+        .photo-next {
+            right: -70px;
+        }
+        
+        .photo-indicator {
+            position: absolute;
+            bottom: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+        }
+        
+        .photo-indicator-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.4);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .photo-indicator-dot.active {
+            background: var(--detective-gold);
+            transform: scale(1.2);
+        }
+        
+        .photo-close-btn {
+            position: absolute;
+            top: -50px;
+            right: -10px;
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .photo-close-btn:hover {
+            background: var(--detective-accent);
+        }
+        
         .difficulty-badge {
             position: absolute;
             top: 10px;
@@ -242,6 +358,30 @@
             color: white;
             font-size: 0.8rem;
             font-weight: bold;
+        }
+        
+        /* 预算徽章样式 - Requirements: 1.5 */
+        .budget-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 12px;
+            background: rgba(42, 157, 143, 0.9);
+            border-radius: 15px;
+            color: white;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        
+        .budget-badge-icon {
+            font-size: 0.9rem;
+        }
+        
+        .budget-badge-text {
+            font-family: 'Courier New', monospace;
         }
         
         /* ==================== 线索收集面板 ==================== */
@@ -644,22 +784,49 @@
             .main-layout {
                 grid-template-columns: 300px 1fr 70px;
             }
+            
+            .clue-card {
+                width: 100%;
+            }
+        }
+        
+        @media (max-width: 1024px) {
+            .main-layout {
+                grid-template-columns: 280px 1fr 65px;
+                gap: 15px;
+                padding: 15px;
+            }
+            
+            .top-bar {
+                padding: 10px 15px;
+            }
+            
+            .game-title h1 {
+                font-size: 1.2rem;
+            }
+            
+            .budget-amount {
+                font-size: 1.1rem;
+            }
         }
         
         @media (max-width: 900px) {
             .main-layout {
                 grid-template-columns: 1fr;
                 grid-template-rows: auto 1fr auto;
+                height: auto;
+                min-height: calc(100vh - 70px);
             }
             
             .case-panel {
-                max-height: 300px;
+                max-height: 280px;
             }
             
             .tools-panel {
                 flex-direction: row;
                 flex-wrap: wrap;
                 justify-content: center;
+                gap: 8px;
             }
             
             .tool-btn {
@@ -673,6 +840,359 @@
             
             .clue-card {
                 width: 100%;
+            }
+            
+            .clues-container {
+                min-height: 200px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                overflow-y: auto;
+            }
+            
+            .top-bar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+                padding: 10px;
+            }
+            
+            .game-title {
+                justify-content: center;
+            }
+            
+            .game-title h1 {
+                font-size: 1.1rem;
+            }
+            
+            .status-group {
+                justify-content: center;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            
+            .budget-display, .timer-display {
+                padding: 6px 12px;
+            }
+            
+            .budget-amount {
+                font-size: 1rem;
+            }
+            
+            .main-layout {
+                padding: 10px;
+                gap: 10px;
+            }
+            
+            .case-panel {
+                max-height: 250px;
+            }
+            
+            .folder-content {
+                padding: 15px;
+            }
+            
+            .case-section {
+                margin-bottom: 12px;
+                padding-bottom: 10px;
+            }
+            
+            .section-title {
+                font-size: 0.85rem;
+            }
+            
+            .section-content {
+                font-size: 0.9rem;
+            }
+            
+            .clue-card {
+                padding: 12px;
+            }
+            
+            .clue-name {
+                font-size: 0.9rem;
+            }
+            
+            .clue-value {
+                font-size: 1.5rem;
+            }
+            
+            .judgment-btn {
+                padding: 15px;
+                font-size: 1rem;
+            }
+            
+            .modal-content {
+                max-width: 95%;
+                border-radius: 15px;
+            }
+            
+            .modal-header {
+                padding: 15px 20px;
+            }
+            
+            .modal-title {
+                font-size: 1.1rem;
+            }
+            
+            .modal-body {
+                padding: 15px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .top-bar {
+                padding: 8px;
+            }
+            
+            .game-title h1 {
+                font-size: 1rem;
+            }
+            
+            .case-badge {
+                padding: 4px 10px;
+                font-size: 0.75rem;
+            }
+            
+            .budget-display, .timer-display {
+                padding: 5px 10px;
+            }
+            
+            .budget-amount {
+                font-size: 0.95rem;
+            }
+            
+            .budget-label {
+                font-size: 0.65rem;
+            }
+            
+            .timer-value {
+                font-size: 1rem;
+            }
+            
+            .help-btn {
+                width: 35px;
+                height: 35px;
+                font-size: 1rem;
+            }
+            
+            .main-layout {
+                padding: 8px;
+                gap: 8px;
+            }
+            
+            .panel-header {
+                padding: 8px 12px;
+                font-size: 0.9rem;
+            }
+            
+            .case-panel {
+                max-height: 220px;
+            }
+            
+            .folder-content {
+                padding: 12px;
+            }
+            
+            .case-name {
+                font-size: 1rem;
+            }
+            
+            .case-description {
+                font-size: 0.8rem;
+            }
+            
+            .section-title {
+                font-size: 0.8rem;
+            }
+            
+            .section-content {
+                font-size: 0.85rem;
+                line-height: 1.5;
+            }
+            
+            .photo-thumb {
+                width: 60px;
+                height: 60px;
+            }
+            
+            .clues-container {
+                padding: 10px;
+            }
+            
+            .clue-card {
+                padding: 10px;
+            }
+            
+            .clue-name {
+                font-size: 0.85rem;
+            }
+            
+            .clue-value {
+                font-size: 1.3rem;
+            }
+            
+            .clue-unit {
+                font-size: 0.8rem;
+            }
+            
+            .clue-comparison {
+                padding: 6px 8px;
+            }
+            
+            .clue-limit-label {
+                font-size: 0.7rem;
+            }
+            
+            .clue-limit-value {
+                font-size: 0.8rem;
+            }
+            
+            .tool-btn {
+                padding: 8px 12px;
+            }
+            
+            .tool-icon {
+                font-size: 1.2rem;
+            }
+            
+            .tool-label {
+                font-size: 0.65rem;
+            }
+            
+            .judgment-btn {
+                padding: 12px;
+                font-size: 0.95rem;
+            }
+            
+            .btn-icon {
+                font-size: 1.1rem;
+            }
+            
+            .empty-icon {
+                font-size: 3rem;
+            }
+            
+            .empty-text {
+                font-size: 1rem;
+            }
+            
+            .empty-hint {
+                font-size: 0.8rem;
+            }
+            
+            /* 图片查看器移动端适配 */
+            .photo-nav-btn {
+                width: 40px;
+                height: 40px;
+                font-size: 1.2rem;
+            }
+            
+            .photo-prev {
+                left: 10px;
+            }
+            
+            .photo-next {
+                right: 10px;
+            }
+            
+            .photo-close-btn {
+                top: 10px;
+                right: 10px;
+            }
+        }
+        
+        /* 横屏模式优化 */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .top-bar {
+                padding: 6px 15px;
+            }
+            
+            .game-title h1 {
+                font-size: 1rem;
+            }
+            
+            .main-layout {
+                height: calc(100vh - 50px);
+                padding: 8px;
+            }
+            
+            .case-panel {
+                max-height: none;
+            }
+        }
+        
+        /* ==================== 模态框响应式适配 ==================== */
+        @media (max-width: 900px) {
+            .modal-content {
+                width: 95% !important;
+                max-width: 95% !important;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .modal-content {
+                width: 95% !important;
+                max-width: 95% !important;
+                border-radius: 15px;
+            }
+            
+            .modal-header {
+                padding: 12px 15px;
+            }
+            
+            .modal-title {
+                font-size: 1rem;
+            }
+            
+            .modal-body {
+                padding: 15px;
+                max-height: calc(85vh - 100px);
+            }
+            
+            /* 检测商店响应式 */
+            .shop-categories {
+                gap: 10px;
+            }
+            
+            /* 知识库响应式 */
+            #knowledge-search-input {
+                padding: 12px 15px !important;
+                font-size: 0.9rem !important;
+            }
+            
+            .knowledge-content {
+                max-height: calc(70vh - 150px) !important;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .modal-content {
+                width: 98% !important;
+                max-width: 98% !important;
+                border-radius: 12px;
+                max-height: 95vh;
+            }
+            
+            .modal-header {
+                padding: 10px 12px;
+            }
+            
+            .modal-title {
+                font-size: 0.95rem;
+            }
+            
+            .modal-close {
+                width: 32px;
+                height: 32px;
+                font-size: 1rem;
+            }
+            
+            .modal-body {
+                padding: 12px;
+                max-height: calc(90vh - 80px);
             }
         }
         
@@ -862,6 +1382,11 @@
                 <div class="file-folder">
                     <div class="folder-tab">机密档案</div>
                     <div class="folder-content">
+                        <!-- 案件名称 - Requirements: 1.2 -->
+                        <div class="case-header" id="case-header">
+                            <div class="case-name" id="case-name">案件加载中...</div>
+                            <div class="case-description" id="case-description"></div>
+                        </div>
                         <div class="case-section">
                             <div class="section-title">🏭 废物来源</div>
                             <div class="section-content" id="waste-source">等待加载案件...</div>
@@ -878,15 +1403,27 @@
                             <div class="section-title">📊 初步数据</div>
                             <div class="section-content" id="preliminary-data">-</div>
                         </div>
+                        <!-- 其他信息 - Requirements: 1.2 -->
+                        <div class="case-section additional-info-section" id="additional-info-section" style="display:none;">
+                            <div class="section-title">📝 其他信息</div>
+                            <div class="section-content" id="additional-info">-</div>
+                        </div>
+                        <!-- 现场照片 - Requirements: 1.4 -->
                         <div class="case-section photo-section" id="photo-section" style="display:none;">
-                            <div class="section-title">📷 现场照片</div>
+                            <div class="section-title">📷 现场照片 <span class="photo-count" id="photo-count"></span></div>
                             <div class="photo-gallery" id="photo-gallery"></div>
                         </div>
                     </div>
                 </div>
+                <!-- 难度徽章 -->
                 <div class="difficulty-badge" id="difficulty-badge">
                     <span class="diff-icon">⭐</span>
                     <span class="diff-text">初级</span>
+                </div>
+                <!-- 预算徽章 - Requirements: 1.5 -->
+                <div class="budget-badge" id="budget-badge">
+                    <span class="budget-badge-icon">💰</span>
+                    <span class="budget-badge-text" id="case-budget-text">10000</span>
                 </div>
             </div>
         </div>
@@ -937,6 +1474,10 @@
             <button class="tool-btn" onclick="openHistory()">
                 <span class="tool-icon">📜</span>
                 <span class="tool-label">历史记录</span>
+            </button>
+            <button class="tool-btn" onclick="openCompetitionPanel()" style="border-color: rgba(244, 162, 97, 0.3);">
+                <span class="tool-icon">🏆</span>
+                <span class="tool-label">竞赛模式</span>
             </button>
             <div class="tool-divider"></div>
             <button class="tool-btn back" onclick="goBack()">
@@ -1048,9 +1589,75 @@
         </div>
     </div>
 
-    <!-- 图片查看模态框 -->
-    <div class="modal-overlay" id="photo-modal" onclick="closeModal('photo-modal')">
-        <img id="photo-viewer" src="" alt="废物照片" style="max-width: 90%; max-height: 90%; border-radius: 10px;" />
+    <!-- 图片查看模态框 - Requirements: 1.4 -->
+    <div class="modal-overlay" id="photo-modal" onclick="closePhotoModal(event)">
+        <div class="photo-viewer-container">
+            <button class="photo-nav-btn photo-prev" onclick="event.stopPropagation(); navigatePhoto(-1)">❮</button>
+            <img id="photo-viewer" src="" alt="废物照片" />
+            <button class="photo-nav-btn photo-next" onclick="event.stopPropagation(); navigatePhoto(1)">❯</button>
+            <div class="photo-indicator" id="photo-indicator"></div>
+            <button class="photo-close-btn" onclick="closeModal('photo-modal')">×</button>
+        </div>
+    </div>
+
+    <!-- 案件编辑器模态框 -->
+    <div class="modal-overlay" id="case-editor-modal">
+        <div class="modal-content" style="width: 900px; max-height: 90vh;">
+            <div class="modal-header">
+                <div class="modal-title" id="case-editor-title">✏️ 创建新案件</div>
+                <button class="modal-close" onclick="closeModal('case-editor-modal')">×</button>
+            </div>
+            <div class="modal-body" style="max-height: calc(90vh - 80px); overflow-y: auto;">
+                <div class="case-editor-form" id="case-editor-form">
+                    <!-- 案件编辑表单将由JS动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 竞赛控制模态框 - Requirements: 8.1, 8.2 -->
+    <div class="modal-overlay" id="competition-modal">
+        <div class="modal-content" style="width: 700px;">
+            <div class="modal-header">
+                <div class="modal-title">🏆 竞赛模式</div>
+                <button class="modal-close" onclick="closeModal('competition-modal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="competition-content">
+                    <!-- 竞赛内容将由JS动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 竞赛排行榜模态框 - Requirements: 8.3 -->
+    <div class="modal-overlay" id="leaderboard-modal">
+        <div class="modal-content" style="width: 800px;">
+            <div class="modal-header">
+                <div class="modal-title">📊 实时排行榜</div>
+                <button class="modal-close" onclick="closeModal('leaderboard-modal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="leaderboard-content">
+                    <!-- 排行榜内容将由JS动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 竞赛结果模态框 - Requirements: 8.4, 8.5 -->
+    <div class="modal-overlay" id="competition-result-modal">
+        <div class="modal-content" style="width: 900px;">
+            <div class="modal-header">
+                <div class="modal-title">🏁 竞赛结果</div>
+                <button class="modal-close" onclick="closeModal('competition-result-modal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="competition-result-content">
+                    <!-- 竞赛结果内容将由JS动态生成 -->
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- 游戏规则提示模态框 -->
@@ -1151,8 +1758,20 @@
             }
         }
         
-        // ESC键关闭模态框
+        // ESC键关闭模态框，方向键导航照片
         document.addEventListener('keydown', function(e) {
+            // 照片导航 - Requirements: 1.4
+            const photoModal = document.getElementById('photo-modal');
+            if (photoModal && photoModal.classList.contains('active')) {
+                if (e.key === 'ArrowLeft') {
+                    navigatePhoto(-1);
+                    e.preventDefault();
+                } else if (e.key === 'ArrowRight') {
+                    navigatePhoto(1);
+                    e.preventDefault();
+                }
+            }
+            
             if (e.key === 'Escape') {
                 document.querySelectorAll('.modal-overlay.active').forEach(modal => {
                     modal.classList.remove('active');
@@ -1166,6 +1785,455 @@
         // 帮助按钮点击显示规则
         document.getElementById('help-btn').addEventListener('click', function() {
             openModal('rules-modal');
+        });
+        
+        // ==================== 竞赛模式函数 ====================
+        // Requirements: 8.1, 8.2, 8.3, 8.4, 8.5
+        
+        /**
+         * 打开竞赛控制面板
+         * Requirements: 8.1 - 教师开启竞赛，选择案件和时间限制
+         */
+        function openCompetitionPanel() {
+            const container = document.getElementById('competition-content');
+            if (!container || !window.game) return;
+            
+            const currentComp = competitionManager.getCurrentCompetition();
+            
+            if (currentComp && currentComp.status === 'active') {
+                // 显示进行中的竞赛
+                renderActiveCompetition(container, currentComp);
+            } else {
+                // 显示创建竞赛表单
+                renderCompetitionForm(container);
+            }
+            
+            openModal('competition-modal');
+        }
+        
+        /**
+         * 渲染竞赛创建表单
+         * Requirements: 8.1 - 教师开启竞赛，选择案件和时间限制
+         */
+        function renderCompetitionForm(container) {
+            const cases = window.game.getCaseList();
+            
+            container.innerHTML = `
+                <div style="text-align: center; margin-bottom: 25px;">
+                    <div style="font-size: 4rem; margin-bottom: 15px;">🏆</div>
+                    <h3 style="color: var(--detective-gold); margin-bottom: 10px;">创建竞赛</h3>
+                    <p style="color: var(--text-muted);">选择案件和时间限制，开启多人竞赛模式</p>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: bold;">选择案件</label>
+                    <select id="competition-case-select" style="
+                        width: 100%;
+                        padding: 12px 15px;
+                        border: 2px solid rgba(255,255,255,0.15);
+                        border-radius: 10px;
+                        background: rgba(255,255,255,0.05);
+                        color: var(--text-light);
+                        font-size: 1rem;
+                    ">
+                        ${cases.map(c => `
+                            <option value="${c.id}">${c.name} (${getDifficultyName(c.difficulty)})</option>
+                        `).join('')}
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: bold;">时间限制</label>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="time-option" data-time="300" onclick="selectTimeLimit(300)" style="flex: 1; padding: 12px; border: 2px solid rgba(255,255,255,0.15); border-radius: 10px; background: transparent; color: white; cursor: pointer;">5分钟</button>
+                        <button class="time-option selected" data-time="600" onclick="selectTimeLimit(600)" style="flex: 1; padding: 12px; border: 2px solid var(--detective-gold); border-radius: 10px; background: rgba(244, 162, 97, 0.2); color: white; cursor: pointer;">10分钟</button>
+                        <button class="time-option" data-time="900" onclick="selectTimeLimit(900)" style="flex: 1; padding: 12px; border: 2px solid rgba(255,255,255,0.15); border-radius: 10px; background: transparent; color: white; cursor: pointer;">15分钟</button>
+                        <button class="time-option" data-time="1200" onclick="selectTimeLimit(1200)" style="flex: 1; padding: 12px; border: 2px solid rgba(255,255,255,0.15); border-radius: 10px; background: transparent; color: white; cursor: pointer;">20分钟</button>
+                    </div>
+                </div>
+                
+                <div style="background: rgba(244, 162, 97, 0.1); border: 1px solid rgba(244, 162, 97, 0.3); border-radius: 12px; padding: 15px; margin-bottom: 25px;">
+                    <div style="display: flex; align-items: center; gap: 10px; color: var(--detective-gold);">
+                        <span>💡</span>
+                        <span style="font-weight: bold;">竞赛说明</span>
+                    </div>
+                    <ul style="margin: 10px 0 0 25px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.8;">
+                        <li>开启竞赛后，所有学生将收到同一案件</li>
+                        <li>学生需在规定时间内完成鉴别并提交</li>
+                        <li>排行榜按得分降序、用时升序排列</li>
+                        <li>竞赛结束后可导出Excel报告</li>
+                    </ul>
+                </div>
+                
+                <button onclick="startCompetition()" style="
+                    width: 100%;
+                    padding: 16px;
+                    border: none;
+                    border-radius: 12px;
+                    background: linear-gradient(135deg, var(--detective-green) 0%, #238b7e 100%);
+                    color: white;
+                    font-size: 1.1rem;
+                    font-weight: bold;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                    🚀 开启竞赛
+                </button>
+            `;
+        }
+        
+        /**
+         * 渲染进行中的竞赛
+         * Requirements: 8.2 - 显示倒计时和实时排行榜
+         */
+        function renderActiveCompetition(container, competition) {
+            const remaining = competitionManager.getRemainingTime();
+            const minutes = Math.floor(remaining / 60);
+            const seconds = remaining % 60;
+            
+            container.innerHTML = `
+                <div style="text-align: center; margin-bottom: 25px;">
+                    <div style="font-size: 4rem; margin-bottom: 15px;">⏱️</div>
+                    <h3 style="color: var(--detective-accent); margin-bottom: 10px;">竞赛进行中</h3>
+                    <p style="color: var(--text-muted);">${competition.caseName}</p>
+                </div>
+                
+                <div style="text-align: center; margin-bottom: 25px;">
+                    <div style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px;">剩余时间</div>
+                    <div id="competition-countdown" style="font-size: 3rem; font-weight: bold; color: var(--detective-gold); font-family: 'Courier New', monospace;">
+                        ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 25px;">
+                    <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; text-align: center;">
+                        <div style="font-size: 2rem; font-weight: bold; color: var(--detective-blue);">${competition.leaderboard.length}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted);">已提交</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; text-align: center;">
+                        <div style="font-size: 2rem; font-weight: bold; color: var(--detective-green);">${competition.leaderboard.length > 0 ? competition.leaderboard[0].score : '-'}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted);">最高分</div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="openLeaderboard()" style="
+                        flex: 1;
+                        padding: 14px;
+                        border: 2px solid var(--detective-blue);
+                        border-radius: 10px;
+                        background: transparent;
+                        color: var(--detective-blue);
+                        font-size: 1rem;
+                        font-weight: bold;
+                        cursor: pointer;
+                    ">📊 查看排行榜</button>
+                    <button onclick="endCompetitionConfirm()" style="
+                        flex: 1;
+                        padding: 14px;
+                        border: none;
+                        border-radius: 10px;
+                        background: var(--detective-accent);
+                        color: white;
+                        font-size: 1rem;
+                        font-weight: bold;
+                        cursor: pointer;
+                    ">🏁 结束竞赛</button>
+                </div>
+            `;
+            
+            // 启动倒计时更新
+            competitionManager.startCountdown();
+        }
+        
+        /**
+         * 选择时间限制
+         */
+        let selectedTimeLimit = 600;
+        function selectTimeLimit(seconds) {
+            selectedTimeLimit = seconds;
+            document.querySelectorAll('.time-option').forEach(btn => {
+                if (parseInt(btn.dataset.time) === seconds) {
+                    btn.style.borderColor = 'var(--detective-gold)';
+                    btn.style.background = 'rgba(244, 162, 97, 0.2)';
+                    btn.classList.add('selected');
+                } else {
+                    btn.style.borderColor = 'rgba(255,255,255,0.15)';
+                    btn.style.background = 'transparent';
+                    btn.classList.remove('selected');
+                }
+            });
+        }
+        
+        /**
+         * 获取难度名称
+         */
+        function getDifficultyName(difficulty) {
+            const names = { beginner: '初级', intermediate: '中级', advanced: '高级' };
+            return names[difficulty] || difficulty;
+        }
+        
+        /**
+         * 开启竞赛
+         * Requirements: 8.1 - 教师开启竞赛
+         */
+        function startCompetition() {
+            const caseSelect = document.getElementById('competition-case-select');
+            if (!caseSelect) return;
+            
+            const caseId = caseSelect.value;
+            const caseData = window.game.caseLibrary.find(c => c.id === caseId);
+            
+            if (!caseData) {
+                window.game.showToast('请选择案件', 'warning');
+                return;
+            }
+            
+            // 开启竞赛
+            competitionManager.startCompetition(caseId, selectedTimeLimit, caseData.name);
+            
+            // 加载竞赛案件
+            window.game.loadCase(caseId);
+            
+            // 更新UI
+            const container = document.getElementById('competition-content');
+            renderActiveCompetition(container, competitionManager.getCurrentCompetition());
+            
+            window.game.showToast('🏆 竞赛已开启！', 'success');
+        }
+        
+        /**
+         * 确认结束竞赛
+         */
+        function endCompetitionConfirm() {
+            if (confirm('确定要结束当前竞赛吗？')) {
+                const result = competitionManager.endCompetition();
+                if (result) {
+                    closeModal('competition-modal');
+                    showCompetitionResult(result);
+                }
+            }
+        }
+        
+        /**
+         * 打开排行榜
+         * Requirements: 8.3 - 实时排行榜
+         */
+        function openLeaderboard() {
+            const container = document.getElementById('leaderboard-content');
+            if (!container) return;
+            
+            const competition = competitionManager.getCurrentCompetition();
+            const leaderboard = competitionManager.getLeaderboard();
+            
+            if (!competition) {
+                container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);">暂无进行中的竞赛</div>';
+                openModal('leaderboard-modal');
+                return;
+            }
+            
+            container.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div>
+                        <h3 style="margin: 0; color: var(--detective-gold);">${competition.caseName}</h3>
+                        <div style="font-size: 0.85rem; color: var(--text-muted);">已提交 ${leaderboard.length} 人</div>
+                    </div>
+                    <button onclick="refreshLeaderboard()" style="
+                        padding: 8px 16px;
+                        border: 1px solid var(--detective-blue);
+                        border-radius: 8px;
+                        background: transparent;
+                        color: var(--detective-blue);
+                        cursor: pointer;
+                    ">🔄 刷新</button>
+                </div>
+                
+                ${leaderboard.length === 0 ? `
+                    <div style="text-align: center; padding: 60px 20px; color: var(--text-muted);">
+                        <div style="font-size: 4rem; margin-bottom: 15px;">📊</div>
+                        <div>暂无提交记录</div>
+                    </div>
+                ` : `
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: rgba(255,255,255,0.05);">
+                                    <th style="padding: 12px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1);">排名</th>
+                                    <th style="padding: 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1);">学生</th>
+                                    <th style="padding: 12px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1);">得分</th>
+                                    <th style="padding: 12px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1);">用时</th>
+                                    <th style="padding: 12px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1);">评级</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${leaderboard.map((entry, index) => {
+                                    const rankIcon = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1);
+                                    const gradeConfig = typeof GRADE_CONFIG !== 'undefined' ? GRADE_CONFIG[entry.grade] : null;
+                                    const gradeName = gradeConfig ? gradeConfig.name : entry.grade;
+                                    const gradeIcon = gradeConfig ? gradeConfig.icon : '';
+                                    const minutes = Math.floor(entry.elapsedTime / 60);
+                                    const seconds = entry.elapsedTime % 60;
+                                    
+                                    return `
+                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                            <td style="padding: 12px; text-align: center; font-size: 1.2rem;">${rankIcon}</td>
+                                            <td style="padding: 12px;">${entry.studentName}</td>
+                                            <td style="padding: 12px; text-align: center; font-weight: bold; color: var(--detective-gold);">${entry.score}</td>
+                                            <td style="padding: 12px; text-align: center; font-family: 'Courier New', monospace;">${minutes}:${seconds.toString().padStart(2, '0')}</td>
+                                            <td style="padding: 12px; text-align: center;">${gradeIcon} ${gradeName}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `}
+            `;
+            
+            openModal('leaderboard-modal');
+        }
+        
+        /**
+         * 刷新排行榜
+         */
+        function refreshLeaderboard() {
+            openLeaderboard();
+            window.game.showToast('排行榜已刷新', 'info');
+        }
+        
+        /**
+         * 显示竞赛结果
+         * Requirements: 8.4, 8.5 - 显示最终排名和导出功能
+         */
+        function showCompetitionResult(competition) {
+            const container = document.getElementById('competition-result-content');
+            if (!container) return;
+            
+            const leaderboard = competition.leaderboard || [];
+            
+            container.innerHTML = `
+                <div style="text-align: center; margin-bottom: 25px;">
+                    <div style="font-size: 4rem; margin-bottom: 15px;">🏁</div>
+                    <h3 style="color: var(--detective-gold); margin-bottom: 10px;">竞赛结束</h3>
+                    <p style="color: var(--text-muted);">${competition.caseName}</p>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 25px;">
+                    <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; text-align: center;">
+                        <div style="font-size: 2rem; font-weight: bold; color: var(--detective-blue);">${leaderboard.length}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted);">参赛人数</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; text-align: center;">
+                        <div style="font-size: 2rem; font-weight: bold; color: var(--detective-green);">${leaderboard.length > 0 ? leaderboard[0].score : '-'}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted);">最高分</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; text-align: center;">
+                        <div style="font-size: 2rem; font-weight: bold; color: var(--detective-gold);">${leaderboard.length > 0 ? Math.round(leaderboard.reduce((sum, e) => sum + e.score, 0) / leaderboard.length) : '-'}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted);">平均分</div>
+                    </div>
+                </div>
+                
+                ${leaderboard.length > 0 ? `
+                    <!-- 前三名展示 -->
+                    <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 25px;">
+                        ${leaderboard.slice(0, 3).map((entry, index) => {
+                            const icons = ['🥇', '🥈', '🥉'];
+                            const colors = ['#f4a261', '#94a3b8', '#cd7f32'];
+                            return `
+                                <div style="text-align: center; padding: 20px; background: rgba(255,255,255,0.05); border-radius: 15px; border: 2px solid ${colors[index]}30;">
+                                    <div style="font-size: 2.5rem; margin-bottom: 10px;">${icons[index]}</div>
+                                    <div style="font-weight: bold; margin-bottom: 5px;">${entry.studentName}</div>
+                                    <div style="font-size: 1.5rem; font-weight: bold; color: ${colors[index]};">${entry.score}分</div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    
+                    <!-- 完整排行榜 -->
+                    <div style="max-height: 300px; overflow-y: auto; margin-bottom: 20px;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: rgba(255,255,255,0.05); position: sticky; top: 0;">
+                                    <th style="padding: 10px; text-align: center;">排名</th>
+                                    <th style="padding: 10px; text-align: left;">学生</th>
+                                    <th style="padding: 10px; text-align: center;">得分</th>
+                                    <th style="padding: 10px; text-align: center;">用时</th>
+                                    <th style="padding: 10px; text-align: left;">检测路径</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${leaderboard.map((entry, index) => {
+                                    const minutes = Math.floor(entry.elapsedTime / 60);
+                                    const seconds = entry.elapsedTime % 60;
+                                    const pathStr = entry.detectionPath ? entry.detectionPath.slice(0, 3).join(' → ') + (entry.detectionPath.length > 3 ? '...' : '') : '-';
+                                    return `
+                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                            <td style="padding: 10px; text-align: center;">${index + 1}</td>
+                                            <td style="padding: 10px;">${entry.studentName}</td>
+                                            <td style="padding: 10px; text-align: center; font-weight: bold;">${entry.score}</td>
+                                            <td style="padding: 10px; text-align: center;">${minutes}:${seconds.toString().padStart(2, '0')}</td>
+                                            <td style="padding: 10px; font-size: 0.85rem; color: var(--text-muted);">${pathStr}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                ` : `
+                    <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+                        <div style="font-size: 3rem; margin-bottom: 15px;">📊</div>
+                        <div>本次竞赛无人提交</div>
+                    </div>
+                `}
+                
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="downloadCompetitionReport()" style="
+                        flex: 1;
+                        padding: 14px;
+                        border: 2px solid var(--detective-green);
+                        border-radius: 10px;
+                        background: transparent;
+                        color: var(--detective-green);
+                        font-size: 1rem;
+                        font-weight: bold;
+                        cursor: pointer;
+                    ">📥 导出Excel报告</button>
+                    <button onclick="closeModal('competition-result-modal')" style="
+                        flex: 1;
+                        padding: 14px;
+                        border: none;
+                        border-radius: 10px;
+                        background: var(--detective-blue);
+                        color: white;
+                        font-size: 1rem;
+                        font-weight: bold;
+                        cursor: pointer;
+                    ">关闭</button>
+                </div>
+            `;
+            
+            // 保存当前结果用于导出
+            window._lastCompetitionResult = competition;
+            
+            openModal('competition-result-modal');
+        }
+        
+        /**
+         * 下载竞赛报告
+         * Requirements: 8.5 - 支持导出竞赛结果为Excel报告
+         */
+        function downloadCompetitionReport() {
+            if (window._lastCompetitionResult) {
+                competitionManager.downloadExcelReport(window._lastCompetitionResult);
+                window.game.showToast('报告已下载', 'success');
+            } else {
+                window.game.showToast('无法导出报告', 'error');
+            }
+        }
+        
+        // 监听竞赛结束事件
+        window.addEventListener('competitionEnd', function(e) {
+            showCompetitionResult(e.detail);
         });
     </script>
 </body>

@@ -538,6 +538,7 @@
                 <button class="ctrl-btn" style="background:#3b82f6; color:white;" onclick="openAnalytics()">📊 数据</button>
                 <button class="ctrl-btn" style="background:#8b5cf6; color:white;" onclick="openHistoryPanel()">📚 历史</button>
                 <button class="ctrl-btn" style="background:#06b6d4; color:white;" onclick="openSamplingSandbox()">🎯 采样沙盘</button>
+                <button class="ctrl-btn" style="background:#f97316; color:white;" onclick="openHazwasteDetective()">🔍 危废鉴别</button>
                 <button class="ctrl-btn" style="background:#f59e0b; color:white;" onclick="toggleFullscreen()">⛶ 全屏</button>
             </div>
         </div>
@@ -2193,6 +2194,11 @@
         // ================== 采样布点沙盘 ==================
         function openSamplingSandbox() {
             window.open('/classroom/sampling-sandbox.html?mode=demo', '_blank');
+        }
+        
+        // ================== 危废鉴别剧本杀 ==================
+        function openHazwasteDetective() {
+            window.open('/classroom/hazwaste-detective.html', '_blank');
         }
         
         // ================== 模态框 ==================
