@@ -537,6 +537,7 @@
                 <button class="ctrl-btn" style="background:#10b981; color:white;" onclick="openQuestionBankManager()">📝 题库</button>
                 <button class="ctrl-btn" style="background:#3b82f6; color:white;" onclick="openAnalytics()">📊 数据</button>
                 <button class="ctrl-btn" style="background:#8b5cf6; color:white;" onclick="openHistoryPanel()">📚 历史</button>
+                <button class="ctrl-btn" style="background:#06b6d4; color:white;" onclick="openSamplingSandbox()">🎯 采样沙盘</button>
                 <button class="ctrl-btn" style="background:#f59e0b; color:white;" onclick="toggleFullscreen()">⛶ 全屏</button>
             </div>
         </div>
@@ -2187,6 +2188,11 @@
         // ================== 数据分析 ==================
         function openAnalytics() {
             window.open('/classroom/analytics.html', '_blank', 'width=1000,height=800');
+        }
+        
+        // ================== 采样布点沙盘 ==================
+        function openSamplingSandbox() {
+            window.open('/classroom/sampling-sandbox.html?mode=demo', '_blank');
         }
         
         // ================== 模态框 ==================

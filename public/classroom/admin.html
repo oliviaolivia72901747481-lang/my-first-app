@@ -102,6 +102,7 @@
         .btn-presentation { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
         .btn-import { background: rgba(139, 92, 246, 0.2); color: #a78bfa; border: 2px dashed #8b5cf6; }
         .btn-release { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+        .btn-sandbox { background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); color: white; }
         .btn-endclass { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; grid-column: span 2; }
 
         /* 右侧显示区域 */
@@ -473,6 +474,10 @@
                     <span class="icon">📝</span>
                     <span>题库管理</span>
                 </button>
+                <button class="action-btn btn-sandbox" onclick="openSamplingSandbox()">
+                    <span class="icon">🎯</span>
+                    <span>采样沙盘</span>
+                </button>
                 <button class="action-btn btn-release" onclick="releaseControl()">
                     <span class="icon">⏸️</span>
                     <span>释放控制</span>
@@ -787,6 +792,10 @@
         
         function openQuestionBank() {
             window.open('/classroom/questionbank.html', '_blank', 'width=1400,height=900');
+        }
+        
+        function openSamplingSandbox() {
+            window.open('/classroom/sampling-sandbox.html?mode=demo', '_blank');
         }
         
         async function releaseControl() {
