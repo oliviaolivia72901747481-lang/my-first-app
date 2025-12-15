@@ -149,9 +149,13 @@
                         <span style="color:#94a3b8;">判断题</span>
                         <span id="stat-truefalse">0</span>
                     </div>
-                    <div style="display:flex; justify-content:space-between; padding:8px 0;">
+                    <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.1);">
                         <span style="color:#94a3b8;">填空题</span>
                         <span id="stat-fillblank">0</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; padding:8px 0;">
+                        <span style="color:#94a3b8;">计算题</span>
+                        <span id="stat-calculation">0</span>
                     </div>
                 </div>
             </div>
@@ -171,6 +175,7 @@
                         <option value="multiple">多选题</option>
                         <option value="truefalse">判断题</option>
                         <option value="fillblank">填空题</option>
+                        <option value="calculation">计算题</option>
                     </select>
                     <select id="filter-difficulty" style="padding:10px 15px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
                         <option value="">全部难度</option>
@@ -1042,6 +1047,7 @@
                         <option value="multiple">多选题</option>
                         <option value="truefalse">判断题</option>
                         <option value="fillblank">填空题</option>
+                        <option value="calculation">计算题</option>
                     </select>
                 </div>
             </div>
@@ -1141,7 +1147,8 @@
             single: { name: '单选题', color: '#3b82f6', icon: '📌' },
             multiple: { name: '多选题', color: '#8b5cf6', icon: '📋' },
             truefalse: { name: '判断题', color: '#10b981', icon: '✅' },
-            fillblank: { name: '填空题', color: '#f59e0b', icon: '✏️' }
+            fillblank: { name: '填空题', color: '#f59e0b', icon: '✏️' },
+            calculation: { name: '计算题', color: '#ec4899', icon: '📐' }
         };
         
         // 初始化
@@ -2368,7 +2375,12 @@
                                 <span style="font-size:0.75rem; color:#f59e0b;">${difficulty}</span>
                             </div>
                             <div style="font-size:0.95rem; line-height:1.5; margin-bottom:8px;">${highlightedTitle}</div>
-                            ${q.question_type !== 'fillblank' && q.question_type !== 'truefalse' ? `
+                            ${q.question_type === 'calculation' ? `
+                                <div style="display:flex; gap:15px; flex-wrap:wrap; font-size:0.85rem; color:#94a3b8;">
+                                    ${q.option_a ? `<span>📐 单位: ${q.option_a}</span>` : ''}
+                                    ${q.option_b ? `<span>📏 允许误差: ±${q.option_b}</span>` : ''}
+                                </div>
+                            ` : q.question_type !== 'fillblank' && q.question_type !== 'truefalse' ? `
                                 <div style="display:flex; gap:15px; flex-wrap:wrap; font-size:0.85rem; color:#94a3b8;">
                                     ${q.option_a ? `<span>A. ${q.option_a.substring(0, 20)}${q.option_a.length > 20 ? '...' : ''}</span>` : ''}
                                     ${q.option_b ? `<span>B. ${q.option_b.substring(0, 20)}${q.option_b.length > 20 ? '...' : ''}</span>` : ''}
@@ -2393,7 +2405,7 @@
         }
         
         function updateStats() {
-            const stats = { single: 0, multiple: 0, truefalse: 0, fillblank: 0 };
+            const stats = { single: 0, multiple: 0, truefalse: 0, fillblank: 0, calculation: 0 };
             questions.forEach(q => {
                 const type = q.question_type || 'single';
                 if (stats[type] !== undefined) stats[type]++;
@@ -2403,6 +2415,9 @@
             document.getElementById('stat-multiple').textContent = stats.multiple;
             document.getElementById('stat-truefalse').textContent = stats.truefalse;
             document.getElementById('stat-fillblank').textContent = stats.fillblank;
+            if (document.getElementById('stat-calculation')) {
+                document.getElementById('stat-calculation').textContent = stats.calculation;
+            }
             document.getElementById('total-count').textContent = questions.length;
         }
         
@@ -2548,6 +2563,21 @@
             document.getElementById('q-difficulty').value = q.difficulty || 1;
             document.getElementById('q-explanation').value = q.explanation || '';
             
+            // 更新表单显示
+            updateQuestionForm();
+            
+            // 如果是计算题，加载单位和误差
+            if (q.question_type === 'calculation') {
+                setTimeout(() => {
+                    if (document.getElementById('q-calc-unit')) {
+                        document.getElementById('q-calc-unit').value = q.option_a || '';
+                    }
+                    if (document.getElementById('q-calc-tolerance')) {
+                        document.getElementById('q-calc-tolerance').value = q.option_b || '0.5';
+                    }
+                }, 100);
+            }
+            
             // 初始化题目弹窗的课程选择器
             updateQuestionCourseSelect();
             
@@ -2591,6 +2621,27 @@
                 optionsArea.innerHTML = `
                     <div style="margin-bottom:15px; color:#94a3b8;">
                         填空题无需填写选项，题目中用 ____ 表示填空位置，答案填写标准答案
+                    </div>
+                `;
+            } else if (type === 'calculation') {
+                optionsArea.innerHTML = `
+                    <div style="margin-bottom:15px;">
+                        <div style="color:#94a3b8; margin-bottom:10px;">
+                            📐 计算题设置：在题目中描述计算问题，答案填写数值结果
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <div>
+                                <label style="color:#94a3b8; font-size:0.85rem;">单位（如 %、mg/L、g）</label>
+                                <input id="q-calc-unit" placeholder="例如: %" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                            </div>
+                            <div>
+                                <label style="color:#94a3b8; font-size:0.85rem;">允许误差（±）</label>
+                                <input id="q-calc-tolerance" type="number" step="0.01" value="0.5" placeholder="0.5" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white;">
+                            </div>
+                        </div>
+                        <div style="margin-top:10px; padding:10px; background:rgba(59,130,246,0.1); border-radius:8px; font-size:0.85rem; color:#60a5fa;">
+                            💡 提示：答案填写标准数值，系统会根据允许误差自动判断学生答案是否正确
+                        </div>
                     </div>
                 `;
             } else {
@@ -2685,13 +2736,21 @@
                 }
             }
             
+            // 计算题额外数据
+            let calcUnit = null;
+            let calcTolerance = null;
+            if (type === 'calculation') {
+                calcUnit = document.getElementById('q-calc-unit')?.value || null;
+                calcTolerance = parseFloat(document.getElementById('q-calc-tolerance')?.value) || 0.5;
+            }
+            
             const data = {
                 round,
                 question_type: type,
                 task_id: taskId,
                 title,
-                option_a: document.getElementById('q-opt-a')?.value || null,
-                option_b: document.getElementById('q-opt-b')?.value || null,
+                option_a: type === 'calculation' ? calcUnit : (document.getElementById('q-opt-a')?.value || null),
+                option_b: type === 'calculation' ? String(calcTolerance) : (document.getElementById('q-opt-b')?.value || null),
                 option_c: document.getElementById('q-opt-c')?.value || null,
                 option_d: document.getElementById('q-opt-d')?.value || null,
                 answer,
