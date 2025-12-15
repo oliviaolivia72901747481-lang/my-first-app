@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>虚拟工位平台 - 专业实训系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #0d0d1f 100%);
+            min-height: 100vh;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .station-card {
+            background: linear-gradient(145deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.05));
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .station-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(139, 92, 246, 0.6);
+            box-shadow: 0 20px 40px rgba(139, 92, 246, 0.2);
+        }
+        
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+        
+        .badge {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .glow-text {
+            text-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+        }
+    </style>
+</head>
+<body class="text-white">
+    <!-- 顶部导航 -->
+    <nav class="glass-card sticky top-0 z-50 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <a href="index.html" class="text-gray-400 hover:text-white transition">
+                    <i class="ri-arrow-left-line text-xl"></i>
+                </a>
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                        <i class="ri-building-4-line text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold glow-text">虚拟工位平台</h1>
+                        <p class="text-xs text-gray-400">专业实训系统 v1.0</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 用户信息 -->
+            <div class="flex items-center gap-6">
+                <!-- 职业等级 -->
+                <div class="flex items-center gap-2 bg-gradient-to-r from-amber-500/20 to-orange-500/20 px-4 py-2 rounded-full border border-amber-500/30">
+                    <i class="ri-medal-line text-amber-400"></i>
+                    <span class="text-amber-300 font-medium">见习工程师</span>
+                    <span class="text-xs text-gray-400">Lv.3</span>
+                </div>
+                
+                <!-- 经验值 -->
+                <div class="flex items-center gap-2">
+                    <div class="w-32 h-2 bg-gray-700 rounded-full overflow-hidden">
+                        <div class="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full" style="width: 65%"></div>
+                    </div>
+                    <span class="text-xs text-gray-400">650/1000 XP</span>
+                </div>
+                
+                <!-- 用户头像 -->
+                <div class="w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-full flex items-center justify-center font-bold">
+                    学
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-6 py-8">
+        <!-- 欢迎区域 -->
+        <section class="mb-12">
+            <div class="glass-card rounded-2xl p-8 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl"></div>
+                <div class="relative z-10">
+                    <h2 class="text-3xl font-bold mb-2">欢迎回到工位，<span class="text-purple-400">见习工程师</span></h2>
+                    <p class="text-gray-400 mb-6">今日任务：完成水质监测采样方案设计 | 预计用时：45分钟</p>
+                    
+                    <div class="flex gap-4">
+                        <button class="px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl font-medium hover:from-purple-600 hover:to-indigo-700 transition flex items-center gap-2">
+                            <i class="ri-play-circle-line"></i>
+                            继续上次任务
+                        </button>
+                        <button class="px-6 py-3 bg-white/10 rounded-xl font-medium hover:bg-white/20 transition flex items-center gap-2">
+                            <i class="ri-file-list-3-line"></i>
+                            查看任务清单
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 四大核心功能模块 -->
+        <section class="mb-12">
+            <h3 class="text-xl font-bold mb-6 flex items-center gap-2">
+                <i class="ri-apps-2-line text-purple-400"></i>
+                核心功能模块
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- 模块1: 虚拟工位 -->
+                <div class="station-card rounded-2xl p-6 cursor-pointer" onclick="enterModule('workstation')">
+                    <div class="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center mb-4">
+                        <i class="ri-computer-line text-2xl"></i>
+                    </div>
+                    <h4 class="text-lg font-bold mb-2">🔬 虚拟工位</h4>
+                    <p class="text-gray-400 text-sm mb-4">深度场景化实训，工作手册式交互，软件即工作流</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-purple-400">5个实训场景</span>
+                        <i class="ri-arrow-right-line text-purple-400"></i>
+                    </div>
+                </div>
+                
+                <!-- 模块2: 学习分析 -->
+                <div class="station-card rounded-2xl p-6 cursor-pointer" onclick="enterModule('analytics')">
+                    <div class="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center mb-4">
+                        <i class="ri-line-chart-line text-2xl"></i>
+                    </div>
+                    <h4 class="text-lg font-bold mb-2">📊 学习分析</h4>
+                    <p class="text-gray-400 text-sm mb-4">过程性数据无感采集，行为埋点与错误模式分析</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-blue-400">实时追踪</span>
+                        <i class="ri-arrow-right-line text-blue-400"></i>
+                    </div>
+                </div>
+                
+                <!-- 模块3: AI助教 -->
+                <div class="station-card rounded-2xl p-6 cursor-pointer" onclick="enterModule('ai-tutor')">
+                    <div class="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center mb-4">
+                        <i class="ri-robot-2-line text-2xl"></i>
+                    </div>
+                    <h4 class="text-lg font-bold mb-2">🤖 AI专业助教</h4>
+                    <p class="text-gray-400 text-sm mb-4">RAG知识库支持，引用国标规范，AI预批改方案</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-emerald-400">GB标准库已接入</span>
+                        <i class="ri-arrow-right-line text-emerald-400"></i>
+                    </div>
+                </div>
+                
+                <!-- 模块4: 成就系统 -->
+                <div class="station-card rounded-2xl p-6 cursor-pointer" onclick="enterModule('achievements')">
+                    <div class="w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center mb-4">
+                        <i class="ri-trophy-line text-2xl"></i>
+                    </div>
+                    <h4 class="text-lg font-bold mb-2">🎮 职业成就</h4>
+                    <p class="text-gray-400 text-sm mb-4">职业RPG成长路径，虚拟上岗证与技能勋章</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-amber-400">3枚勋章已获得</span>
+                        <i class="ri-arrow-right-line text-amber-400"></i>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 虚拟工位场景选择 -->
+        <section class="mb-12">
+            <h3 class="text-xl font-bold mb-6 flex items-center gap-2">
+                <i class="ri-building-4-line text-purple-400"></i>
+                选择实训工位
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- 工位1: 环境监测站 -->
+                <div class="glass-card rounded-2xl overflow-hidden group cursor-pointer" onclick="enterWorkstation('env-monitoring')">
+                    <div class="h-40 bg-gradient-to-br from-blue-900 to-cyan-900 relative">
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <i class="ri-flask-line text-6xl text-cyan-400/30 group-hover:text-cyan-400/50 transition"></i>
+                        </div>
+                        <div class="absolute top-4 right-4 px-3 py-1 bg-green-500/20 rounded-full text-green-400 text-xs border border-green-500/30">
+                            进行中
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h4 class="text-lg font-bold mb-2">🧪 环境监测站</h4>
+                        <p class="text-gray-400 text-sm mb-4">水质监测、大气监测、土壤监测全流程实训</p>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-24 h-2 bg-gray-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-cyan-500 rounded-full" style="width: 45%"></div>
+                                </div>
+                                <span class="text-xs text-gray-400">45%</span>
+                            </div>
+                            <span class="text-xs text-cyan-400">3/7 任务</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 工位2: 危废鉴别实验室 -->
+                <div class="glass-card rounded-2xl overflow-hidden group cursor-pointer" onclick="location.href='hazwaste-detective.html'">
+                    <div class="h-40 bg-gradient-to-br from-orange-900 to-red-900 relative">
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <i class="ri-skull-line text-6xl text-orange-400/30 group-hover:text-orange-400/50 transition"></i>
+                        </div>
+                        <div class="absolute top-4 right-4 px-3 py-1 bg-purple-500/20 rounded-full text-purple-400 text-xs border border-purple-500/30">
+                            剧本杀模式
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h4 class="text-lg font-bold mb-2">☣️ 危废鉴别实验室</h4>
+                        <p class="text-gray-400 text-sm mb-4">GB 5085系列标准学习，沉浸式推理鉴别</p>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-24 h-2 bg-gray-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-orange-500 rounded-full" style="width: 20%"></div>
+                                </div>
+                                <span class="text-xs text-gray-400">20%</span>
+                            </div>
+                            <span class="text-xs text-orange-400">1/5 案件</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 工位3: 采样规划中心 -->
+                <div class="glass-card rounded-2xl overflow-hidden group cursor-pointer" onclick="location.href='sampling-sandbox.html'">
+                    <div class="h-40 bg-gradient-to-br from-green-900 to-emerald-900 relative">
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <i class="ri-map-pin-line text-6xl text-emerald-400/30 group-hover:text-emerald-400/50 transition"></i>
+                        </div>
+                        <div class="absolute top-4 right-4 px-3 py-1 bg-blue-500/20 rounded-full text-blue-400 text-xs border border-blue-500/30">
+                            沙盒模式
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h4 class="text-lg font-bold mb-2">📍 采样规划中心</h4>
+                        <p class="text-gray-400 text-sm mb-4">布点方案设计、采样计划制定、现场模拟</p>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-24 h-2 bg-gray-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-emerald-500 rounded-full" style="width: 0%"></div>
+                                </div>
+                                <span class="text-xs text-gray-400">0%</span>
+                            </div>
+                            <span class="text-xs text-emerald-400">未开始</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 工位4: 数据处理中心 -->
+                <div class="glass-card rounded-2xl overflow-hidden group cursor-pointer opacity-60" onclick="showComingSoon()">
+                    <div class="h-40 bg-gradient-to-br from-purple-900 to-indigo-900 relative">
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <i class="ri-database-2-line text-6xl text-purple-400/30"></i>
+                        </div>
+                        <div class="absolute top-4 right-4 px-3 py-1 bg-gray-500/20 rounded-full text-gray-400 text-xs border border-gray-500/30">
+                            即将开放
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h4 class="text-lg font-bold mb-2">📈 数据处理中心</h4>
+                        <p class="text-gray-400 text-sm mb-4">监测数据分析、报告生成、质量控制</p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-500">敬请期待</span>
+                            <i class="ri-lock-line text-gray-500"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 工位5: 仪器操作室 -->
+                <div class="glass-card rounded-2xl overflow-hidden group cursor-pointer opacity-60" onclick="showComingSoon()">
+                    <div class="h-40 bg-gradient-to-br from-pink-900 to-rose-900 relative">
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <i class="ri-microscope-line text-6xl text-pink-400/30"></i>
+                        </div>
+                        <div class="absolute top-4 right-4 px-3 py-1 bg-gray-500/20 rounded-full text-gray-400 text-xs border border-gray-500/30">
+                            即将开放
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h4 class="text-lg font-bold mb-2">🔬 仪器操作室</h4>
+                        <p class="text-gray-400 text-sm mb-4">分析仪器虚拟操作、参数调节、故障排除</p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-500">敬请期待</span>
+                            <i class="ri-lock-line text-gray-500"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 工位6: 应急响应中心 -->
+                <div class="glass-card rounded-2xl overflow-hidden group cursor-pointer opacity-60" onclick="showComingSoon()">
+                    <div class="h-40 bg-gradient-to-br from-red-900 to-amber-900 relative">
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <i class="ri-alarm-warning-line text-6xl text-red-400/30"></i>
+                        </div>
+                        <div class="absolute top-4 right-4 px-3 py-1 bg-gray-500/20 rounded-full text-gray-400 text-xs border border-gray-500/30">
+                            即将开放
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h4 class="text-lg font-bold mb-2">🚨 应急响应中心</h4>
+                        <p class="text-gray-400 text-sm mb-4">环境应急预案、事故处置、现场指挥模拟</p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-500">敬请期待</span>
+                            <i class="ri-lock-line text-gray-500"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 职业成长路径 -->
+        <section class="mb-12">
+            <h3 class="text-xl font-bold mb-6 flex items-center gap-2">
+                <i class="ri-road-map-line text-amber-400"></i>
+                职业成长路径
+            </h3>
+            
+            <div class="glass-card rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-8">
+                    <!-- 等级进度 -->
+                    <div class="flex items-center gap-8">
+                        <div class="text-center">
+                            <div class="w-16 h-16 bg-gradient-to-br from-gray-600 to-gray-700 rounded-full flex items-center justify-center mb-2 border-2 border-gray-500">
+                                <i class="ri-user-line text-2xl text-gray-400"></i>
+                            </div>
+                            <span class="text-xs text-gray-500">实习生</span>
+                        </div>
+                        <div class="w-16 h-1 bg-green-500 rounded"></div>
+                        <div class="text-center">
+                            <div class="w-16 h-16 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center mb-2 border-2 border-amber-400 ring-4 ring-amber-500/30">
+                                <i class="ri-user-star-line text-2xl"></i>
+                            </div>
+                            <span class="text-xs text-amber-400 font-medium">见习工程师</span>
+                        </div>
+                        <div class="w-16 h-1 bg-gray-700 rounded relative">
+                            <div class="absolute inset-0 bg-gradient-to-r from-amber-500 to-transparent rounded" style="width: 65%"></div>
+                        </div>
+                        <div class="text-center opacity-50">
+                            <div class="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-full flex items-center justify-center mb-2 border-2 border-blue-500">
+                                <i class="ri-user-settings-line text-2xl"></i>
+                            </div>
+                            <span class="text-xs text-gray-500">助理工程师</span>
+                        </div>
+                        <div class="w-16 h-1 bg-gray-700 rounded"></div>
+                        <div class="text-center opacity-30">
+                            <div class="w-16 h-16 bg-gradient-to-br from-purple-600 to-pink-700 rounded-full flex items-center justify-center mb-2 border-2 border-purple-500">
+                                <i class="ri-vip-crown-line text-2xl"></i>
+                            </div>
+                            <span class="text-xs text-gray-500">项目经理</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 已获得勋章 -->
+                <div class="border-t border-gray-700 pt-6">
+                    <h4 class="text-sm font-medium text-gray-400 mb-4">已获得勋章</h4>
+                    <div class="flex gap-4">
+                        <div class="text-center">
+                            <div class="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center mb-1 badge">
+                                <i class="ri-drop-line text-xl"></i>
+                            </div>
+                            <span class="text-xs text-gray-400">水质采样员</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center mb-1 badge">
+                                <i class="ri-leaf-line text-xl"></i>
+                            </div>
+                            <span class="text-xs text-gray-400">环保新人</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center mb-1 badge">
+                                <i class="ri-fire-line text-xl"></i>
+                            </div>
+                            <span class="text-xs text-gray-400">连续学习7天</span>
+                        </div>
+                        <div class="text-center opacity-30">
+                            <div class="w-12 h-12 bg-gray-700 rounded-lg flex items-center justify-center mb-1 border border-dashed border-gray-600">
+                                <i class="ri-question-line text-xl text-gray-500"></i>
+                            </div>
+                            <span class="text-xs text-gray-500">???</span>
+                        </div>
+                        <div class="text-center opacity-30">
+                            <div class="w-12 h-12 bg-gray-700 rounded-lg flex items-center justify-center mb-1 border border-dashed border-gray-600">
+                                <i class="ri-question-line text-xl text-gray-500"></i>
+                            </div>
+                            <span class="text-xs text-gray-500">???</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- AI助教悬浮按钮 -->
+    <div class="fixed bottom-8 right-8 z-50">
+        <button onclick="openAITutor()" class="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full flex items-center justify-center shadow-lg hover:shadow-emerald-500/50 transition group">
+            <i class="ri-robot-2-line text-2xl group-hover:scale-110 transition"></i>
+        </button>
+        <div class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-xs font-bold animate-pulse">
+            1
+        </div>
+    </div>
+
+    <!-- AI助教对话框 -->
+    <div id="ai-tutor-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
+        <div class="glass-card rounded-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col">
+            <div class="p-6 border-b border-gray-700 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center">
+                        <i class="ri-robot-2-line text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold">AI专业助教</h3>
+                        <p class="text-xs text-gray-400">已接入GB标准知识库</p>
+                    </div>
+                </div>
+                <button onclick="closeAITutor()" class="text-gray-400 hover:text-white">
+                    <i class="ri-close-line text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-6 space-y-4" id="chat-messages">
+                <div class="flex gap-3">
+                    <div class="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <i class="ri-robot-2-line text-sm"></i>
+                    </div>
+                    <div class="bg-gray-800 rounded-2xl rounded-tl-none p-4 max-w-md">
+                        <p class="text-sm">你好！我是你的AI专业助教。我已接入GB 5085系列危险废物鉴别标准、HJ系列环境监测技术规范等知识库。有什么问题可以问我！</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-4 border-t border-gray-700">
+                <div class="flex gap-2">
+                    <input type="text" id="ai-input" placeholder="输入你的问题，例如：危险废物的腐蚀性如何判定？" 
+                           class="flex-1 bg-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    <button onclick="sendToAI()" class="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl font-medium hover:from-emerald-600 hover:to-teal-700 transition">
+                        <i class="ri-send-plane-line"></i>
+                    </button>
+                </div>
+                <div class="mt-2 flex gap-2 flex-wrap">
+                    <button onclick="askQuestion('危险废物的腐蚀性如何判定？')" class="text-xs px-3 py-1 bg-gray-800 rounded-full hover:bg-gray-700 transition">腐蚀性判定</button>
+                    <button onclick="askQuestion('浸出毒性鉴别的标准限值是多少？')" class="text-xs px-3 py-1 bg-gray-800 rounded-full hover:bg-gray-700 transition">浸出毒性限值</button>
+                    <button onclick="askQuestion('采样方案设计需要考虑哪些因素？')" class="text-xs px-3 py-1 bg-gray-800 rounded-full hover:bg-gray-700 transition">采样方案设计</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 进入功能模块
+        function enterModule(module) {
+            switch(module) {
+                case 'workstation':
+                    // 滚动到工位选择区域
+                    document.querySelector('section:nth-of-type(3)').scrollIntoView({ behavior: 'smooth' });
+                    break;
+                case 'analytics':
+                    location.href = 'analytics.html';
+                    break;
+                case 'ai-tutor':
+                    openAITutor();
+                    break;
+                case 'achievements':
+                    // 滚动到成就区域
+                    document.querySelector('section:nth-of-type(4)').scrollIntoView({ behavior: 'smooth' });
+                    break;
+            }
+        }
+        
+        // 进入工位
+        function enterWorkstation(station) {
+            switch(station) {
+                case 'env-monitoring':
+                    alert('环境监测站工位正在开发中，敬请期待！');
+                    break;
+                default:
+                    alert('该工位正在开发中');
+            }
+        }
+        
+        // 显示即将开放提示
+        function showComingSoon() {
+            alert('该功能即将开放，敬请期待！');
+        }
+        
+        // AI助教相关
+        function openAITutor() {
+            document.getElementById('ai-tutor-modal').classList.remove('hidden');
+            document.getElementById('ai-tutor-modal').classList.add('flex');
+        }
+        
+        function closeAITutor() {
+            document.getElementById('ai-tutor-modal').classList.add('hidden');
+            document.getElementById('ai-tutor-modal').classList.remove('flex');
+        }
+        
+        function askQuestion(question) {
+            document.getElementById('ai-input').value = question;
+            sendToAI();
+        }
+        
+        function sendToAI() {
+            const input = document.getElementById('ai-input');
+            const question = input.value.trim();
+            if (!question) return;
+            
+            const messagesContainer = document.getElementById('chat-messages');
+            
+            // 添加用户消息
+            messagesContainer.innerHTML += `
+                <div class="flex gap-3 justify-end">
+                    <div class="bg-purple-600 rounded-2xl rounded-tr-none p-4 max-w-md">
+                        <p class="text-sm">${question}</p>
+                    </div>
+                    <div class="w-8 h-8 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-lg flex items-center justify-center flex-shrink-0 font-bold text-sm">
+                        学
+                    </div>
+                </div>
+            `;
+            
+            input.value = '';
+            
+            // 模拟AI回复
+            setTimeout(() => {
+                let response = '';
+                if (question.includes('腐蚀性')) {
+                    response = '根据GB 5085.1-2007《危险废物鉴别标准 腐蚀性鉴别》，腐蚀性危险废物的判定标准为：\n\n1. pH值≤2.0 或 pH值≥12.5\n2. 在55℃条件下，对20号钢的腐蚀速率≥6.35mm/年\n\n满足以上任一条件即判定为具有腐蚀性的危险废物。';
+                } else if (question.includes('浸出毒性')) {
+                    response = '根据GB 5085.3-2007《危险废物鉴别标准 浸出毒性鉴别》，主要限值包括：\n\n• 铅(Pb): 5 mg/L\n• 镉(Cd): 1 mg/L\n• 铬(Cr): 15 mg/L\n• 汞(Hg): 0.1 mg/L\n• 砷(As): 5 mg/L\n\n浸出液中任一有害成分浓度超过限值，即判定为危险废物。';
+                } else if (question.includes('采样')) {
+                    response = '采样方案设计需要考虑以下关键因素：\n\n1. **采样目的**：确定监测目标和评价标准\n2. **点位布设**：根据HJ/T 166-2004等规范确定采样点数量和位置\n3. **采样频次**：考虑时间代表性\n4. **采样方法**：选择适当的采样器具和保存方法\n5. **质量控制**：设置平行样、空白样等QC样品';
+                } else {
+                    response = '这是一个很好的问题！让我查阅相关标准为你解答...\n\n根据相关国家标准和技术规范，建议你参考以下资料进行深入学习。如果需要更具体的指导，请告诉我你正在进行的具体任务。';
+                }
+                
+                messagesContainer.innerHTML += `
+                    <div class="flex gap-3">
+                        <div class="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="ri-robot-2-line text-sm"></i>
+                        </div>
+                        <div class="bg-gray-800 rounded-2xl rounded-tl-none p-4 max-w-md">
+                            <p class="text-sm whitespace-pre-line">${response}</p>
+                        </div>
+                    </div>
+                `;
+                
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }, 1000);
+        }
+        
+        // 回车发送
+        document.getElementById('ai-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendToAI();
+            }
+        });
+    </script>
+</body>
+</html>
