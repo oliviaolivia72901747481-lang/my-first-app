@@ -1070,7 +1070,8 @@
             
             <div style="margin-bottom:15px;">
                 <label style="display:block; margin-bottom:8px; color:#94a3b8;">题目内容</label>
-                <textarea id="q-title" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white; min-height:80px; resize:vertical;"></textarea>
+                <textarea id="q-title" oninput="checkTitleDuplicate()" style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:#0f172a; color:white; min-height:80px; resize:vertical;"></textarea>
+                <div id="q-title-dup-warning" style="display:none;"></div>
             </div>
             
             <div id="options-area">
@@ -2606,6 +2607,45 @@
         
         function closeQuestionModal() {
             document.getElementById('question-modal').style.display = 'none';
+            // 清除重复检测提示
+            document.getElementById('q-title-dup-warning').style.display = 'none';
+            document.getElementById('q-title-dup-warning').innerHTML = '';
+        }
+        
+        // 实时检测题目重复（防抖）
+        let dupCheckTimer = null;
+        function checkTitleDuplicate() {
+            clearTimeout(dupCheckTimer);
+            dupCheckTimer = setTimeout(() => {
+                const title = document.getElementById('q-title').value.trim();
+                const warningDiv = document.getElementById('q-title-dup-warning');
+                
+                if (title.length < 10) {
+                    warningDiv.style.display = 'none';
+                    return;
+                }
+                
+                const editId = document.getElementById('edit-question-id').value;
+                const newQuestion = { id: editId || null, title };
+                const result = QuestionDedup.checkDuplicate(newQuestion, questions);
+                
+                if (result.isDuplicate) {
+                    const topSimilar = result.similarQuestions[0];
+                    warningDiv.innerHTML = `
+                        <div style="margin-top:8px; padding:10px; background:rgba(245,158,11,0.1); border-radius:8px; border-left:3px solid #f59e0b;">
+                            <div style="color:#f59e0b; font-size:0.85rem; margin-bottom:5px;">
+                                ⚠️ 发现相似题目 (${topSimilar.similarityPercent}% 相似)
+                            </div>
+                            <div style="color:#94a3b8; font-size:0.8rem;">
+                                ${topSimilar.question.title.substring(0, 80)}${topSimilar.question.title.length > 80 ? '...' : ''}
+                            </div>
+                        </div>
+                    `;
+                    warningDiv.style.display = 'block';
+                } else {
+                    warningDiv.style.display = 'none';
+                }
+            }, 500); // 500ms 防抖
         }
         
         async function saveQuestion() {
@@ -2987,6 +3027,20 @@
                 round: startRound + i,
                 task_id: taskId
             }));
+            
+            // 重复检测
+            const dupResults = QuestionDedup.checkDuplicateBatch(questionsToInsert, questions);
+            const dupReport = QuestionDedup.generateBatchReport(dupResults);
+            
+            if (dupReport.duplicateCount > 0) {
+                const confirmMsg = `⚠️ 发现 ${dupReport.duplicateCount} 个可能重复的题目，${dupReport.uniqueCount} 个唯一题目。\n\n是否仍要导入所有题目？`;
+                if (!confirm(confirmMsg)) {
+                    // 显示详细报告在预览区域
+                    const previewContainer = document.getElementById('import-preview');
+                    previewContainer.innerHTML += dupReport.html;
+                    return;
+                }
+            }
             
             // 逐个插入或更新题目
             let successCount = 0;
