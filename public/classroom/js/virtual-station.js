@@ -273,6 +273,76 @@ const AchievementRarity = {
     LEGENDARY: 'legendary'
 };
 
+/**
+ * 成就稀有度中文名称映射
+ */
+const AchievementRarityNames = {
+    [AchievementRarity.COMMON]: '普通',
+    [AchievementRarity.RARE]: '稀有',
+    [AchievementRarity.EPIC]: '史诗',
+    [AchievementRarity.LEGENDARY]: '传说'
+};
+
+/**
+ * 成就稀有度颜色映射
+ */
+const AchievementRarityColors = {
+    [AchievementRarity.COMMON]: { bg: 'from-gray-500 to-gray-600', border: 'border-gray-400', text: 'text-gray-300' },
+    [AchievementRarity.RARE]: { bg: 'from-blue-500 to-cyan-600', border: 'border-blue-400', text: 'text-blue-300' },
+    [AchievementRarity.EPIC]: { bg: 'from-purple-500 to-pink-600', border: 'border-purple-400', text: 'text-purple-300' },
+    [AchievementRarity.LEGENDARY]: { bg: 'from-amber-500 to-orange-600', border: 'border-amber-400', text: 'text-amber-300' }
+};
+
+/**
+ * 成就条件类型枚举
+ * @typedef {'task_complete'|'workstation_complete'|'streak'|'score'|'time'|'special'|'level'|'tasks_count'|'first_try_pass'} AchievementConditionType
+ */
+const AchievementConditionType = {
+    TASK_COMPLETE: 'task_complete',           // 完成特定任务
+    WORKSTATION_COMPLETE: 'workstation_complete', // 完成特定工位
+    STREAK: 'streak',                         // 连续学习天数
+    SCORE: 'score',                           // 达到特定分数
+    TIME: 'time',                             // 累计学习时长
+    SPECIAL: 'special',                       // 特殊条件
+    LEVEL: 'level',                           // 达到特定等级
+    TASKS_COUNT: 'tasks_count',               // 完成任务数量
+    FIRST_TRY_PASS: 'first_try_pass'          // 首次尝试通过
+};
+
+/**
+ * 成就接口定义
+ * @typedef {Object} Achievement
+ * @property {string} id - 成就唯一标识
+ * @property {string} name - 成就名称
+ * @property {string} description - 成就描述
+ * @property {string} icon - 图标类名 (remixicon)
+ * @property {AchievementRarity} rarity - 稀有度
+ * @property {AchievementCondition} condition - 解锁条件
+ * @property {number} xpReward - 经验值奖励
+ * @property {boolean} [isUnlocked] - 是否已解锁
+ * @property {number} [unlockedAt] - 解锁时间戳
+ * @property {number} [current] - 当前进度（用于显示）
+ */
+
+/**
+ * 成就条件接口定义
+ * @typedef {Object} AchievementCondition
+ * @property {AchievementConditionType} type - 条件类型
+ * @property {string|number} target - 目标值
+ * @property {number} [current] - 当前进度
+ */
+
+/**
+ * 上岗证接口定义
+ * @typedef {Object} Certificate
+ * @property {string} id - 证书唯一标识
+ * @property {string} userId - 用户ID
+ * @property {string} workstationId - 工位ID
+ * @property {string} workstationName - 工位名称
+ * @property {number} grantedAt - 颁发时间戳
+ * @property {string} [certificateNumber] - 证书编号
+ */
+
 
 // ================= 等级配置 =================
 
@@ -1677,13 +1747,67 @@ class TaskFlowService {
         // 清除当前执行记录
         localStorage.removeItem('vs_current_execution');
 
+        // 更新工位进度并检查上岗证颁发
+        let certificate = null;
+        let newAchievements = [];
+        const workstation = PRESET_WORKSTATIONS.find(w => w.id === task.workstationId);
+        if (workstation) {
+            // 获取该工位已完成的任务数
+            const historyKey = `vs_task_history_${execution.userId}`;
+            const history = JSON.parse(localStorage.getItem(historyKey) || '[]');
+            const completedTasksInWorkstation = history.filter(h => 
+                h.status === TaskExecutionStatus.COMPLETED && 
+                PRESET_TASKS.find(t => t.id === h.taskId && t.workstationId === task.workstationId)
+            );
+            const completedCount = new Set(completedTasksInWorkstation.map(h => h.taskId)).size;
+            
+            // 检查是否应颁发上岗证
+            if (window.VirtualStation && window.VirtualStation.achievementService) {
+                certificate = await window.VirtualStation.achievementService.checkCertificateEligibility(
+                    execution.userId,
+                    task.workstationId,
+                    completedCount,
+                    workstation.totalTasks
+                );
+                
+                // 检查任务完成相关的成就
+                const tasksKey = `vs_completed_tasks_${execution.userId}`;
+                const allCompletedTasks = JSON.parse(localStorage.getItem(tasksKey) || '[]');
+                if (!allCompletedTasks.includes(task.id)) {
+                    allCompletedTasks.push(task.id);
+                    localStorage.setItem(tasksKey, JSON.stringify(allCompletedTasks));
+                }
+                
+                newAchievements = await window.VirtualStation.achievementService.checkAchievements(
+                    execution.userId,
+                    {
+                        type: 'task_complete',
+                        taskId: task.id,
+                        tasksCount: allCompletedTasks.length,
+                        score: finalScore
+                    }
+                );
+                
+                // 如果是满分，检查满分成就
+                if (finalScore >= 100) {
+                    const scoreAchievements = await window.VirtualStation.achievementService.checkAchievements(
+                        execution.userId,
+                        { type: 'score', score: finalScore }
+                    );
+                    newAchievements = [...newAchievements, ...scoreAchievements];
+                }
+            }
+        }
+
         return {
             completed: true,
             completedAt: endTime,
             duration: duration,
             score: finalScore,
             xpReward: task.xpReward,
-            passed: finalScore >= task.passingScore
+            passed: finalScore >= task.passingScore,
+            certificate: certificate,
+            newAchievements: newAchievements
         };
     }
 
@@ -5137,8 +5261,9 @@ class AchievementService {
      * 颁发成就
      * @param {string} userId 用户ID
      * @param {string} achievementId 成就ID
+     * @param {boolean} showAnimation 是否显示动画（默认true）
      */
-    async grantAchievement(userId, achievementId) {
+    async grantAchievement(userId, achievementId, showAnimation = true) {
         const achievement = this._getPresetAchievements().find(a => a.id === achievementId);
         if (!achievement) return null;
 
@@ -5163,7 +5288,14 @@ class AchievementService {
             });
         }
 
-        return { ...achievement, isUnlocked: true, unlockedAt: record.unlocked_at };
+        const grantedAchievement = { ...achievement, isUnlocked: true, unlockedAt: record.unlocked_at };
+
+        // 显示成就获得动画
+        if (showAnimation) {
+            this.showAchievementAnimation(grantedAchievement);
+        }
+
+        return grantedAchievement;
     }
 
     /**
@@ -5180,12 +5312,24 @@ class AchievementService {
      * 颁发上岗证
      * @param {string} userId 用户ID
      * @param {string} workstationId 工位ID
+     * @param {boolean} showAnimation 是否显示动画（默认true）
+     * @returns {Certificate} 颁发的证书
      */
-    async grantCertificate(userId, workstationId) {
+    async grantCertificate(userId, workstationId, showAnimation = true) {
+        // 获取工位信息
+        const workstation = PRESET_WORKSTATIONS.find(w => w.id === workstationId);
+        const workstationName = workstation ? workstation.name : workstationId;
+        
+        // 生成证书编号: VS-工位缩写-年月日-序号
+        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        const certNumber = `VS-${workstationId.toUpperCase().slice(0, 3)}-${dateStr}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+        
         const certificate = {
             id: `cert_${workstationId}_${Date.now()}`,
             user_id: userId,
             workstation_id: workstationId,
+            workstation_name: workstationName,
+            certificate_number: certNumber,
             granted_at: Date.now()
         };
 
@@ -5204,59 +5348,337 @@ class AchievementService {
             });
         }
 
+        // 显示上岗证颁发动画
+        if (showAnimation) {
+            this.showCertificateAnimation(certificate);
+        }
+
         return certificate;
     }
 
     /**
-     * 检查是否应颁发上岗证
+     * 检查是否应颁发上岗证（工位全部任务完成时颁发）
      * @param {string} userId 用户ID
      * @param {string} workstationId 工位ID
      * @param {number} completedTasks 已完成任务数
      * @param {number} totalTasks 总任务数
+     * @returns {Certificate|null} 如果颁发了证书则返回证书，否则返回null
      */
     async checkCertificateEligibility(userId, workstationId, completedTasks, totalTasks) {
+        // 只有当完成所有任务且任务数大于0时才颁发上岗证
         if (completedTasks >= totalTasks && totalTasks > 0) {
             const certificates = await this.getCertificates(userId);
+            // 检查是否已经颁发过该工位的上岗证
             if (!certificates.find(c => c.workstation_id === workstationId)) {
-                return await this.grantCertificate(userId, workstationId);
+                const certificate = await this.grantCertificate(userId, workstationId);
+                // 同时检查是否触发工位完成相关的成就
+                await this.checkAchievements(userId, {
+                    type: 'workstation_complete',
+                    workstationId: workstationId
+                });
+                return certificate;
             }
         }
         return null;
     }
 
     /**
+     * 检查用户是否拥有某工位的上岗证
+     * @param {string} userId 用户ID
+     * @param {string} workstationId 工位ID
+     * @returns {boolean}
+     */
+    async hasCertificate(userId, workstationId) {
+        const certificates = await this.getCertificates(userId);
+        return certificates.some(c => c.workstation_id === workstationId);
+    }
+
+    /**
+     * 获取证书详情
+     * @param {string} userId 用户ID
+     * @param {string} workstationId 工位ID
+     * @returns {Certificate|null}
+     */
+    async getCertificateByWorkstation(userId, workstationId) {
+        const certificates = await this.getCertificates(userId);
+        return certificates.find(c => c.workstation_id === workstationId) || null;
+    }
+
+    /**
+     * 显示成就获得动画
+     * @param {Achievement} achievement 成就对象
+     */
+    showAchievementAnimation(achievement) {
+        const colors = AchievementRarityColors[achievement.rarity] || AchievementRarityColors[AchievementRarity.COMMON];
+        const rarityName = AchievementRarityNames[achievement.rarity] || '普通';
+        
+        // 创建动画容器
+        const container = document.createElement('div');
+        container.className = 'fixed inset-0 z-[100] flex items-center justify-center pointer-events-none';
+        container.innerHTML = `
+            <div class="achievement-popup glass-card rounded-2xl p-6 transform scale-0 opacity-0 transition-all duration-500 pointer-events-auto" style="background: rgba(0,0,0,0.9); border: 2px solid rgba(139, 92, 246, 0.5);">
+                <div class="text-center">
+                    <div class="text-amber-400 text-sm mb-2">🎉 成就解锁</div>
+                    <div class="w-20 h-20 mx-auto mb-4 bg-gradient-to-br ${colors.bg} rounded-xl flex items-center justify-center shadow-lg animate-bounce">
+                        <i class="${achievement.icon} text-4xl text-white"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-1">${achievement.name}</h3>
+                    <p class="text-gray-400 text-sm mb-2">${achievement.description}</p>
+                    <div class="flex items-center justify-center gap-2">
+                        <span class="${colors.text} text-xs px-2 py-1 rounded-full ${colors.border} border">${rarityName}</span>
+                        <span class="text-amber-400 text-xs">+${achievement.xpReward} XP</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(container);
+        
+        // 触发动画
+        requestAnimationFrame(() => {
+            const popup = container.querySelector('.achievement-popup');
+            popup.classList.remove('scale-0', 'opacity-0');
+            popup.classList.add('scale-100', 'opacity-100');
+        });
+        
+        // 3秒后移除
+        setTimeout(() => {
+            const popup = container.querySelector('.achievement-popup');
+            popup.classList.add('scale-0', 'opacity-0');
+            setTimeout(() => container.remove(), 500);
+        }, 3000);
+    }
+
+    /**
+     * 显示上岗证颁发动画
+     * @param {Certificate} certificate 证书对象
+     */
+    showCertificateAnimation(certificate) {
+        const container = document.createElement('div');
+        container.className = 'fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm';
+        container.innerHTML = `
+            <div class="certificate-popup glass-card rounded-2xl p-8 transform scale-0 opacity-0 transition-all duration-500 max-w-md" style="background: linear-gradient(145deg, rgba(30,30,60,0.95), rgba(20,20,40,0.95)); border: 2px solid rgba(234, 179, 8, 0.5);">
+                <div class="text-center">
+                    <div class="text-amber-400 text-lg mb-4">🏆 恭喜获得上岗证！</div>
+                    <div class="w-24 h-24 mx-auto mb-4 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center shadow-lg">
+                        <i class="ri-file-shield-2-line text-5xl text-white"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-white mb-2">${certificate.workstation_name}</h3>
+                    <p class="text-gray-400 text-sm mb-4">虚拟上岗证</p>
+                    <div class="bg-white/5 rounded-xl p-4 mb-4">
+                        <div class="text-xs text-gray-500 mb-1">证书编号</div>
+                        <div class="text-amber-400 font-mono">${certificate.certificate_number}</div>
+                    </div>
+                    <div class="text-xs text-gray-500">
+                        颁发时间：${new Date(certificate.granted_at).toLocaleDateString('zh-CN')}
+                    </div>
+                    <button onclick="this.closest('.fixed').remove()" class="mt-6 px-6 py-2 bg-gradient-to-r from-amber-500 to-orange-600 rounded-xl font-medium hover:from-amber-600 hover:to-orange-700 transition">
+                        太棒了！
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(container);
+        
+        // 触发动画
+        requestAnimationFrame(() => {
+            const popup = container.querySelector('.certificate-popup');
+            popup.classList.remove('scale-0', 'opacity-0');
+            popup.classList.add('scale-100', 'opacity-100');
+        });
+    }
+
+    /**
      * 生成分享卡片
      * @param {string} achievementId 成就ID
+     * @returns {Object} 分享数据，包含标题、描述、图标、稀有度、分享链接和图片数据URL
      */
     async generateShareCard(achievementId) {
         const achievement = this._getPresetAchievements().find(a => a.id === achievementId);
         if (!achievement) return null;
 
-        // 返回分享数据（实际实现可生成图片）
+        const colors = AchievementRarityColors[achievement.rarity] || AchievementRarityColors[AchievementRarity.COMMON];
+        const rarityName = AchievementRarityNames[achievement.rarity] || '普通';
+
+        // 生成分享卡片图片（使用Canvas）
+        let imageDataUrl = null;
+        try {
+            imageDataUrl = await this._generateShareCardImage(achievement, colors, rarityName);
+        } catch (e) {
+            console.warn('生成分享卡片图片失败:', e);
+        }
+
         return {
             title: achievement.name,
             description: achievement.description,
             icon: achievement.icon,
             rarity: achievement.rarity,
-            shareUrl: `${window.location.origin}/classroom/virtual-station.html?share=${achievementId}`
+            rarityName: rarityName,
+            xpReward: achievement.xpReward,
+            shareUrl: `${window.location.origin}/classroom/virtual-station.html?share=${achievementId}`,
+            imageDataUrl: imageDataUrl
         };
     }
 
     /**
-     * 检查成就条件
+     * 使用Canvas生成分享卡片图片
+     * @param {Achievement} achievement 成就对象
+     * @param {Object} colors 颜色配置
+     * @param {string} rarityName 稀有度名称
+     * @returns {string} 图片的Data URL
+     */
+    async _generateShareCardImage(achievement, colors, rarityName) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 400;
+        canvas.height = 300;
+        const ctx = canvas.getContext('2d');
+
+        // 背景渐变
+        const gradient = ctx.createLinearGradient(0, 0, 400, 300);
+        gradient.addColorStop(0, '#1a1a3e');
+        gradient.addColorStop(1, '#0d0d1f');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 400, 300);
+
+        // 边框
+        ctx.strokeStyle = 'rgba(139, 92, 246, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(10, 10, 380, 280);
+
+        // 标题 "成就解锁"
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = 'bold 16px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('🎉 成就解锁', 200, 50);
+
+        // 成就图标背景圆
+        ctx.beginPath();
+        ctx.arc(200, 120, 40, 0, Math.PI * 2);
+        const iconGradient = ctx.createRadialGradient(200, 120, 0, 200, 120, 40);
+        iconGradient.addColorStop(0, '#8b5cf6');
+        iconGradient.addColorStop(1, '#6366f1');
+        ctx.fillStyle = iconGradient;
+        ctx.fill();
+
+        // 成就名称
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 24px Inter, sans-serif';
+        ctx.fillText(achievement.name, 200, 190);
+
+        // 成就描述
+        ctx.fillStyle = '#9ca3af';
+        ctx.font = '14px Inter, sans-serif';
+        ctx.fillText(achievement.description, 200, 220);
+
+        // 稀有度和XP
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = '12px Inter, sans-serif';
+        ctx.fillText(`${rarityName} · +${achievement.xpReward} XP`, 200, 250);
+
+        // 平台名称
+        ctx.fillStyle = '#6b7280';
+        ctx.font = '10px Inter, sans-serif';
+        ctx.fillText('虚拟工位平台 - 专业实训系统', 200, 280);
+
+        return canvas.toDataURL('image/png');
+    }
+
+    /**
+     * 生成上岗证分享卡片
+     * @param {Certificate} certificate 证书对象
+     * @returns {Object} 分享数据
+     */
+    async generateCertificateShareCard(certificate) {
+        return {
+            title: `${certificate.workstation_name} 虚拟上岗证`,
+            description: `证书编号: ${certificate.certificate_number}`,
+            certificateNumber: certificate.certificate_number,
+            workstationName: certificate.workstation_name,
+            grantedAt: new Date(certificate.granted_at).toLocaleDateString('zh-CN'),
+            shareUrl: `${window.location.origin}/classroom/virtual-station.html?cert=${certificate.workstation_id}`
+        };
+    }
+
+    /**
+     * 检查成就条件是否满足
+     * @param {AchievementCondition} condition 成就条件
+     * @param {Object} event 触发事件
+     * @returns {boolean} 是否满足条件
      */
     _checkCondition(condition, event) {
         switch (condition.type) {
             case 'task_complete':
+                // 完成特定任务或完成任务数量达标
+                if (typeof condition.target === 'number') {
+                    return event.type === 'task_complete' && event.tasksCount >= condition.target;
+                }
                 return event.type === 'task_complete' && event.taskId === condition.target;
+            
+            case 'tasks_count':
+                // 累计完成任务数量
+                return event.type === 'task_complete' && event.tasksCount >= condition.target;
+            
             case 'workstation_complete':
+                // 完成特定工位的全部任务
                 return event.type === 'workstation_complete' && event.workstationId === condition.target;
+            
             case 'streak':
+                // 连续学习天数
                 return event.type === 'streak' && event.days >= condition.target;
+            
             case 'score':
+                // 达到特定分数
                 return event.type === 'score' && event.score >= condition.target;
+            
             case 'time':
+                // 累计学习时长（分钟）
                 return event.type === 'study_time' && event.minutes >= condition.target;
+            
+            case 'level':
+                // 达到特定等级
+                return event.type === 'level_up' && event.level >= condition.target;
+            
+            case 'first_try_pass':
+                // 首次尝试通过的连续任务数
+                return event.type === 'first_try_pass' && event.count >= condition.target;
+            
+            case 'special':
+                // 特殊条件，需要单独处理
+                return this._checkSpecialCondition(condition.target, event);
+            
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * 检查特殊成就条件
+     * @param {string} target 特殊条件目标
+     * @param {Object} event 触发事件
+     * @returns {boolean}
+     */
+    _checkSpecialCondition(target, event) {
+        switch (target) {
+            case 'first_login':
+                return event.type === 'first_login';
+            
+            case 'all_workstations':
+                // 检查是否完成所有工位
+                if (event.type !== 'workstation_complete') return false;
+                const activeWorkstations = PRESET_WORKSTATIONS.filter(w => w.isActive);
+                return event.completedWorkstations >= activeWorkstations.length;
+            
+            case 'all_perfect':
+                // 检查是否所有任务都是满分
+                return event.type === 'all_perfect' && event.allPerfect === true;
+            
+            case 'all_certificates':
+                // 检查是否获得所有上岗证
+                if (event.type !== 'certificate_granted') return false;
+                const workstationsWithCerts = PRESET_WORKSTATIONS.filter(w => w.certificateId);
+                return event.certificatesCount >= workstationsWithCerts.length;
+            
             default:
                 return false;
         }
@@ -5297,10 +5719,12 @@ class AchievementService {
     }
 
     /**
-     * 预设成就列表
+     * 预设成就列表（含稀有度分级）
+     * 稀有度: COMMON(普通) < RARE(稀有) < EPIC(史诗) < LEGENDARY(传说)
      */
     _getPresetAchievements() {
         return [
+            // ========== 普通成就 (COMMON) ==========
             {
                 id: 'first-task',
                 name: '初出茅庐',
@@ -5309,15 +5733,6 @@ class AchievementService {
                 rarity: AchievementRarity.COMMON,
                 condition: { type: 'task_complete', target: 1 },
                 xpReward: 50
-            },
-            {
-                id: 'water-sampler',
-                name: '水质采样员',
-                description: '完成水质监测工位的全部任务',
-                icon: 'ri-drop-line',
-                rarity: AchievementRarity.RARE,
-                condition: { type: 'workstation_complete', target: 'env-monitoring' },
-                xpReward: 200
             },
             {
                 id: 'eco-newbie',
@@ -5329,6 +5744,44 @@ class AchievementService {
                 xpReward: 100
             },
             {
+                id: 'first-login',
+                name: '初次登录',
+                description: '首次进入虚拟工位平台',
+                icon: 'ri-door-open-line',
+                rarity: AchievementRarity.COMMON,
+                condition: { type: 'special', target: 'first_login' },
+                xpReward: 20
+            },
+            {
+                id: 'task-5',
+                name: '勤学苦练',
+                description: '累计完成5个实训任务',
+                icon: 'ri-book-mark-line',
+                rarity: AchievementRarity.COMMON,
+                condition: { type: 'tasks_count', target: 5 },
+                xpReward: 100
+            },
+            {
+                id: 'study-time-120',
+                name: '学习达人',
+                description: '累计学习时长达到2小时',
+                icon: 'ri-time-line',
+                rarity: AchievementRarity.COMMON,
+                condition: { type: 'time', target: 120 },
+                xpReward: 150
+            },
+            
+            // ========== 稀有成就 (RARE) ==========
+            {
+                id: 'water-sampler',
+                name: '水质采样员',
+                description: '完成水质监测工位的全部任务',
+                icon: 'ri-drop-line',
+                rarity: AchievementRarity.RARE,
+                condition: { type: 'workstation_complete', target: 'env-monitoring' },
+                xpReward: 200
+            },
+            {
                 id: 'streak-7',
                 name: '连续学习7天',
                 description: '连续7天登录学习',
@@ -5337,6 +5790,53 @@ class AchievementService {
                 condition: { type: 'streak', target: 7 },
                 xpReward: 300
             },
+            {
+                id: 'sampling-master',
+                name: '采样规划大师',
+                description: '完成采样规划中心的全部任务',
+                icon: 'ri-map-pin-line',
+                rarity: AchievementRarity.RARE,
+                condition: { type: 'workstation_complete', target: 'sampling-center' },
+                xpReward: 250
+            },
+            {
+                id: 'task-10',
+                name: '实训能手',
+                description: '累计完成10个实训任务',
+                icon: 'ri-medal-line',
+                rarity: AchievementRarity.RARE,
+                condition: { type: 'tasks_count', target: 10 },
+                xpReward: 200
+            },
+            {
+                id: 'level-5',
+                name: '见习工程师',
+                description: '职业等级达到Lv.5',
+                icon: 'ri-user-star-line',
+                rarity: AchievementRarity.RARE,
+                condition: { type: 'level', target: 5 },
+                xpReward: 200
+            },
+            {
+                id: 'data-analyst',
+                name: '数据分析师',
+                description: '完成数据处理中心的全部任务',
+                icon: 'ri-database-2-line',
+                rarity: AchievementRarity.RARE,
+                condition: { type: 'workstation_complete', target: 'data-center' },
+                xpReward: 250
+            },
+            {
+                id: 'study-time-300',
+                name: '学习狂人',
+                description: '累计学习时长达到5小时',
+                icon: 'ri-timer-line',
+                rarity: AchievementRarity.RARE,
+                condition: { type: 'time', target: 300 },
+                xpReward: 250
+            },
+            
+            // ========== 史诗成就 (EPIC) ==========
             {
                 id: 'perfect-score',
                 name: '满分达人',
@@ -5356,14 +5856,52 @@ class AchievementService {
                 xpReward: 400
             },
             {
-                id: 'sampling-master',
-                name: '采样规划大师',
-                description: '完成采样规划中心的全部任务',
-                icon: 'ri-map-pin-line',
-                rarity: AchievementRarity.RARE,
-                condition: { type: 'workstation_complete', target: 'sampling-center' },
-                xpReward: 250
+                id: 'streak-30',
+                name: '坚持不懈',
+                description: '连续30天登录学习',
+                icon: 'ri-fire-fill',
+                rarity: AchievementRarity.EPIC,
+                condition: { type: 'streak', target: 30 },
+                xpReward: 500
             },
+            {
+                id: 'instrument-master',
+                name: '仪器操作专家',
+                description: '完成仪器操作室的全部任务',
+                icon: 'ri-microscope-line',
+                rarity: AchievementRarity.EPIC,
+                condition: { type: 'workstation_complete', target: 'instrument-room' },
+                xpReward: 400
+            },
+            {
+                id: 'level-10',
+                name: '资深工程师',
+                description: '职业等级达到Lv.10',
+                icon: 'ri-user-settings-line',
+                rarity: AchievementRarity.EPIC,
+                condition: { type: 'level', target: 10 },
+                xpReward: 400
+            },
+            {
+                id: 'task-25',
+                name: '实训专家',
+                description: '累计完成25个实训任务',
+                icon: 'ri-award-line',
+                rarity: AchievementRarity.EPIC,
+                condition: { type: 'tasks_count', target: 25 },
+                xpReward: 350
+            },
+            {
+                id: 'first-try-master',
+                name: '一次过关',
+                description: '连续5个任务首次尝试即通过',
+                icon: 'ri-checkbox-circle-line',
+                rarity: AchievementRarity.EPIC,
+                condition: { type: 'first_try_pass', target: 5 },
+                xpReward: 300
+            },
+            
+            // ========== 传说成就 (LEGENDARY) ==========
             {
                 id: 'all-stations',
                 name: '全能工程师',
@@ -5372,8 +5910,99 @@ class AchievementService {
                 rarity: AchievementRarity.LEGENDARY,
                 condition: { type: 'special', target: 'all_workstations' },
                 xpReward: 1000
+            },
+            {
+                id: 'emergency-commander',
+                name: '应急指挥官',
+                description: '完成应急响应中心的全部任务',
+                icon: 'ri-alarm-warning-line',
+                rarity: AchievementRarity.LEGENDARY,
+                condition: { type: 'workstation_complete', target: 'emergency-center' },
+                xpReward: 600
+            },
+            {
+                id: 'level-15',
+                name: '项目经理',
+                description: '职业等级达到Lv.15（最高等级）',
+                icon: 'ri-vip-crown-line',
+                rarity: AchievementRarity.LEGENDARY,
+                condition: { type: 'level', target: 15 },
+                xpReward: 800
+            },
+            {
+                id: 'perfect-all',
+                name: '完美主义者',
+                description: '所有已完成任务均获得满分',
+                icon: 'ri-star-smile-line',
+                rarity: AchievementRarity.LEGENDARY,
+                condition: { type: 'special', target: 'all_perfect' },
+                xpReward: 1000
+            },
+            {
+                id: 'streak-100',
+                name: '百日坚持',
+                description: '连续100天登录学习',
+                icon: 'ri-fire-line',
+                rarity: AchievementRarity.LEGENDARY,
+                condition: { type: 'streak', target: 100 },
+                xpReward: 1000
+            },
+            {
+                id: 'all-certificates',
+                name: '持证上岗',
+                description: '获得所有工位的虚拟上岗证',
+                icon: 'ri-file-shield-2-line',
+                rarity: AchievementRarity.LEGENDARY,
+                condition: { type: 'special', target: 'all_certificates' },
+                xpReward: 800
             }
         ];
+    }
+
+    /**
+     * 获取成就进度
+     * @param {string} userId 用户ID
+     * @param {Achievement} achievement 成就对象
+     * @returns {Object} 进度信息 { current, target, percent }
+     */
+    async getAchievementProgress(userId, achievement) {
+        const condition = achievement.condition;
+        let current = 0;
+        const target = typeof condition.target === 'number' ? condition.target : 1;
+
+        switch (condition.type) {
+            case 'tasks_count':
+                const tasksKey = `vs_completed_tasks_${userId}`;
+                const completedTasks = JSON.parse(localStorage.getItem(tasksKey) || '[]');
+                current = completedTasks.length;
+                break;
+            case 'time':
+                const profileKey = `vs_career_profile_${userId}`;
+                const profile = JSON.parse(localStorage.getItem(profileKey) || '{}');
+                current = profile.totalStudyTime || 0;
+                break;
+            case 'streak':
+                const streakKey = `vs_login_streak_${userId}`;
+                const streakData = JSON.parse(localStorage.getItem(streakKey) || '{}');
+                current = streakData.currentStreak || 0;
+                break;
+            case 'level':
+                const levelKey = `vs_career_profile_${userId}`;
+                const levelProfile = JSON.parse(localStorage.getItem(levelKey) || '{}');
+                current = levelProfile.level || 1;
+                break;
+            case 'workstation_complete':
+            case 'task_complete':
+            case 'score':
+            case 'first_try_pass':
+            case 'special':
+                // 这些类型的进度需要特殊处理，返回0或1
+                current = achievement.isUnlocked ? 1 : 0;
+                break;
+        }
+
+        const percent = Math.min(100, Math.round((current / target) * 100));
+        return { current, target, percent };
     }
 }
 
