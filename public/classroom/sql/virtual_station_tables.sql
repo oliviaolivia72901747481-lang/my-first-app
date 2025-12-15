@@ -417,3 +417,186 @@ CREATE POLICY "Users can manage own career" ON vs_career_profiles FOR ALL USING 
 CREATE POLICY "Users can manage own achievements" ON vs_user_achievements FOR ALL USING (true);
 CREATE POLICY "Users can manage own certificates" ON vs_certificates FOR ALL USING (true);
 CREATE POLICY "Users can manage own history" ON vs_history_records FOR ALL USING (true);
+
+
+-- ===============================================
+-- 知识库管理系统表结构
+-- Knowledge Base Management System Tables
+-- Requirements: 6.1, 6.2, 6.3, 6.5
+-- ===============================================
+
+-- 17. 知识文档表 (Knowledge Documents)
+-- 存储上传的知识文档信息
+-- Requirements: 6.1 - 支持PDF、Word、Markdown文档上传
+CREATE TABLE IF NOT EXISTS vs_knowledge_documents (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    title TEXT NOT NULL,
+    description TEXT,
+    file_name TEXT NOT NULL,
+    file_type TEXT NOT NULL CHECK (file_type IN ('pdf', 'word', 'markdown', 'text')),
+    file_size INTEGER,  -- 文件大小（字节）
+    file_url TEXT,      -- 文件存储URL
+    content TEXT,       -- 解析后的文本内容
+    -- 国标分类信息 (Requirements: 6.2)
+    standard_id TEXT,           -- 标准编号（如 GB 5085.1-2007）
+    standard_name TEXT,         -- 标准名称
+    publish_date DATE,          -- 发布日期
+    implementation_date DATE,   -- 实施日期
+    scope TEXT,                 -- 适用范围
+    category TEXT,              -- 分类（hazwaste, water, soil, air, general）
+    -- 索引状态
+    is_indexed BOOLEAN DEFAULT false,
+    indexed_at TIMESTAMP WITH TIME ZONE,
+    index_error TEXT,
+    -- 元数据
+    tags JSONB DEFAULT '[]',
+    metadata JSONB DEFAULT '{}',
+    uploaded_by TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 18. 知识文档版本表 (Document Versions)
+-- 记录文档的版本历史
+-- Requirements: 6.3 - 记录文档更新历史，支持版本回滚
+CREATE TABLE IF NOT EXISTS vs_document_versions (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    document_id TEXT NOT NULL REFERENCES vs_knowledge_documents(id) ON DELETE CASCADE,
+    version_number INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT,
+    file_url TEXT,
+    change_summary TEXT,        -- 更新内容摘要
+    changed_by TEXT NOT NULL,   -- 更新者
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(document_id, version_number)
+);
+
+-- 19. 知识文档索引表 (Document Index)
+-- 存储文档的分词索引，用于搜索
+-- Requirements: 6.5 - 支持关键词搜索
+CREATE TABLE IF NOT EXISTS vs_document_index (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    document_id TEXT NOT NULL REFERENCES vs_knowledge_documents(id) ON DELETE CASCADE,
+    chunk_index INTEGER NOT NULL,   -- 文档块索引
+    chunk_content TEXT NOT NULL,    -- 文档块内容
+    keywords JSONB DEFAULT '[]',    -- 提取的关键词
+    embedding VECTOR(1536),         -- 向量嵌入（用于语义搜索，可选）
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 20. 国家标准表 (National Standards)
+-- 专门存储国家标准的结构化信息
+-- Requirements: 6.2 - 按标准编号、发布日期、适用范围分类存储
+CREATE TABLE IF NOT EXISTS vs_national_standards (
+    id TEXT PRIMARY KEY,            -- 标准编号作为主键（如 GB 5085.1-2007）
+    name TEXT NOT NULL,             -- 标准名称
+    english_name TEXT,              -- 英文名称
+    category TEXT NOT NULL,         -- 分类
+    status TEXT DEFAULT 'active' CHECK (status IN ('active', 'superseded', 'abolished')),
+    publish_date DATE,              -- 发布日期
+    implementation_date DATE,       -- 实施日期
+    scope TEXT,                     -- 适用范围
+    abstract TEXT,                  -- 摘要
+    -- 关联信息
+    supersedes TEXT,                -- 替代的旧标准
+    superseded_by TEXT,             -- 被哪个新标准替代
+    related_standards JSONB DEFAULT '[]',  -- 相关标准列表
+    -- 内容
+    clauses JSONB DEFAULT '{}',     -- 条款内容
+    tables JSONB DEFAULT '[]',      -- 表格数据
+    appendices JSONB DEFAULT '[]',  -- 附录
+    -- 元数据
+    document_id TEXT REFERENCES vs_knowledge_documents(id),  -- 关联的文档
+    source_url TEXT,                -- 来源链接
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 21. 标准条款表 (Standard Clauses)
+-- 存储标准的具体条款，便于精确搜索
+CREATE TABLE IF NOT EXISTS vs_standard_clauses (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    standard_id TEXT NOT NULL REFERENCES vs_national_standards(id) ON DELETE CASCADE,
+    clause_number TEXT NOT NULL,    -- 条款编号（如 4.1, 5.2.3）
+    title TEXT,                     -- 条款标题
+    content TEXT NOT NULL,          -- 条款内容
+    parent_clause TEXT,             -- 父条款编号
+    clause_type TEXT,               -- 条款类型（definition, requirement, method, limit）
+    -- 限值信息（如果是限值条款）
+    limit_values JSONB,             -- 限值数据
+    -- 搜索优化
+    keywords JSONB DEFAULT '[]',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ===============================================
+-- 知识库索引
+-- ===============================================
+
+-- 知识文档索引
+CREATE INDEX IF NOT EXISTS idx_vs_knowledge_documents_standard ON vs_knowledge_documents(standard_id);
+CREATE INDEX IF NOT EXISTS idx_vs_knowledge_documents_category ON vs_knowledge_documents(category);
+CREATE INDEX IF NOT EXISTS idx_vs_knowledge_documents_indexed ON vs_knowledge_documents(is_indexed);
+CREATE INDEX IF NOT EXISTS idx_vs_knowledge_documents_uploaded_by ON vs_knowledge_documents(uploaded_by);
+
+-- 文档版本索引
+CREATE INDEX IF NOT EXISTS idx_vs_document_versions_document ON vs_document_versions(document_id);
+CREATE INDEX IF NOT EXISTS idx_vs_document_versions_number ON vs_document_versions(version_number);
+
+-- 文档索引表索引
+CREATE INDEX IF NOT EXISTS idx_vs_document_index_document ON vs_document_index(document_id);
+
+-- 国家标准索引
+CREATE INDEX IF NOT EXISTS idx_vs_national_standards_category ON vs_national_standards(category);
+CREATE INDEX IF NOT EXISTS idx_vs_national_standards_status ON vs_national_standards(status);
+CREATE INDEX IF NOT EXISTS idx_vs_national_standards_publish_date ON vs_national_standards(publish_date);
+
+-- 标准条款索引
+CREATE INDEX IF NOT EXISTS idx_vs_standard_clauses_standard ON vs_standard_clauses(standard_id);
+CREATE INDEX IF NOT EXISTS idx_vs_standard_clauses_number ON vs_standard_clauses(clause_number);
+CREATE INDEX IF NOT EXISTS idx_vs_standard_clauses_type ON vs_standard_clauses(clause_type);
+
+-- 全文搜索索引（PostgreSQL）
+CREATE INDEX IF NOT EXISTS idx_vs_knowledge_documents_content_fts ON vs_knowledge_documents USING gin(to_tsvector('simple', coalesce(content, '')));
+CREATE INDEX IF NOT EXISTS idx_vs_standard_clauses_content_fts ON vs_standard_clauses USING gin(to_tsvector('simple', coalesce(content, '')));
+
+-- ===============================================
+-- 知识库触发器
+-- ===============================================
+
+-- 文档更新时间触发器
+DROP TRIGGER IF EXISTS update_vs_knowledge_documents_updated_at ON vs_knowledge_documents;
+CREATE TRIGGER update_vs_knowledge_documents_updated_at
+    BEFORE UPDATE ON vs_knowledge_documents
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- 国家标准更新时间触发器
+DROP TRIGGER IF EXISTS update_vs_national_standards_updated_at ON vs_national_standards;
+CREATE TRIGGER update_vs_national_standards_updated_at
+    BEFORE UPDATE ON vs_national_standards
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ===============================================
+-- 知识库RLS策略
+-- ===============================================
+
+ALTER TABLE vs_knowledge_documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vs_document_versions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vs_document_index ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vs_national_standards ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vs_standard_clauses ENABLE ROW LEVEL SECURITY;
+
+-- 公开读取策略
+CREATE POLICY "Allow public read on knowledge_documents" ON vs_knowledge_documents FOR SELECT USING (true);
+CREATE POLICY "Allow public read on document_versions" ON vs_document_versions FOR SELECT USING (true);
+CREATE POLICY "Allow public read on document_index" ON vs_document_index FOR SELECT USING (true);
+CREATE POLICY "Allow public read on national_standards" ON vs_national_standards FOR SELECT USING (true);
+CREATE POLICY "Allow public read on standard_clauses" ON vs_standard_clauses FOR SELECT USING (true);
+
+-- 教师可以管理知识库
+CREATE POLICY "Teachers can manage knowledge_documents" ON vs_knowledge_documents FOR ALL USING (true);
+CREATE POLICY "Teachers can manage document_versions" ON vs_document_versions FOR ALL USING (true);
+CREATE POLICY "Teachers can manage document_index" ON vs_document_index FOR ALL USING (true);
+CREATE POLICY "Teachers can manage national_standards" ON vs_national_standards FOR ALL USING (true);
+CREATE POLICY "Teachers can manage standard_clauses" ON vs_standard_clauses FOR ALL USING (true);

@@ -26,6 +26,77 @@ const WorkstationCategory = {
 };
 
 /**
+ * 工位类别中文名称映射
+ */
+const WorkstationCategoryNames = {
+    [WorkstationCategory.ENV_MONITORING]: '环境监测',
+    [WorkstationCategory.HAZWASTE]: '危废鉴别',
+    [WorkstationCategory.SAMPLING]: '采样规划',
+    [WorkstationCategory.DATA_ANALYSIS]: '数据处理',
+    [WorkstationCategory.INSTRUMENT]: '仪器操作',
+    [WorkstationCategory.EMERGENCY]: '应急响应'
+};
+
+/**
+ * 工位难度枚举
+ * @typedef {'beginner'|'intermediate'|'advanced'} WorkstationDifficulty
+ */
+const WorkstationDifficulty = {
+    BEGINNER: 'beginner',
+    INTERMEDIATE: 'intermediate',
+    ADVANCED: 'advanced'
+};
+
+/**
+ * 工位难度中文名称映射
+ */
+const WorkstationDifficultyNames = {
+    [WorkstationDifficulty.BEGINNER]: '入门',
+    [WorkstationDifficulty.INTERMEDIATE]: '进阶',
+    [WorkstationDifficulty.ADVANCED]: '高级'
+};
+
+/**
+ * 工位接口定义
+ * @typedef {Object} Workstation
+ * @property {string} id - 工位唯一标识
+ * @property {string} name - 工位名称
+ * @property {string} description - 工位描述
+ * @property {string} icon - 图标类名 (remixicon)
+ * @property {string} color - 主题颜色
+ * @property {WorkstationCategory} category - 工位类别
+ * @property {WorkstationDifficulty} difficulty - 难度等级
+ * @property {number} estimatedTime - 预计完成时间（分钟）
+ * @property {number} requiredLevel - 解锁所需等级
+ * @property {number} totalTasks - 总任务数
+ * @property {number} xpReward - 完成奖励经验值
+ * @property {string} [certificateId] - 关联的上岗证ID
+ * @property {boolean} isActive - 是否已激活
+ * @property {string} [mode] - 特殊模式标签（如"剧本杀模式"、"沙盒模式"）
+ * @property {string} [linkUrl] - 跳转链接（如果有独立页面）
+ * @property {number} [createdAt] - 创建时间戳
+ * @property {number} [updatedAt] - 更新时间戳
+ */
+
+/**
+ * 工位进度接口定义
+ * @typedef {Object} WorkstationProgress
+ * @property {string} workstationId - 工位ID
+ * @property {string} userId - 用户ID
+ * @property {number} progress - 进度百分比 (0-100)
+ * @property {number} completedTasks - 已完成任务数
+ * @property {number} totalTasks - 总任务数
+ * @property {string} status - 状态 ('not_started'|'in_progress'|'completed')
+ * @property {number} [lastAccessedAt] - 最后访问时间
+ * @property {number} [totalStudyTime] - 累计学习时长（分钟）
+ */
+
+/**
+ * 工位信息（含进度）接口定义
+ * @typedef {Workstation & { progress?: WorkstationProgress }} WorkstationInfo
+ */
+
+/**
  * 任务阶段类型枚举
  * @typedef {'task_receipt'|'plan_design'|'operation'|'record_filling'|'report_generation'|'simulation'} StageType
  */
@@ -37,6 +108,132 @@ const StageType = {
     REPORT_GENERATION: 'report_generation', // 生成报告
     SIMULATION: 'simulation'                // 虚拟仿真
 };
+
+/**
+ * 阶段类型中文名称映射
+ */
+const StageTypeNames = {
+    [StageType.TASK_RECEIPT]: '接受任务单',
+    [StageType.PLAN_DESIGN]: '制定方案',
+    [StageType.OPERATION]: '执行操作',
+    [StageType.RECORD_FILLING]: '填写记录',
+    [StageType.REPORT_GENERATION]: '生成报告',
+    [StageType.SIMULATION]: '虚拟仿真'
+};
+
+/**
+ * 标准任务阶段顺序（用于验证）
+ */
+const STANDARD_STAGE_ORDER = [
+    StageType.TASK_RECEIPT,
+    StageType.PLAN_DESIGN,
+    StageType.OPERATION,
+    StageType.RECORD_FILLING,
+    StageType.REPORT_GENERATION
+];
+
+/**
+ * 任务简报接口定义
+ * @typedef {Object} TaskBrief
+ * @property {string} background - 任务背景
+ * @property {string[]} objectives - 任务目标列表
+ * @property {string[]} requirements - 任务要求列表
+ * @property {number} [deadline] - 截止时间戳
+ */
+
+/**
+ * 提示信息接口定义
+ * @typedef {Object} Hint
+ * @property {string} id - 提示ID
+ * @property {string} content - 提示内容
+ * @property {string} type - 提示类型 ('info'|'warning'|'tip')
+ * @property {number} [cost] - 查看提示扣除的分数
+ */
+
+/**
+ * 验证规则接口定义
+ * @typedef {Object} ValidationRule
+ * @property {string} field - 字段名
+ * @property {string} type - 规则类型 ('required'|'minLength'|'maxLength'|'pattern'|'custom')
+ * @property {any} value - 规则值
+ * @property {string} message - 错误提示信息
+ */
+
+/**
+ * 阶段模板接口定义
+ * @typedef {Object} StageTemplate
+ * @property {string} id - 模板ID
+ * @property {string} name - 模板名称
+ * @property {Object[]} fields - 模板字段列表
+ * @property {string} [description] - 模板描述
+ */
+
+/**
+ * 任务阶段接口定义
+ * @typedef {Object} TaskStage
+ * @property {string} id - 阶段ID
+ * @property {string} name - 阶段名称
+ * @property {StageType} type - 阶段类型
+ * @property {number} order - 阶段顺序
+ * @property {string} instructions - 阶段说明
+ * @property {StageTemplate} [template] - 阶段模板
+ * @property {Object} [simulation] - 仿真配置
+ * @property {ValidationRule[]} validationRules - 验证规则
+ * @property {string[]} requiredFields - 必填字段
+ * @property {Hint[]} hints - 提示列表
+ * @property {number} hintCost - 查看提示扣除的分数
+ */
+
+/**
+ * 评分规则接口定义
+ * @typedef {Object} ScoringRule
+ * @property {string} id - 规则ID
+ * @property {string} name - 规则名称
+ * @property {number} maxScore - 最高分
+ * @property {string} criteria - 评分标准描述
+ */
+
+/**
+ * 任务接口定义
+ * @typedef {Object} Task
+ * @property {string} id - 任务ID
+ * @property {string} workstationId - 所属工位ID
+ * @property {string} name - 任务名称
+ * @property {string} description - 任务描述
+ * @property {number} order - 任务顺序
+ * @property {TaskBrief} taskBrief - 任务简报
+ * @property {TaskStage[]} stages - 任务阶段列表
+ * @property {ScoringRule[]} scoringRules - 评分规则
+ * @property {number} maxScore - 最高分
+ * @property {number} passingScore - 及格分
+ * @property {number} xpReward - 经验值奖励
+ * @property {string[]} [achievements] - 关联成就ID列表
+ */
+
+/**
+ * 任务执行状态枚举
+ */
+const TaskExecutionStatus = {
+    NOT_STARTED: 'not_started',
+    IN_PROGRESS: 'in_progress',
+    COMPLETED: 'completed',
+    FAILED: 'failed'
+};
+
+/**
+ * 任务执行记录接口定义
+ * @typedef {Object} TaskExecution
+ * @property {string} id - 执行ID
+ * @property {string} sessionId - 会话ID
+ * @property {string} taskId - 任务ID
+ * @property {string} userId - 用户ID
+ * @property {number} startedAt - 开始时间
+ * @property {number} [completedAt] - 完成时间
+ * @property {number} currentStageIndex - 当前阶段索引
+ * @property {string} status - 执行状态
+ * @property {Object} stageData - 各阶段提交的数据
+ * @property {number} score - 当前得分
+ */
 
 /**
  * 职业等级枚举
@@ -113,6 +310,460 @@ const PAUSE_THRESHOLD = {
  * 共性问题阈值（百分比）
  */
 const COMMON_ERROR_THRESHOLD = 0.2; // 20%的学生出现同一错误则标记为共性问题
+
+// ================= 预设工位数据 =================
+
+/**
+ * 预设工位数据列表
+ * 包含环境监测站、危废鉴别实验室、采样规划中心等实训场景
+ * @type {Workstation[]}
+ */
+const PRESET_WORKSTATIONS = [
+    {
+        id: 'env-monitoring',
+        name: '环境监测站',
+        description: '水质监测、大气监测、土壤监测全流程实训',
+        icon: 'ri-flask-line',
+        color: 'cyan',
+        category: WorkstationCategory.ENV_MONITORING,
+        difficulty: WorkstationDifficulty.INTERMEDIATE,
+        estimatedTime: 120,
+        requiredLevel: 1,
+        totalTasks: 7,
+        xpReward: 500,
+        certificateId: 'cert-env-monitoring',
+        isActive: true,
+        mode: null,
+        linkUrl: null,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+    },
+    {
+        id: 'hazwaste-lab',
+        name: '危废鉴别实验室',
+        description: 'GB 5085系列标准学习，沉浸式推理鉴别',
+        icon: 'ri-skull-line',
+        color: 'orange',
+        category: WorkstationCategory.HAZWASTE,
+        difficulty: WorkstationDifficulty.ADVANCED,
+        estimatedTime: 90,
+        requiredLevel: 3,
+        totalTasks: 5,
+        xpReward: 600,
+        certificateId: 'cert-hazwaste',
+        isActive: true,
+        mode: '剧本杀模式',
+        linkUrl: 'hazwaste-detective.html',
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+    },
+    {
+        id: 'sampling-center',
+        name: '采样规划中心',
+        description: '布点方案设计、采样计划制定、现场模拟',
+        icon: 'ri-map-pin-line',
+        color: 'emerald',
+        category: WorkstationCategory.SAMPLING,
+        difficulty: WorkstationDifficulty.INTERMEDIATE,
+        estimatedTime: 60,
+        requiredLevel: 2,
+        totalTasks: 4,
+        xpReward: 400,
+        certificateId: 'cert-sampling',
+        isActive: true,
+        mode: '沙盒模式',
+        linkUrl: 'sampling-sandbox.html',
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+    },
+    {
+        id: 'data-center',
+        name: '数据处理中心',
+        description: '监测数据分析、报告生成、质量控制',
+        icon: 'ri-database-2-line',
+        color: 'purple',
+        category: WorkstationCategory.DATA_ANALYSIS,
+        difficulty: WorkstationDifficulty.INTERMEDIATE,
+        estimatedTime: 90,
+        requiredLevel: 4,
+        totalTasks: 6,
+        xpReward: 450,
+        certificateId: 'cert-data-analysis',
+        isActive: false,
+        mode: null,
+        linkUrl: null,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+    },
+    {
+        id: 'instrument-room',
+        name: '仪器操作室',
+        description: '分析仪器虚拟操作、参数调节、故障排除',
+        icon: 'ri-microscope-line',
+        color: 'pink',
+        category: WorkstationCategory.INSTRUMENT,
+        difficulty: WorkstationDifficulty.ADVANCED,
+        estimatedTime: 120,
+        requiredLevel: 5,
+        totalTasks: 8,
+        xpReward: 700,
+        certificateId: 'cert-instrument',
+        isActive: false,
+        mode: null,
+        linkUrl: null,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+    },
+    {
+        id: 'emergency-center',
+        name: '应急响应中心',
+        description: '环境应急预案、事故处置、现场指挥模拟',
+        icon: 'ri-alarm-warning-line',
+        color: 'red',
+        category: WorkstationCategory.EMERGENCY,
+        difficulty: WorkstationDifficulty.ADVANCED,
+        estimatedTime: 150,
+        requiredLevel: 8,
+        totalTasks: 10,
+        xpReward: 1000,
+        certificateId: 'cert-emergency',
+        isActive: false,
+        mode: null,
+        linkUrl: null,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+    }
+];
+
+// ================= 预设任务数据 =================
+
+/**
+ * 预设任务数据列表
+ * 包含各工位的实训任务
+ * @type {Task[]}
+ */
+const PRESET_TASKS = [
+    // 环境监测站任务
+    {
+        id: 'task-env-water-sampling',
+        workstationId: 'env-monitoring',
+        name: '地表水采样方案设计',
+        description: '根据监测目的设计完整的地表水采样方案',
+        order: 1,
+        taskBrief: {
+            background: '某河流下游出现水质异常，需要对该河段进行水质监测。监测断面位于工业园区下游2公里处，河流宽度约50米，平均水深2米。',
+            objectives: [
+                '确定采样点位布设方案',
+                '选择合适的采样方法和采样器具',
+                '制定采样频次和时间安排',
+                '编制采样记录表'
+            ],
+            requirements: [
+                '符合HJ/T 91-2002《地表水和污水监测技术规范》',
+                '采样点位应具有代表性',
+                '采样方法应符合相关标准要求',
+                '记录表格式规范完整'
+            ],
+            deadline: null
+        },
+        stages: [
+            {
+                id: 'stage-env-water-1',
+                name: '接受任务单',
+                type: StageType.TASK_RECEIPT,
+                order: 1,
+                instructions: '请仔细阅读任务背景、目标和要求，确认理解后点击"接受任务"开始。',
+                template: null,
+                validationRules: [],
+                requiredFields: ['confirmed'],
+                hints: [
+                    { id: 'hint-1-1', content: '注意阅读任务背景中的关键信息：河流宽度、水深等', type: 'tip', cost: 0 }
+                ],
+                hintCost: 0
+            },
+            {
+                id: 'stage-env-water-2',
+                name: '制定采样方案',
+                type: StageType.PLAN_DESIGN,
+                order: 2,
+                instructions: '根据任务要求，设计完整的采样方案。',
+                template: {
+                    id: 'tpl-sampling-plan',
+                    name: '采样方案模板',
+                    description: '地表水采样方案设计模板',
+                    fields: [
+                        { name: 'samplingPurpose', label: '监测目的', type: 'textarea', required: true },
+                        { name: 'samplingPoints', label: '采样点位', type: 'textarea', required: true },
+                        { name: 'samplingMethod', label: '采样方法', type: 'select', options: ['直接采样法', '混合采样法', '自动采样法'], required: true },
+                        { name: 'samplingFrequency', label: '采样频次', type: 'text', required: true },
+                        { name: 'samplingTime', label: '采样时间', type: 'text', required: true },
+                        { name: 'preservationMethod', label: '样品保存方法', type: 'textarea', required: true },
+                        { name: 'qualityControl', label: '质量控制措施', type: 'textarea', required: true }
+                    ]
+                },
+                validationRules: [
+                    { field: 'samplingPurpose', type: 'required', value: true, message: '请填写监测目的' },
+                    { field: 'samplingPurpose', type: 'minLength', value: 20, message: '监测目的描述不少于20字' },
+                    { field: 'samplingPoints', type: 'required', value: true, message: '请填写采样点位' },
+                    { field: 'samplingMethod', type: 'required', value: true, message: '请选择采样方法' },
+                    { field: 'samplingFrequency', type: 'required', value: true, message: '请填写采样频次' },
+                    { field: 'preservationMethod', type: 'required', value: true, message: '请填写样品保存方法' }
+                ],
+                requiredFields: ['samplingPurpose', 'samplingPoints', 'samplingMethod', 'samplingFrequency', 'preservationMethod'],
+                hints: [
+                    { id: 'hint-2-1', content: '根据HJ/T 91-2002，河流采样断面应设置在水质均匀处', type: 'info', cost: 5 },
+                    { id: 'hint-2-2', content: '采样频次应考虑污染物排放规律和水文条件', type: 'tip', cost: 5 }
+                ],
+                hintCost: 5
+            },
+            {
+                id: 'stage-env-water-3',
+                name: '模拟采样操作',
+                type: StageType.OPERATION,
+                order: 3,
+                instructions: '按照制定的方案，在虚拟环境中完成采样操作。',
+                template: null,
+                simulation: {
+                    type: 'water_sampling',
+                    config: { riverWidth: 50, riverDepth: 2 }
+                },
+                validationRules: [],
+                requiredFields: ['operationCompleted'],
+                hints: [
+                    { id: 'hint-3-1', content: '采样前应先用采样水冲洗采样器具2-3次', type: 'warning', cost: 5 }
+                ],
+                hintCost: 5
+            },
+            {
+                id: 'stage-env-water-4',
+                name: '填写采样记录',
+                type: StageType.RECORD_FILLING,
+                order: 4,
+                instructions: '根据采样操作情况，填写原始采样记录表。',
+                template: {
+                    id: 'tpl-sampling-record',
+                    name: '采样记录表',
+                    description: '地表水采样原始记录表',
+                    fields: [
+                        { name: 'sampleId', label: '样品编号', type: 'text', required: true },
+                        { name: 'samplingDate', label: '采样日期', type: 'date', required: true },
+                        { name: 'samplingTime', label: '采样时间', type: 'time', required: true },
+                        { name: 'samplingLocation', label: '采样位置', type: 'text', required: true },
+                        { name: 'waterTemperature', label: '水温(℃)', type: 'number', required: true },
+                        { name: 'pH', label: 'pH值', type: 'number', required: true },
+                        { name: 'dissolvedOxygen', label: '溶解氧(mg/L)', type: 'number', required: true },
+                        { name: 'weatherCondition', label: '天气状况', type: 'text', required: true },
+                        { name: 'sampler', label: '采样人', type: 'text', required: true },
+                        { name: 'remarks', label: '备注', type: 'textarea', required: false }
+                    ]
+                },
+                validationRules: [
+                    { field: 'sampleId', type: 'required', value: true, message: '请填写样品编号' },
+                    { field: 'sampleId', type: 'pattern', value: '^[A-Z]{2}\\d{8}$', message: '样品编号格式应为：2位大写字母+8位数字' },
+                    { field: 'samplingDate', type: 'required', value: true, message: '请填写采样日期' },
+                    { field: 'waterTemperature', type: 'required', value: true, message: '请填写水温' },
+                    { field: 'pH', type: 'required', value: true, message: '请填写pH值' }
+                ],
+                requiredFields: ['sampleId', 'samplingDate', 'samplingTime', 'samplingLocation', 'waterTemperature', 'pH', 'sampler'],
+                hints: [
+                    { id: 'hint-4-1', content: '样品编号应具有唯一性，建议采用"地点代码+日期+序号"格式', type: 'tip', cost: 5 }
+                ],
+                hintCost: 5
+            },
+            {
+                id: 'stage-env-water-5',
+                name: '生成采样报告',
+                type: StageType.REPORT_GENERATION,
+                order: 5,
+                instructions: '根据采样方案和记录，生成完整的采样报告。',
+                template: {
+                    id: 'tpl-sampling-report',
+                    name: '采样报告模板',
+                    description: '地表水采样报告模板',
+                    fields: [
+                        { name: 'reportTitle', label: '报告标题', type: 'text', required: true },
+                        { name: 'projectOverview', label: '项目概况', type: 'textarea', required: true },
+                        { name: 'samplingOverview', label: '采样概况', type: 'textarea', required: true },
+                        { name: 'qualityAssurance', label: '质量保证', type: 'textarea', required: true },
+                        { name: 'conclusion', label: '结论与建议', type: 'textarea', required: true }
+                    ]
+                },
+                validationRules: [
+                    { field: 'reportTitle', type: 'required', value: true, message: '请填写报告标题' },
+                    { field: 'projectOverview', type: 'required', value: true, message: '请填写项目概况' },
+                    { field: 'projectOverview', type: 'minLength', value: 50, message: '项目概况不少于50字' },
+                    { field: 'samplingOverview', type: 'required', value: true, message: '请填写采样概况' },
+                    { field: 'conclusion', type: 'required', value: true, message: '请填写结论与建议' }
+                ],
+                requiredFields: ['reportTitle', 'projectOverview', 'samplingOverview', 'qualityAssurance', 'conclusion'],
+                hints: [
+                    { id: 'hint-5-1', content: '报告应包含采样依据、方法、结果和质量控制等内容', type: 'info', cost: 5 }
+                ],
+                hintCost: 5
+            }
+        ],
+        scoringRules: [
+            { id: 'rule-1', name: '方案完整性', maxScore: 30, criteria: '采样方案包含所有必要内容' },
+            { id: 'rule-2', name: '方案合理性', maxScore: 25, criteria: '采样点位、方法、频次设计合理' },
+            { id: 'rule-3', name: '记录规范性', maxScore: 25, criteria: '采样记录填写规范完整' },
+            { id: 'rule-4', name: '报告质量', maxScore: 20, criteria: '报告格式规范、内容完整' }
+        ],
+        maxScore: 100,
+        passingScore: 60,
+        xpReward: 100,
+        achievements: ['water-sampler']
+    },
+    // 采样规划中心任务
+    {
+        id: 'task-sampling-soil',
+        workstationId: 'sampling-center',
+        name: '土壤采样布点方案',
+        description: '设计建设用地土壤污染状况调查的采样布点方案',
+        order: 1,
+        taskBrief: {
+            background: '某化工厂搬迁后，需要对原厂址进行土壤污染状况调查。场地面积约5公顷，历史上主要生产有机溶剂和电镀产品。',
+            objectives: [
+                '确定调查范围和重点区域',
+                '设计采样点位布设方案',
+                '确定采样深度和样品数量',
+                '编制采样计划书'
+            ],
+            requirements: [
+                '符合HJ 25.1-2019《建设用地土壤污染状况调查技术导则》',
+                '采样点位应覆盖潜在污染区域',
+                '采样深度应考虑污染物迁移特性',
+                '样品数量应满足统计分析要求'
+            ],
+            deadline: null
+        },
+        stages: [
+            {
+                id: 'stage-soil-1',
+                name: '接受任务单',
+                type: StageType.TASK_RECEIPT,
+                order: 1,
+                instructions: '请仔细阅读任务背景、目标和要求，确认理解后点击"接受任务"开始。',
+                template: null,
+                validationRules: [],
+                requiredFields: ['confirmed'],
+                hints: [],
+                hintCost: 0
+            },
+            {
+                id: 'stage-soil-2',
+                name: '制定布点方案',
+                type: StageType.PLAN_DESIGN,
+                order: 2,
+                instructions: '根据场地特征和历史信息，设计采样布点方案。',
+                template: {
+                    id: 'tpl-soil-plan',
+                    name: '土壤采样布点方案模板',
+                    description: '建设用地土壤采样布点方案',
+                    fields: [
+                        { name: 'siteDescription', label: '场地概况', type: 'textarea', required: true },
+                        { name: 'pollutionHistory', label: '污染历史分析', type: 'textarea', required: true },
+                        { name: 'samplingStrategy', label: '布点策略', type: 'select', options: ['系统布点法', '专业判断布点法', '分区布点法'], required: true },
+                        { name: 'samplingPoints', label: '采样点位设计', type: 'textarea', required: true },
+                        { name: 'samplingDepth', label: '采样深度设计', type: 'textarea', required: true },
+                        { name: 'sampleCount', label: '样品数量', type: 'number', required: true }
+                    ]
+                },
+                validationRules: [
+                    { field: 'siteDescription', type: 'required', value: true, message: '请填写场地概况' },
+                    { field: 'pollutionHistory', type: 'required', value: true, message: '请填写污染历史分析' },
+                    { field: 'samplingStrategy', type: 'required', value: true, message: '请选择布点策略' },
+                    { field: 'samplingPoints', type: 'required', value: true, message: '请填写采样点位设计' },
+                    { field: 'sampleCount', type: 'required', value: true, message: '请填写样品数量' }
+                ],
+                requiredFields: ['siteDescription', 'pollutionHistory', 'samplingStrategy', 'samplingPoints', 'samplingDepth', 'sampleCount'],
+                hints: [
+                    { id: 'hint-soil-2-1', content: '根据HJ 25.1-2019，重点区域应加密布点', type: 'info', cost: 5 }
+                ],
+                hintCost: 5
+            },
+            {
+                id: 'stage-soil-3',
+                name: '沙盒模拟布点',
+                type: StageType.OPERATION,
+                order: 3,
+                instructions: '在沙盒地图上标注采样点位，验证布点方案的可行性。',
+                template: null,
+                simulation: {
+                    type: 'soil_sampling_sandbox',
+                    config: { siteArea: 50000, gridSize: 20 }
+                },
+                validationRules: [],
+                requiredFields: ['operationCompleted'],
+                hints: [],
+                hintCost: 5
+            },
+            {
+                id: 'stage-soil-4',
+                name: '填写布点记录',
+                type: StageType.RECORD_FILLING,
+                order: 4,
+                instructions: '记录各采样点位的坐标、深度等信息。',
+                template: {
+                    id: 'tpl-soil-record',
+                    name: '布点记录表',
+                    description: '土壤采样布点记录表',
+                    fields: [
+                        { name: 'pointId', label: '点位编号', type: 'text', required: true },
+                        { name: 'coordinates', label: '坐标(经纬度)', type: 'text', required: true },
+                        { name: 'depth', label: '采样深度(m)', type: 'text', required: true },
+                        { name: 'soilType', label: '土壤类型', type: 'text', required: true },
+                        { name: 'targetPollutants', label: '目标污染物', type: 'textarea', required: true }
+                    ]
+                },
+                validationRules: [
+                    { field: 'pointId', type: 'required', value: true, message: '请填写点位编号' },
+                    { field: 'coordinates', type: 'required', value: true, message: '请填写坐标' },
+                    { field: 'depth', type: 'required', value: true, message: '请填写采样深度' }
+                ],
+                requiredFields: ['pointId', 'coordinates', 'depth', 'soilType', 'targetPollutants'],
+                hints: [],
+                hintCost: 5
+            },
+            {
+                id: 'stage-soil-5',
+                name: '生成布点报告',
+                type: StageType.REPORT_GENERATION,
+                order: 5,
+                instructions: '生成完整的采样布点方案报告。',
+                template: {
+                    id: 'tpl-soil-report',
+                    name: '布点方案报告',
+                    description: '土壤采样布点方案报告模板',
+                    fields: [
+                        { name: 'reportTitle', label: '报告标题', type: 'text', required: true },
+                        { name: 'siteOverview', label: '场地概况', type: 'textarea', required: true },
+                        { name: 'samplingDesign', label: '采样设计', type: 'textarea', required: true },
+                        { name: 'qualityControl', label: '质量控制', type: 'textarea', required: true },
+                        { name: 'schedule', label: '实施计划', type: 'textarea', required: true }
+                    ]
+                },
+                validationRules: [
+                    { field: 'reportTitle', type: 'required', value: true, message: '请填写报告标题' },
+                    { field: 'siteOverview', type: 'required', value: true, message: '请填写场地概况' },
+                    { field: 'samplingDesign', type: 'required', value: true, message: '请填写采样设计' }
+                ],
+                requiredFields: ['reportTitle', 'siteOverview', 'samplingDesign', 'qualityControl', 'schedule'],
+                hints: [],
+                hintCost: 5
+            }
+        ],
+        scoringRules: [
+            { id: 'rule-1', name: '方案科学性', maxScore: 35, criteria: '布点策略选择合理，点位设计科学' },
+            { id: 'rule-2', name: '方案完整性', maxScore: 30, criteria: '方案内容完整，覆盖所有必要环节' },
+            { id: 'rule-3', name: '记录规范性', maxScore: 20, criteria: '记录填写规范准确' },
+            { id: 'rule-4', name: '报告质量', maxScore: 15, criteria: '报告格式规范、逻辑清晰' }
+        ],
+        maxScore: 100,
+        passingScore: 60,
+        xpReward: 80,
+        achievements: ['sampling-master']
+    }
+];
 
 // ================= 虚拟工位平台核心类 =================
 
@@ -356,98 +1007,17 @@ class WorkstationService {
 
     /**
      * 获取预设工位数据
+     * @returns {Workstation[]} 预设工位列表
      */
     _getPresetWorkstations() {
-        return [
-            {
-                id: 'env-monitoring',
-                name: '环境监测站',
-                description: '水质监测、大气监测、土壤监测全流程实训',
-                icon: 'ri-flask-line',
-                color: 'cyan',
-                category: WorkstationCategory.ENV_MONITORING,
-                difficulty: 'intermediate',
-                estimated_time: 120,
-                required_level: 1,
-                total_tasks: 7,
-                xp_reward: 500,
-                is_active: true
-            },
-            {
-                id: 'hazwaste-lab',
-                name: '危废鉴别实验室',
-                description: 'GB 5085系列标准学习，沉浸式推理鉴别',
-                icon: 'ri-skull-line',
-                color: 'orange',
-                category: WorkstationCategory.HAZWASTE,
-                difficulty: 'advanced',
-                estimated_time: 90,
-                required_level: 3,
-                total_tasks: 5,
-                xp_reward: 600,
-                is_active: true
-            },
-            {
-                id: 'sampling-center',
-                name: '采样规划中心',
-                description: '布点方案设计、采样计划制定、现场模拟',
-                icon: 'ri-map-pin-line',
-                color: 'emerald',
-                category: WorkstationCategory.SAMPLING,
-                difficulty: 'intermediate',
-                estimated_time: 60,
-                required_level: 2,
-                total_tasks: 4,
-                xp_reward: 400,
-                is_active: true
-            },
-            {
-                id: 'data-center',
-                name: '数据处理中心',
-                description: '监测数据分析、报告生成、质量控制',
-                icon: 'ri-database-2-line',
-                color: 'purple',
-                category: WorkstationCategory.DATA_ANALYSIS,
-                difficulty: 'intermediate',
-                estimated_time: 90,
-                required_level: 4,
-                total_tasks: 6,
-                xp_reward: 450,
-                is_active: false
-            },
-            {
-                id: 'instrument-room',
-                name: '仪器操作室',
-                description: '分析仪器虚拟操作、参数调节、故障排除',
-                icon: 'ri-microscope-line',
-                color: 'pink',
-                category: WorkstationCategory.INSTRUMENT,
-                difficulty: 'advanced',
-                estimated_time: 120,
-                required_level: 5,
-                total_tasks: 8,
-                xp_reward: 700,
-                is_active: false
-            },
-            {
-                id: 'emergency-center',
-                name: '应急响应中心',
-                description: '环境应急预案、事故处置、现场指挥模拟',
-                icon: 'ri-alarm-warning-line',
-                color: 'red',
-                category: WorkstationCategory.EMERGENCY,
-                difficulty: 'advanced',
-                estimated_time: 150,
-                required_level: 8,
-                total_tasks: 10,
-                xp_reward: 1000,
-                is_active: false
-            }
-        ];
+        return PRESET_WORKSTATIONS;
     }
 
     /**
      * 获取本地存储的进度
+     * @param {string} userId - 用户ID
+     * @param {string} workstationId - 工位ID
+     * @returns {WorkstationProgress} 工位进度
      */
     _getLocalProgress(userId, workstationId) {
         const key = `vs_progress_${userId}_${workstationId}`;
@@ -456,10 +1026,275 @@ class WorkstationService {
             try {
                 return JSON.parse(saved);
             } catch (e) {
-                return { progress: 0, completed_tasks: 0, total_tasks: 0 };
+                return this._createDefaultProgress(userId, workstationId);
             }
         }
-        return { progress: 0, completed_tasks: 0, total_tasks: 0 };
+        return this._createDefaultProgress(userId, workstationId);
+    }
+
+    /**
+     * 创建默认进度对象
+     * @param {string} userId - 用户ID
+     * @param {string} workstationId - 工位ID
+     * @returns {WorkstationProgress} 默认进度
+     */
+    _createDefaultProgress(userId, workstationId) {
+        const workstation = PRESET_WORKSTATIONS.find(w => w.id === workstationId);
+        return {
+            workstationId: workstationId,
+            userId: userId,
+            progress: 0,
+            completedTasks: 0,
+            totalTasks: workstation ? workstation.totalTasks : 0,
+            status: 'not_started',
+            lastAccessedAt: null,
+            totalStudyTime: 0
+        };
+    }
+
+    /**
+     * 保存工位进度到本地存储
+     * @param {string} userId - 用户ID
+     * @param {string} workstationId - 工位ID
+     * @param {Partial<WorkstationProgress>} progressData - 进度数据
+     */
+    async saveWorkstationProgress(userId, workstationId, progressData) {
+        const key = `vs_progress_${userId}_${workstationId}`;
+        const currentProgress = this._getLocalProgress(userId, workstationId);
+        
+        const updatedProgress = {
+            ...currentProgress,
+            ...progressData,
+            lastAccessedAt: Date.now()
+        };
+
+        // 计算进度百分比
+        if (updatedProgress.totalTasks > 0) {
+            updatedProgress.progress = Math.round(
+                (updatedProgress.completedTasks / updatedProgress.totalTasks) * 100
+            );
+        }
+
+        // 更新状态
+        if (updatedProgress.completedTasks === 0) {
+            updatedProgress.status = 'not_started';
+        } else if (updatedProgress.completedTasks >= updatedProgress.totalTasks) {
+            updatedProgress.status = 'completed';
+        } else {
+            updatedProgress.status = 'in_progress';
+        }
+
+        localStorage.setItem(key, JSON.stringify(updatedProgress));
+
+        // 同步到数据库
+        if (this.supabase) {
+            await this.supabase
+                .from('vs_progress')
+                .upsert(updatedProgress, { onConflict: 'user_id,workstation_id' });
+        }
+
+        return updatedProgress;
+    }
+
+    /**
+     * 获取工位列表（含用户进度）
+     * @param {string} userId - 用户ID
+     * @returns {Promise<WorkstationInfo[]>} 工位信息列表（含进度）
+     */
+    async getWorkstationListWithProgress(userId) {
+        const workstations = await this.getWorkstationList();
+        
+        const workstationsWithProgress = await Promise.all(
+            workstations.map(async (workstation) => {
+                const progress = await this.getWorkstationProgress(userId, workstation.id);
+                return {
+                    ...workstation,
+                    progress: {
+                        workstationId: workstation.id,
+                        userId: userId,
+                        progress: progress.progress || 0,
+                        completedTasks: progress.completed_tasks || progress.completedTasks || 0,
+                        totalTasks: progress.total_tasks || progress.totalTasks || workstation.totalTasks,
+                        status: this._calculateStatus(progress),
+                        lastAccessedAt: progress.lastAccessedAt || progress.last_accessed_at || null,
+                        totalStudyTime: progress.totalStudyTime || progress.total_study_time || 0
+                    }
+                };
+            })
+        );
+
+        return workstationsWithProgress;
+    }
+
+    /**
+     * 计算进度状态
+     * @param {Object} progress - 进度数据
+     * @returns {string} 状态
+     */
+    _calculateStatus(progress) {
+        const completedTasks = progress.completed_tasks || progress.completedTasks || 0;
+        const totalTasks = progress.total_tasks || progress.totalTasks || 0;
+        
+        if (completedTasks === 0) return 'not_started';
+        if (completedTasks >= totalTasks && totalTasks > 0) return 'completed';
+        return 'in_progress';
+    }
+
+    /**
+     * 验证工位数据完整性
+     * 确保工位包含所有必需字段：名称、描述、进度状态
+     * @param {Workstation} workstation - 工位数据
+     * @returns {{ valid: boolean, missingFields: string[] }} 验证结果
+     */
+    validateWorkstation(workstation) {
+        const requiredFields = ['id', 'name', 'description', 'category', 'difficulty', 'totalTasks', 'isActive'];
+        const missingFields = requiredFields.filter(field => 
+            workstation[field] === undefined || workstation[field] === null
+        );
+
+        return {
+            valid: missingFields.length === 0,
+            missingFields
+        };
+    }
+
+    /**
+     * 获取所有工位并验证完整性
+     * @returns {Promise<{ workstations: Workstation[], allValid: boolean, invalidWorkstations: string[] }>}
+     */
+    async getValidatedWorkstationList() {
+        const workstations = await this.getWorkstationList();
+        const invalidWorkstations = [];
+
+        for (const ws of workstations) {
+            const validation = this.validateWorkstation(ws);
+            if (!validation.valid) {
+                invalidWorkstations.push(`${ws.id || 'unknown'}: missing ${validation.missingFields.join(', ')}`);
+            }
+        }
+
+        return {
+            workstations,
+            allValid: invalidWorkstations.length === 0,
+            invalidWorkstations
+        };
+    }
+
+    /**
+     * 更新任务完成数
+     * @param {string} userId - 用户ID
+     * @param {string} workstationId - 工位ID
+     * @param {number} completedTasks - 已完成任务数
+     */
+    async updateCompletedTasks(userId, workstationId, completedTasks) {
+        return this.saveWorkstationProgress(userId, workstationId, { completedTasks });
+    }
+
+    /**
+     * 增加学习时长
+     * @param {string} userId - 用户ID
+     * @param {string} workstationId - 工位ID
+     * @param {number} minutes - 增加的分钟数
+     */
+    async addStudyTime(userId, workstationId, minutes) {
+        const currentProgress = this._getLocalProgress(userId, workstationId);
+        const newStudyTime = (currentProgress.totalStudyTime || 0) + minutes;
+        return this.saveWorkstationProgress(userId, workstationId, { totalStudyTime: newStudyTime });
+    }
+
+    /**
+     * 获取用户所有工位的总体进度统计
+     * @param {string} userId - 用户ID
+     * @returns {Promise<Object>} 总体统计
+     */
+    async getUserOverallProgress(userId) {
+        const workstations = await this.getWorkstationListWithProgress(userId);
+        
+        let totalWorkstations = 0;
+        let completedWorkstations = 0;
+        let inProgressWorkstations = 0;
+        let totalTasks = 0;
+        let completedTasks = 0;
+        let totalStudyTime = 0;
+
+        for (const ws of workstations) {
+            if (!ws.isActive) continue;
+            
+            totalWorkstations++;
+            totalTasks += ws.totalTasks;
+            
+            if (ws.progress) {
+                completedTasks += ws.progress.completedTasks || 0;
+                totalStudyTime += ws.progress.totalStudyTime || 0;
+                
+                if (ws.progress.status === 'completed') {
+                    completedWorkstations++;
+                } else if (ws.progress.status === 'in_progress') {
+                    inProgressWorkstations++;
+                }
+            }
+        }
+
+        return {
+            totalWorkstations,
+            completedWorkstations,
+            inProgressWorkstations,
+            notStartedWorkstations: totalWorkstations - completedWorkstations - inProgressWorkstations,
+            totalTasks,
+            completedTasks,
+            overallProgress: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
+            totalStudyTime
+        };
+    }
+
+    /**
+     * 获取最近访问的工位
+     * @param {string} userId - 用户ID
+     * @param {number} limit - 返回数量限制
+     * @returns {Promise<WorkstationInfo[]>} 最近访问的工位列表
+     */
+    async getRecentWorkstations(userId, limit = 3) {
+        const workstations = await this.getWorkstationListWithProgress(userId);
+        
+        // 过滤有访问记录的工位并按最后访问时间排序
+        const recentWorkstations = workstations
+            .filter(ws => ws.progress && ws.progress.lastAccessedAt)
+            .sort((a, b) => (b.progress.lastAccessedAt || 0) - (a.progress.lastAccessedAt || 0))
+            .slice(0, limit);
+
+        return recentWorkstations;
+    }
+
+    /**
+     * 检查工位是否已完成
+     * @param {string} userId - 用户ID
+     * @param {string} workstationId - 工位ID
+     * @returns {Promise<boolean>} 是否已完成
+     */
+    async isWorkstationCompleted(userId, workstationId) {
+        const progress = await this.getWorkstationProgress(userId, workstationId);
+        return progress.status === 'completed' || 
+               (progress.completedTasks >= progress.totalTasks && progress.totalTasks > 0);
+    }
+
+    /**
+     * 重置工位进度
+     * @param {string} userId - 用户ID
+     * @param {string} workstationId - 工位ID
+     */
+    async resetWorkstationProgress(userId, workstationId) {
+        const key = `vs_progress_${userId}_${workstationId}`;
+        localStorage.removeItem(key);
+
+        if (this.supabase) {
+            await this.supabase
+                .from('vs_progress')
+                .delete()
+                .eq('user_id', userId)
+                .eq('workstation_id', workstationId);
+        }
+
+        return this._createDefaultProgress(userId, workstationId);
     }
 }
 
@@ -467,80 +1302,158 @@ class WorkstationService {
 // ================= 任务流服务 =================
 
 /**
- * 任务流服务类
+ * 任务流服务类 - 管理任务流程和阶段执行
  */
 class TaskFlowService {
     constructor(supabase) {
         this.supabase = supabase;
+        this.currentExecution = null;
     }
 
     /**
      * 获取工位的任务列表
      * @param {string} workstationId 工位ID
+     * @returns {Promise<Task[]>} 任务列表
      */
     async getTaskList(workstationId) {
-        if (!this.supabase) {
-            return [];
+        // 先尝试从预设数据获取
+        const presetTasks = PRESET_TASKS.filter(t => t.workstationId === workstationId);
+        if (presetTasks.length > 0) {
+            return presetTasks.sort((a, b) => a.order - b.order);
         }
 
-        const { data, error } = await this.supabase
-            .from('vs_tasks')
-            .select('*')
-            .eq('workstation_id', workstationId)
-            .order('order', { ascending: true });
+        // 从数据库获取
+        if (this.supabase) {
+            const { data, error } = await this.supabase
+                .from('vs_tasks')
+                .select('*')
+                .eq('workstation_id', workstationId)
+                .order('order', { ascending: true });
 
-        if (error) {
-            console.error('获取任务列表失败:', error);
-            return [];
+            if (!error && data) {
+                return data;
+            }
         }
 
-        return data || [];
+        return [];
     }
 
     /**
      * 获取任务详情
      * @param {string} taskId 任务ID
+     * @returns {Promise<Task|null>} 任务详情
      */
     async getTask(taskId) {
-        if (!this.supabase) return null;
-
-        const { data, error } = await this.supabase
-            .from('vs_tasks')
-            .select('*, vs_task_stages(*)')
-            .eq('id', taskId)
-            .single();
-
-        if (error) {
-            console.error('获取任务详情失败:', error);
-            return null;
+        // 先从预设数据查找
+        const presetTask = PRESET_TASKS.find(t => t.id === taskId);
+        if (presetTask) {
+            return presetTask;
         }
 
-        return data;
+        // 从数据库获取
+        if (this.supabase) {
+            const { data, error } = await this.supabase
+                .from('vs_tasks')
+                .select('*, vs_task_stages(*)')
+                .eq('id', taskId)
+                .single();
+
+            if (!error && data) {
+                return data;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 获取当前会话的任务
+     * @param {string} sessionId 会话ID
+     * @returns {Promise<Task|null>} 当前任务
+     */
+    async getCurrentTask(sessionId) {
+        const execution = this._getLocalExecution();
+        if (execution && execution.sessionId === sessionId) {
+            return this.getTask(execution.taskId);
+        }
+        return null;
+    }
+
+    /**
+     * 获取当前执行记录
+     * @returns {TaskExecution|null} 执行记录
+     */
+    getCurrentExecution() {
+        return this._getLocalExecution();
     }
 
     /**
      * 开始任务
      * @param {string} sessionId 会话ID
      * @param {string} taskId 任务ID
+     * @returns {Promise<TaskExecution>} 任务执行记录
      */
     async startTask(sessionId, taskId) {
+        const task = await this.getTask(taskId);
+        if (!task) {
+            throw new Error('任务不存在');
+        }
+
         const executionId = `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const userId = localStorage.getItem('my_id') || 'guest';
         
         const execution = {
             id: executionId,
-            session_id: sessionId,
-            task_id: taskId,
-            started_at: Date.now(),
-            current_stage: 0,
-            status: 'in_progress'
+            sessionId: sessionId,
+            taskId: taskId,
+            userId: userId,
+            startedAt: Date.now(),
+            completedAt: null,
+            currentStageIndex: 0,
+            status: TaskExecutionStatus.IN_PROGRESS,
+            stageData: {},
+            score: 0
         };
 
+        // 保存到本地
+        localStorage.setItem('vs_current_execution', JSON.stringify(execution));
+        this.currentExecution = execution;
+
+        // 保存到数据库
         if (this.supabase) {
-            await this.supabase.from('vs_task_executions').insert(execution);
+            await this.supabase.from('vs_task_executions').insert({
+                id: executionId,
+                session_id: sessionId,
+                task_id: taskId,
+                user_id: userId,
+                started_at: execution.startedAt,
+                current_stage_index: 0,
+                status: execution.status,
+                stage_data: {},
+                score: 0
+            });
         }
 
-        localStorage.setItem('vs_current_execution', JSON.stringify(execution));
         return execution;
+    }
+
+    /**
+     * 获取当前阶段
+     * @param {string} executionId 执行ID
+     * @returns {Promise<TaskStage|null>} 当前阶段
+     */
+    async getCurrentStage(executionId) {
+        const execution = this._getLocalExecution();
+        if (!execution || execution.id !== executionId) {
+            return null;
+        }
+
+        const task = await this.getTask(execution.taskId);
+        if (!task || !task.stages) {
+            return null;
+        }
+
+        return task.stages[execution.currentStageIndex] || null;
     }
 
     /**
@@ -548,10 +1461,44 @@ class TaskFlowService {
      * @param {string} executionId 执行ID
      * @param {string} stageId 阶段ID
      * @param {Object} data 提交数据
+     * @returns {Promise<Object>} 验证结果
      */
     async submitStage(executionId, stageId, data) {
-        const result = await this.validateSubmission(stageId, data);
+        const execution = this._getLocalExecution();
+        if (!execution || execution.id !== executionId) {
+            return { valid: false, errors: ['执行记录不存在'] };
+        }
+
+        const task = await this.getTask(execution.taskId);
+        if (!task) {
+            return { valid: false, errors: ['任务不存在'] };
+        }
+
+        const stage = task.stages.find(s => s.id === stageId);
+        if (!stage) {
+            return { valid: false, errors: ['阶段不存在'] };
+        }
+
+        // 验证提交内容
+        const result = this.validateStageSubmission(stage, data);
         
+        // 保存阶段数据
+        execution.stageData[stageId] = {
+            data: data,
+            submittedAt: Date.now(),
+            validationResult: result
+        };
+
+        // 如果验证通过，进入下一阶段
+        if (result.valid) {
+            execution.currentStageIndex++;
+            execution.score += result.score;
+        }
+
+        // 更新本地存储
+        localStorage.setItem('vs_current_execution', JSON.stringify(execution));
+
+        // 保存到数据库
         if (this.supabase) {
             await this.supabase.from('vs_stage_submissions').insert({
                 execution_id: executionId,
@@ -560,103 +1507,262 @@ class TaskFlowService {
                 validation_result: result,
                 submitted_at: Date.now()
             });
+
+            await this.supabase
+                .from('vs_task_executions')
+                .update({
+                    current_stage_index: execution.currentStageIndex,
+                    stage_data: execution.stageData,
+                    score: execution.score
+                })
+                .eq('id', executionId);
         }
 
         return result;
     }
 
     /**
-     * 验证提交内容
-     * @param {string} stageId 阶段ID
+     * 验证阶段提交内容
+     * @param {TaskStage} stage 阶段定义
      * @param {Object} data 提交数据
+     * @returns {Object} 验证结果
      */
-    async validateSubmission(stageId, data) {
-        // 获取阶段的验证规则
-        const stage = await this._getStage(stageId);
-        if (!stage) {
-            return { valid: false, errors: ['阶段不存在'] };
-        }
-
+    validateStageSubmission(stage, data) {
         const errors = [];
-        const requiredFields = stage.required_fields || [];
+        let score = 100;
 
         // 检查必填字段
+        const requiredFields = stage.requiredFields || [];
         for (const field of requiredFields) {
             if (!data[field] || (typeof data[field] === 'string' && !data[field].trim())) {
-                errors.push(`缺少必填项: ${field}`);
+                errors.push(`缺少必填项: ${this._getFieldLabel(stage, field) || field}`);
+                score -= 20;
+            }
+        }
+
+        // 应用验证规则
+        const validationRules = stage.validationRules || [];
+        for (const rule of validationRules) {
+            const fieldValue = data[rule.field];
+            const fieldLabel = this._getFieldLabel(stage, rule.field) || rule.field;
+
+            switch (rule.type) {
+                case 'required':
+                    if (rule.value && (!fieldValue || (typeof fieldValue === 'string' && !fieldValue.trim()))) {
+                        if (!errors.some(e => e.includes(fieldLabel))) {
+                            errors.push(rule.message || `${fieldLabel}为必填项`);
+                            score -= 10;
+                        }
+                    }
+                    break;
+                case 'minLength':
+                    if (fieldValue && typeof fieldValue === 'string' && fieldValue.length < rule.value) {
+                        errors.push(rule.message || `${fieldLabel}长度不能少于${rule.value}字`);
+                        score -= 10;
+                    }
+                    break;
+                case 'maxLength':
+                    if (fieldValue && typeof fieldValue === 'string' && fieldValue.length > rule.value) {
+                        errors.push(rule.message || `${fieldLabel}长度不能超过${rule.value}字`);
+                        score -= 10;
+                    }
+                    break;
+                case 'pattern':
+                    if (fieldValue && typeof fieldValue === 'string') {
+                        const regex = new RegExp(rule.value);
+                        if (!regex.test(fieldValue)) {
+                            errors.push(rule.message || `${fieldLabel}格式不正确`);
+                            score -= 10;
+                        }
+                    }
+                    break;
             }
         }
 
         return {
             valid: errors.length === 0,
             errors: errors,
-            score: errors.length === 0 ? 100 : Math.max(0, 100 - errors.length * 20)
+            score: Math.max(0, score)
         };
+    }
+
+    /**
+     * 获取字段标签
+     * @param {TaskStage} stage 阶段
+     * @param {string} fieldName 字段名
+     * @returns {string|null} 字段标签
+     */
+    _getFieldLabel(stage, fieldName) {
+        if (stage.template && stage.template.fields) {
+            const field = stage.template.fields.find(f => f.name === fieldName);
+            return field ? field.label : null;
+        }
+        return null;
+    }
+
+    /**
+     * 接受任务单（第一阶段特殊处理）
+     * @param {string} executionId 执行ID
+     * @returns {Promise<Object>} 结果
+     */
+    async acceptTask(executionId) {
+        const execution = this._getLocalExecution();
+        if (!execution || execution.id !== executionId) {
+            return { success: false, error: '执行记录不存在' };
+        }
+
+        const task = await this.getTask(execution.taskId);
+        if (!task) {
+            return { success: false, error: '任务不存在' };
+        }
+
+        const firstStage = task.stages[0];
+        if (!firstStage || firstStage.type !== StageType.TASK_RECEIPT) {
+            return { success: false, error: '任务阶段配置错误' };
+        }
+
+        // 提交接受确认
+        return this.submitStage(executionId, firstStage.id, { confirmed: true, acceptedAt: Date.now() });
     }
 
     /**
      * 完成任务
      * @param {string} executionId 执行ID
+     * @returns {Promise<Object>} 完成结果
      */
     async completeTask(executionId) {
+        const execution = this._getLocalExecution();
+        if (!execution || execution.id !== executionId) {
+            return { completed: false, error: '执行记录不存在' };
+        }
+
+        const task = await this.getTask(execution.taskId);
+        if (!task) {
+            return { completed: false, error: '任务不存在' };
+        }
+
+        // 检查是否所有阶段都已完成
+        if (execution.currentStageIndex < task.stages.length) {
+            return { completed: false, error: '还有未完成的阶段' };
+        }
+
         const endTime = Date.now();
-        
+        const duration = endTime - execution.startedAt;
+
+        // 计算最终得分
+        const finalScore = this._calculateFinalScore(execution, task);
+
+        // 更新执行记录
+        execution.status = TaskExecutionStatus.COMPLETED;
+        execution.completedAt = endTime;
+        execution.score = finalScore;
+
+        localStorage.setItem('vs_current_execution', JSON.stringify(execution));
+
+        // 保存到数据库
         if (this.supabase) {
             await this.supabase
                 .from('vs_task_executions')
-                .update({ status: 'completed', completed_at: endTime })
+                .update({
+                    status: TaskExecutionStatus.COMPLETED,
+                    completed_at: endTime,
+                    score: finalScore
+                })
                 .eq('id', executionId);
         }
 
+        // 保存到历史
+        await this.saveToHistory(execution);
+
+        // 清除当前执行记录
         localStorage.removeItem('vs_current_execution');
 
-        return { completed: true, completed_at: endTime };
+        return {
+            completed: true,
+            completedAt: endTime,
+            duration: duration,
+            score: finalScore,
+            xpReward: task.xpReward,
+            passed: finalScore >= task.passingScore
+        };
+    }
+
+    /**
+     * 计算最终得分
+     * @param {TaskExecution} execution 执行记录
+     * @param {Task} task 任务定义
+     * @returns {number} 最终得分
+     */
+    _calculateFinalScore(execution, task) {
+        let totalScore = 0;
+        let stageCount = 0;
+
+        for (const stageId in execution.stageData) {
+            const stageResult = execution.stageData[stageId];
+            if (stageResult.validationResult && stageResult.validationResult.score) {
+                totalScore += stageResult.validationResult.score;
+                stageCount++;
+            }
+        }
+
+        return stageCount > 0 ? Math.round(totalScore / stageCount) : 0;
     }
 
     /**
      * 获取阶段模板
+     * @param {string} taskId 任务ID
      * @param {string} stageId 阶段ID
+     * @returns {Promise<StageTemplate|null>} 阶段模板
      */
-    async getStageTemplate(stageId) {
-        const stage = await this._getStage(stageId);
+    async getStageTemplate(taskId, stageId) {
+        const task = await this.getTask(taskId);
+        if (!task) return null;
+
+        const stage = task.stages.find(s => s.id === stageId);
         return stage?.template || null;
     }
 
     /**
      * 获取阶段详情
+     * @param {string} taskId 任务ID
+     * @param {string} stageId 阶段ID
+     * @returns {Promise<TaskStage|null>} 阶段详情
      */
-    async _getStage(stageId) {
-        if (!this.supabase) return null;
+    async getStage(taskId, stageId) {
+        const task = await this.getTask(taskId);
+        if (!task) return null;
 
-        const { data, error } = await this.supabase
-            .from('vs_task_stages')
-            .select('*')
-            .eq('id', stageId)
-            .single();
+        return task.stages.find(s => s.id === stageId) || null;
+    }
 
-        return error ? null : data;
+    /**
+     * 获取阶段提示
+     * @param {string} taskId 任务ID
+     * @param {string} stageId 阶段ID
+     * @param {string} hintId 提示ID
+     * @returns {Promise<Hint|null>} 提示内容
+     */
+    async getHint(taskId, stageId, hintId) {
+        const stage = await this.getStage(taskId, stageId);
+        if (!stage || !stage.hints) return null;
+
+        return stage.hints.find(h => h.id === hintId) || null;
     }
 
     /**
      * 验证任务阶段顺序
-     * @param {Array} stages 阶段列表
+     * @param {TaskStage[]} stages 阶段列表
      * @returns {boolean} 是否按正确顺序
      */
     validateStageOrder(stages) {
-        const expectedOrder = [
-            StageType.TASK_RECEIPT,
-            StageType.PLAN_DESIGN,
-            StageType.OPERATION,
-            StageType.RECORD_FILLING,
-            StageType.REPORT_GENERATION
-        ];
+        if (!stages || stages.length === 0) return true;
 
         // 过滤出标准阶段（排除simulation等特殊阶段）
-        const standardStages = stages.filter(s => expectedOrder.includes(s.type));
+        const standardStages = stages.filter(s => STANDARD_STAGE_ORDER.includes(s.type));
         
         for (let i = 0; i < standardStages.length - 1; i++) {
-            const currentIndex = expectedOrder.indexOf(standardStages[i].type);
-            const nextIndex = expectedOrder.indexOf(standardStages[i + 1].type);
+            const currentIndex = STANDARD_STAGE_ORDER.indexOf(standardStages[i].type);
+            const nextIndex = STANDARD_STAGE_ORDER.indexOf(standardStages[i + 1].type);
             if (currentIndex >= nextIndex) {
                 return false;
             }
@@ -664,35 +1770,768 @@ class TaskFlowService {
         
         return true;
     }
+
+    /**
+     * 获取任务简报
+     * @param {string} taskId 任务ID
+     * @returns {Promise<TaskBrief|null>} 任务简报
+     */
+    async getTaskBrief(taskId) {
+        const task = await this.getTask(taskId);
+        return task?.taskBrief || null;
+    }
+
+    /**
+     * 生成原始记录模板
+     * 根据任务类型和方案数据自动生成预填充的记录模板
+     * @param {string} taskId 任务ID
+     * @param {Object} planData 方案数据（来自方案制定阶段）
+     * @param {Object} [options] 可选配置
+     * @param {string} [options.userId] 用户ID
+     * @param {number} [options.recordIndex] 记录序号（用于批量生成）
+     * @returns {Promise<Object>} 记录模板，包含预填充数据
+     */
+    async generateRecordTemplate(taskId, planData, options = {}) {
+        const task = await this.getTask(taskId);
+        if (!task) return null;
+
+        // 找到记录填写阶段
+        const recordStage = task.stages.find(s => s.type === StageType.RECORD_FILLING);
+        if (!recordStage || !recordStage.template) return null;
+
+        // 深拷贝模板以避免修改原始数据
+        const template = JSON.parse(JSON.stringify(recordStage.template));
+        
+        // 初始化预填充数据对象
+        template.prefilled = {};
+        template.metadata = {
+            generatedAt: Date.now(),
+            taskId: taskId,
+            taskName: task.name,
+            workstationId: task.workstationId
+        };
+
+        // 生成样品编号（如果模板包含此字段）
+        const sampleIdField = template.fields?.find(f => 
+            f.name === 'sampleId' || f.name === 'pointId' || f.name === 'recordId'
+        );
+        if (sampleIdField) {
+            template.prefilled[sampleIdField.name] = this._generateSampleId(
+                task.workstationId, 
+                options.recordIndex || 1
+            );
+        }
+
+        // 自动填充日期字段
+        const dateFields = template.fields?.filter(f => f.type === 'date') || [];
+        for (const field of dateFields) {
+            template.prefilled[field.name] = this._formatDate(new Date());
+        }
+
+        // 自动填充时间字段
+        const timeFields = template.fields?.filter(f => f.type === 'time') || [];
+        for (const field of timeFields) {
+            template.prefilled[field.name] = this._formatTime(new Date());
+        }
+
+        // 根据方案数据自动填充相关字段
+        if (planData) {
+            // 采样方法
+            if (planData.samplingMethod) {
+                template.prefilled.method = planData.samplingMethod;
+                template.prefilled.samplingMethod = planData.samplingMethod;
+            }
+            // 采样点位/位置
+            if (planData.samplingPoints) {
+                template.prefilled.location = planData.samplingPoints;
+                template.prefilled.samplingLocation = planData.samplingPoints;
+            }
+            // 采样频次
+            if (planData.samplingFrequency) {
+                template.prefilled.frequency = planData.samplingFrequency;
+            }
+            // 保存方法
+            if (planData.preservationMethod) {
+                template.prefilled.preservationMethod = planData.preservationMethod;
+            }
+            // 目标污染物
+            if (planData.targetPollutants) {
+                template.prefilled.targetPollutants = planData.targetPollutants;
+            }
+            // 采样深度
+            if (planData.samplingDepth) {
+                template.prefilled.depth = planData.samplingDepth;
+            }
+            // 布点策略
+            if (planData.samplingStrategy) {
+                template.prefilled.strategy = planData.samplingStrategy;
+            }
+        }
+
+        // 填充采样人（如果有用户信息）
+        if (options.userId) {
+            const userName = localStorage.getItem('my_name');
+            if (userName) {
+                template.prefilled.sampler = userName;
+                template.prefilled.recorder = userName;
+                template.prefilled.operator = userName;
+            }
+        }
+
+        // 添加字段提示信息
+        template.fieldHints = this._generateFieldHints(template.fields, task.workstationId);
+
+        return template;
+    }
+
+    /**
+     * 生成样品编号
+     * 格式：工位代码(2位) + 日期(8位) + 序号(2位)
+     * @param {string} workstationId 工位ID
+     * @param {number} index 序号
+     * @returns {string} 样品编号
+     */
+    _generateSampleId(workstationId, index = 1) {
+        const prefixMap = {
+            'env-monitoring': 'EM',
+            'hazwaste-lab': 'HW',
+            'sampling-center': 'SC',
+            'data-center': 'DC',
+            'instrument-room': 'IR',
+            'emergency-center': 'EC'
+        };
+        const prefix = prefixMap[workstationId] || 'XX';
+        const date = new Date();
+        const dateStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+        const indexStr = String(index).padStart(2, '0');
+        return `${prefix}${dateStr}${indexStr}`;
+    }
+
+    /**
+     * 格式化日期为 YYYY-MM-DD
+     * @param {Date} date 日期对象
+     * @returns {string} 格式化的日期字符串
+     */
+    _formatDate(date) {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+
+    /**
+     * 格式化时间为 HH:MM
+     * @param {Date} date 日期对象
+     * @returns {string} 格式化的时间字符串
+     */
+    _formatTime(date) {
+        return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    }
+
+    /**
+     * 生成字段提示信息
+     * @param {Array} fields 字段列表
+     * @param {string} workstationId 工位ID
+     * @returns {Object} 字段提示映射
+     */
+    _generateFieldHints(fields, workstationId) {
+        const hints = {};
+        const commonHints = {
+            sampleId: '样品编号应具有唯一性，格式：工位代码+日期+序号',
+            samplingDate: '填写实际采样日期',
+            samplingTime: '填写实际采样时间（24小时制）',
+            samplingLocation: '详细描述采样位置，包括经纬度或相对位置',
+            waterTemperature: '使用温度计现场测量，精确到0.1℃',
+            pH: '使用pH计现场测量，精确到0.01',
+            dissolvedOxygen: '使用溶解氧仪现场测量，单位mg/L',
+            weatherCondition: '描述天气状况：晴/多云/阴/雨等',
+            sampler: '填写采样人员姓名',
+            remarks: '记录特殊情况或异常现象',
+            coordinates: '使用GPS定位，格式：经度,纬度',
+            depth: '采样深度，单位：米',
+            soilType: '描述土壤类型：粘土/砂土/壤土等'
+        };
+
+        if (fields) {
+            for (const field of fields) {
+                if (commonHints[field.name]) {
+                    hints[field.name] = commonHints[field.name];
+                }
+            }
+        }
+
+        return hints;
+    }
+
+    /**
+     * 批量生成记录模板
+     * 用于需要多个采样点的情况
+     * @param {string} taskId 任务ID
+     * @param {Object} planData 方案数据
+     * @param {number} count 生成数量
+     * @returns {Promise<Array>} 记录模板数组
+     */
+    async generateBatchRecordTemplates(taskId, planData, count) {
+        const templates = [];
+        const userId = localStorage.getItem('my_id');
+        
+        for (let i = 1; i <= count; i++) {
+            const template = await this.generateRecordTemplate(taskId, planData, {
+                userId,
+                recordIndex: i
+            });
+            if (template) {
+                templates.push(template);
+            }
+        }
+        
+        return templates;
+    }
+
+    /**
+     * 验证报告格式
+     * 对报告内容进行全面的格式和内容验证
+     * @param {Object} reportData 报告数据
+     * @param {string} taskId 任务ID
+     * @param {Object} [previousStageData] 前置阶段数据（用于一致性检查）
+     * @returns {Promise<Object>} 验证结果
+     */
+    async validateReportFormat(reportData, taskId, previousStageData = null) {
+        const task = await this.getTask(taskId);
+        if (!task) {
+            return { valid: false, errors: ['任务不存在'], score: 0 };
+        }
+
+        // 找到报告生成阶段
+        const reportStage = task.stages.find(s => s.type === StageType.REPORT_GENERATION);
+        if (!reportStage) {
+            return { valid: false, errors: ['报告阶段不存在'], score: 0 };
+        }
+
+        const errors = [];
+        const warnings = [];
+        let score = 100;
+
+        // 1. 基础验证（必填字段和验证规则）
+        const baseValidation = this.validateStageSubmission(reportStage, reportData);
+        errors.push(...baseValidation.errors);
+        score = Math.min(score, baseValidation.score);
+
+        // 2. 报告标题格式验证
+        if (reportData.reportTitle) {
+            const titleValidation = this._validateReportTitle(reportData.reportTitle, task);
+            if (!titleValidation.valid) {
+                errors.push(...titleValidation.errors);
+                score -= 5;
+            }
+        }
+
+        // 3. 内容长度验证
+        const contentFields = ['projectOverview', 'samplingOverview', 'siteOverview', 
+                              'samplingDesign', 'qualityAssurance', 'conclusion'];
+        for (const field of contentFields) {
+            if (reportData[field]) {
+                const lengthValidation = this._validateContentLength(field, reportData[field]);
+                if (!lengthValidation.valid) {
+                    warnings.push(lengthValidation.warning);
+                }
+            }
+        }
+
+        // 4. 与前置阶段数据的一致性检查
+        if (previousStageData) {
+            const consistencyCheck = this._checkReportConsistency(reportData, previousStageData);
+            if (!consistencyCheck.consistent) {
+                warnings.push(...consistencyCheck.warnings);
+            }
+        }
+
+        // 5. 报告结构完整性检查
+        const structureCheck = this._validateReportStructure(reportData, reportStage);
+        if (!structureCheck.valid) {
+            errors.push(...structureCheck.errors);
+            score -= structureCheck.penalty;
+        }
+
+        // 6. 专业术语和格式检查
+        const formatCheck = this._validateProfessionalFormat(reportData);
+        if (formatCheck.suggestions.length > 0) {
+            warnings.push(...formatCheck.suggestions);
+        }
+
+        return {
+            valid: errors.length === 0,
+            errors: errors,
+            warnings: warnings,
+            score: Math.max(0, score),
+            details: {
+                baseValidation: baseValidation.valid,
+                titleValid: !errors.some(e => e.includes('标题')),
+                structureComplete: structureCheck.valid,
+                consistencyChecked: previousStageData !== null
+            }
+        };
+    }
+
+    /**
+     * 验证报告标题格式
+     * @param {string} title 报告标题
+     * @param {Task} task 任务对象
+     * @returns {Object} 验证结果
+     */
+    _validateReportTitle(title, task) {
+        const errors = [];
+        
+        // 标题不能为空或过短
+        if (!title || title.trim().length < 5) {
+            errors.push('报告标题过短，应至少包含5个字符');
+        }
+        
+        // 标题不能过长
+        if (title && title.length > 100) {
+            errors.push('报告标题过长，应不超过100个字符');
+        }
+        
+        // 标题应包含关键信息（可选检查）
+        const keywords = ['报告', '方案', '记录', '调查', '监测', '采样'];
+        const hasKeyword = keywords.some(kw => title.includes(kw));
+        if (!hasKeyword && title.length > 10) {
+            // 这是一个建议，不是错误
+        }
+
+        return {
+            valid: errors.length === 0,
+            errors: errors
+        };
+    }
+
+    /**
+     * 验证内容长度
+     * @param {string} fieldName 字段名
+     * @param {string} content 内容
+     * @returns {Object} 验证结果
+     */
+    _validateContentLength(fieldName, content) {
+        const minLengths = {
+            projectOverview: 50,
+            samplingOverview: 30,
+            siteOverview: 50,
+            samplingDesign: 50,
+            qualityAssurance: 30,
+            conclusion: 30
+        };
+
+        const fieldLabels = {
+            projectOverview: '项目概况',
+            samplingOverview: '采样概况',
+            siteOverview: '场地概况',
+            samplingDesign: '采样设计',
+            qualityAssurance: '质量保证',
+            conclusion: '结论与建议'
+        };
+
+        const minLength = minLengths[fieldName] || 20;
+        const label = fieldLabels[fieldName] || fieldName;
+
+        if (content.length < minLength) {
+            return {
+                valid: false,
+                warning: `${label}内容较短（${content.length}字），建议至少${minLength}字以确保内容完整`
+            };
+        }
+
+        return { valid: true };
+    }
+
+    /**
+     * 检查报告与前置阶段数据的一致性
+     * @param {Object} reportData 报告数据
+     * @param {Object} previousData 前置阶段数据
+     * @returns {Object} 一致性检查结果
+     */
+    _checkReportConsistency(reportData, previousData) {
+        const warnings = [];
+
+        // 检查方案数据是否在报告中有所体现
+        if (previousData.planData) {
+            const plan = previousData.planData;
+            
+            // 检查采样方法是否一致
+            if (plan.samplingMethod && reportData.samplingOverview) {
+                if (!reportData.samplingOverview.includes(plan.samplingMethod)) {
+                    warnings.push('报告中的采样概况未提及方案中确定的采样方法');
+                }
+            }
+        }
+
+        // 检查记录数据是否在报告中有所体现
+        if (previousData.recordData) {
+            const record = previousData.recordData;
+            
+            // 检查样品编号是否被引用
+            if (record.sampleId && reportData.samplingOverview) {
+                if (!reportData.samplingOverview.includes(record.sampleId)) {
+                    warnings.push('建议在报告中引用样品编号以便追溯');
+                }
+            }
+        }
+
+        return {
+            consistent: warnings.length === 0,
+            warnings: warnings
+        };
+    }
+
+    /**
+     * 验证报告结构完整性
+     * @param {Object} reportData 报告数据
+     * @param {TaskStage} reportStage 报告阶段定义
+     * @returns {Object} 结构验证结果
+     */
+    _validateReportStructure(reportData, reportStage) {
+        const errors = [];
+        let penalty = 0;
+
+        // 检查必需的报告章节
+        const requiredSections = reportStage.requiredFields || [];
+        const missingSections = requiredSections.filter(section => {
+            const value = reportData[section];
+            return !value || (typeof value === 'string' && !value.trim());
+        });
+
+        if (missingSections.length > 0) {
+            const sectionLabels = missingSections.map(s => 
+                this._getFieldLabel(reportStage, s) || s
+            );
+            errors.push(`报告缺少必要章节: ${sectionLabels.join('、')}`);
+            penalty = missingSections.length * 10;
+        }
+
+        return {
+            valid: errors.length === 0,
+            errors: errors,
+            penalty: penalty
+        };
+    }
+
+    /**
+     * 验证专业格式
+     * @param {Object} reportData 报告数据
+     * @returns {Object} 格式检查结果
+     */
+    _validateProfessionalFormat(reportData) {
+        const suggestions = [];
+
+        // 检查是否包含标准引用
+        const allContent = Object.values(reportData)
+            .filter(v => typeof v === 'string')
+            .join(' ');
+
+        // 检查是否引用了相关标准
+        const standardPatterns = [
+            /GB\s*\d+/i,
+            /HJ\s*\d+/i,
+            /HJ\/T\s*\d+/i,
+            /GB\/T\s*\d+/i
+        ];
+        
+        const hasStandardRef = standardPatterns.some(pattern => pattern.test(allContent));
+        if (!hasStandardRef && allContent.length > 200) {
+            suggestions.push('建议在报告中引用相关国家标准或行业标准（如GB、HJ等）');
+        }
+
+        // 检查是否包含日期
+        const datePattern = /\d{4}[-/年]\d{1,2}[-/月]\d{1,2}/;
+        if (!datePattern.test(allContent) && allContent.length > 100) {
+            suggestions.push('建议在报告中明确标注相关日期');
+        }
+
+        return {
+            suggestions: suggestions
+        };
+    }
+
+    /**
+     * 获取报告模板（带预填充数据）
+     * 基于前置阶段数据生成报告模板
+     * @param {string} taskId 任务ID
+     * @param {Object} stageData 各阶段已提交的数据
+     * @returns {Promise<Object>} 报告模板
+     */
+    async generateReportTemplate(taskId, stageData) {
+        const task = await this.getTask(taskId);
+        if (!task) return null;
+
+        const reportStage = task.stages.find(s => s.type === StageType.REPORT_GENERATION);
+        if (!reportStage || !reportStage.template) return null;
+
+        const template = JSON.parse(JSON.stringify(reportStage.template));
+        template.prefilled = {};
+        template.metadata = {
+            generatedAt: Date.now(),
+            taskId: taskId,
+            taskName: task.name
+        };
+
+        // 从方案阶段提取数据
+        const planStageId = task.stages.find(s => s.type === StageType.PLAN_DESIGN)?.id;
+        const planData = planStageId && stageData[planStageId]?.data;
+
+        // 从记录阶段提取数据
+        const recordStageId = task.stages.find(s => s.type === StageType.RECORD_FILLING)?.id;
+        const recordData = recordStageId && stageData[recordStageId]?.data;
+
+        // 自动生成报告标题
+        if (planData || recordData) {
+            const date = this._formatDate(new Date());
+            template.prefilled.reportTitle = `${task.name}报告 - ${date}`;
+        }
+
+        // 自动生成项目概况
+        if (task.taskBrief) {
+            template.prefilled.projectOverview = task.taskBrief.background;
+        }
+
+        // 自动生成采样概况（基于方案和记录数据）
+        if (planData) {
+            let overview = '';
+            if (planData.samplingMethod) {
+                overview += `采样方法：${planData.samplingMethod}。`;
+            }
+            if (planData.samplingFrequency) {
+                overview += `采样频次：${planData.samplingFrequency}。`;
+            }
+            if (planData.samplingPoints) {
+                overview += `采样点位：${planData.samplingPoints}。`;
+            }
+            if (overview) {
+                template.prefilled.samplingOverview = overview;
+            }
+        }
+
+        return template;
+    }
+
+    /**
+     * 获取本地执行记录
+     * @returns {TaskExecution|null} 执行记录
+     */
+    _getLocalExecution() {
+        const saved = localStorage.getItem('vs_current_execution');
+        if (saved) {
+            try {
+                return JSON.parse(saved);
+            } catch (e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 获取用户的任务执行历史
+     * @param {string} userId 用户ID
+     * @param {string} [workstationId] 工位ID（可选）
+     * @returns {Promise<TaskExecution[]>} 执行历史
+     */
+    async getTaskHistory(userId, workstationId = null) {
+        const key = `vs_task_history_${userId}`;
+        const saved = localStorage.getItem(key);
+        let history = saved ? JSON.parse(saved) : [];
+
+        if (workstationId) {
+            history = history.filter(h => {
+                const task = PRESET_TASKS.find(t => t.id === h.taskId);
+                return task && task.workstationId === workstationId;
+            });
+        }
+
+        return history;
+    }
+
+    /**
+     * 保存任务执行到历史
+     * @param {TaskExecution} execution 执行记录
+     */
+    async saveToHistory(execution) {
+        const key = `vs_task_history_${execution.userId}`;
+        const saved = localStorage.getItem(key);
+        const history = saved ? JSON.parse(saved) : [];
+
+        // 添加到历史（避免重复）
+        const existingIndex = history.findIndex(h => h.id === execution.id);
+        if (existingIndex >= 0) {
+            history[existingIndex] = execution;
+        } else {
+            history.push(execution);
+        }
+
+        localStorage.setItem(key, JSON.stringify(history));
+    }
 }
 
 
 // ================= 过程追踪服务 =================
 
 /**
+ * 行为日志接口定义
+ * @typedef {Object} BehaviorLog
+ * @property {string} id - 日志唯一标识
+ * @property {string} sessionId - 会话ID
+ * @property {string} userId - 用户ID
+ * @property {number} timestamp - 时间戳
+ * @property {string} actionType - 行为类型
+ * @property {Object} details - 行为详情
+ * @property {string} [details.pageId] - 页面ID
+ * @property {string} [details.fieldId] - 字段ID
+ * @property {number} [details.duration] - 停留时长（毫秒）
+ * @property {any} [details.oldValue] - 修改前的值
+ * @property {any} [details.newValue] - 修改后的值
+ * @property {string} [details.hintId] - 提示ID
+ * @property {string} [details.hintType] - 提示类型
+ * @property {string} [details.errorType] - 错误类型
+ * @property {string} [details.stepId] - 步骤ID
+ * @property {string} [details.stageId] - 阶段ID
+ */
+
+/**
+ * 字段修改统计接口
+ * @typedef {Object} FieldModificationStats
+ * @property {string} fieldId - 字段ID
+ * @property {number} modificationCount - 修改次数
+ * @property {Array<{oldValue: any, newValue: any, timestamp: number}>} history - 修改历史
+ */
+
+/**
+ * 页面停留统计接口
+ * @typedef {Object} PageDurationStats
+ * @property {string} pageId - 页面ID
+ * @property {number} totalDuration - 总停留时长（毫秒）
+ * @property {number} visitCount - 访问次数
+ * @property {number} averageDuration - 平均停留时长（毫秒）
+ */
+
+/**
+ * 提示查看统计接口
+ * @typedef {Object} HintViewStats
+ * @property {string} hintId - 提示ID
+ * @property {string} hintType - 提示类型
+ * @property {number} viewCount - 查看次数
+ * @property {number} firstViewAt - 首次查看时间
+ * @property {number} lastViewAt - 最后查看时间
+ */
+
+/**
  * 过程追踪服务类 - 无感采集学习行为数据
+ * 
+ * 功能：
+ * - 记录操作时间戳、页面停留时长
+ * - 记录字段修改（修改次数、前后差异）
+ * - 记录提示查看（类型和时间点）
+ * - 识别疑难点（停顿超过阈值）
+ * - 统计分析（平均停顿时间、提示查看率、错误率）
  */
 class ProcessTrackerService {
     constructor(supabase) {
         this.supabase = supabase;
+        /** @type {BehaviorLog[]} */
         this.localLogs = [];
         this.syncInterval = null;
+        
+        // 页面停留追踪
+        this.pageEnterTime = {};  // { pageId: enterTimestamp }
+        
+        // 字段修改追踪
+        /** @type {Map<string, FieldModificationStats>} */
+        this.fieldModifications = new Map();
+        
+        // 提示查看追踪
+        /** @type {Map<string, HintViewStats>} */
+        this.hintViews = new Map();
+        
+        // 疑难点标记
+        /** @type {Set<string>} */
+        this.difficultPoints = new Set();
+        
+        // 当前会话信息
+        this.currentSessionId = null;
+        this.currentStepId = null;
+        this.currentStageId = null;
+        
+        // 启动自动同步
+        this._startAutoSync();
+    }
+
+    /**
+     * 启动自动同步
+     * @private
+     */
+    _startAutoSync() {
+        // 每30秒同步一次
+        this.syncInterval = setInterval(() => {
+            this._syncLogs();
+        }, 30000);
+    }
+
+    /**
+     * 停止自动同步
+     */
+    stopAutoSync() {
+        if (this.syncInterval) {
+            clearInterval(this.syncInterval);
+            this.syncInterval = null;
+        }
+    }
+
+    /**
+     * 设置当前会话
+     * @param {string} sessionId - 会话ID
+     */
+    setCurrentSession(sessionId) {
+        this.currentSessionId = sessionId;
+    }
+
+    /**
+     * 设置当前步骤/阶段上下文
+     * @param {string} stepId - 步骤ID
+     * @param {string} stageId - 阶段ID
+     */
+    setCurrentContext(stepId, stageId) {
+        this.currentStepId = stepId;
+        this.currentStageId = stageId;
+    }
+
+    /**
+     * 创建行为日志对象
+     * @param {string} sessionId - 会话ID
+     * @param {string} actionType - 行为类型
+     * @param {Object} details - 行为详情
+     * @returns {BehaviorLog} 行为日志对象
+     */
+    _createLog(sessionId, actionType, details) {
+        return {
+            id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            sessionId: sessionId,
+            userId: localStorage.getItem('my_id') || 'guest',
+            timestamp: Date.now(),
+            actionType: actionType,
+            details: {
+                ...details,
+                stepId: this.currentStepId,
+                stageId: this.currentStageId
+            }
+        };
     }
 
     /**
      * 记录用户行为
      * @param {string} sessionId 会话ID
      * @param {Object} action 行为对象
+     * @returns {Promise<BehaviorLog>} 记录的日志
      */
     async logAction(sessionId, action) {
-        const log = {
-            id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            session_id: sessionId,
-            user_id: localStorage.getItem('my_id'),
-            timestamp: Date.now(),
-            action_type: action.type,
-            details: action.details || {}
-        };
+        const log = this._createLog(
+            sessionId,
+            action.type,
+            action.details || {}
+        );
 
         this.localLogs.push(log);
 
@@ -700,6 +2539,55 @@ class ProcessTrackerService {
         if (this.localLogs.length >= 10) {
             await this._syncLogs();
         }
+
+        return log;
+    }
+
+    // ================= 页面停留时长记录 =================
+
+    /**
+     * 记录进入页面
+     * @param {string} sessionId - 会话ID
+     * @param {string} pageId - 页面ID
+     */
+    enterPage(sessionId, pageId) {
+        this.pageEnterTime[pageId] = Date.now();
+        this.logAction(sessionId, {
+            type: ActionType.PAGE_VIEW,
+            details: { pageId, event: 'enter' }
+        });
+    }
+
+    /**
+     * 记录离开页面并计算停留时长
+     * @param {string} sessionId - 会话ID
+     * @param {string} pageId - 页面ID
+     * @returns {Promise<number>} 停留时长（毫秒）
+     */
+    async leavePage(sessionId, pageId) {
+        const enterTime = this.pageEnterTime[pageId];
+        if (!enterTime) return 0;
+
+        const duration = Date.now() - enterTime;
+        delete this.pageEnterTime[pageId];
+
+        await this.logPageView(sessionId, pageId, duration);
+
+        // 检查是否为疑难点
+        if (this.isDifficultPoint(duration)) {
+            this.difficultPoints.add(`${pageId}_${this.currentStepId}`);
+            await this.logAction(sessionId, {
+                type: ActionType.PAGE_VIEW,
+                details: { 
+                    pageId, 
+                    duration, 
+                    isDifficultPoint: true,
+                    threshold: PAUSE_THRESHOLD.DEFAULT * 1000
+                }
+            });
+        }
+
+        return duration;
     }
 
     /**
@@ -707,11 +2595,56 @@ class ProcessTrackerService {
      * @param {string} sessionId 会话ID
      * @param {string} pageId 页面ID
      * @param {number} duration 停留时长（毫秒）
+     * @returns {Promise<BehaviorLog>} 记录的日志
      */
     async logPageView(sessionId, pageId, duration) {
-        await this.logAction(sessionId, {
+        return await this.logAction(sessionId, {
             type: ActionType.PAGE_VIEW,
-            details: { pageId, duration }
+            details: { pageId, duration, event: 'leave' }
+        });
+    }
+
+    // ================= 字段修改记录 =================
+
+    /**
+     * 记录字段聚焦
+     * @param {string} sessionId - 会话ID
+     * @param {string} fieldId - 字段ID
+     * @param {any} currentValue - 当前值
+     */
+    async logFieldFocus(sessionId, fieldId, currentValue) {
+        // 初始化字段修改统计
+        if (!this.fieldModifications.has(fieldId)) {
+            this.fieldModifications.set(fieldId, {
+                fieldId: fieldId,
+                modificationCount: 0,
+                history: [],
+                lastValue: currentValue
+            });
+        }
+
+        await this.logAction(sessionId, {
+            type: ActionType.FIELD_FOCUS,
+            details: { fieldId, currentValue }
+        });
+    }
+
+    /**
+     * 记录字段失焦
+     * @param {string} sessionId - 会话ID
+     * @param {string} fieldId - 字段ID
+     * @param {any} newValue - 新值
+     */
+    async logFieldBlur(sessionId, fieldId, newValue) {
+        const stats = this.fieldModifications.get(fieldId);
+        if (stats && stats.lastValue !== newValue) {
+            // 记录修改
+            await this.logModification(sessionId, fieldId, stats.lastValue, newValue);
+        }
+
+        await this.logAction(sessionId, {
+            type: ActionType.FIELD_BLUR,
+            details: { fieldId, value: newValue }
         });
     }
 
@@ -721,109 +2654,649 @@ class ProcessTrackerService {
      * @param {string} fieldId 字段ID
      * @param {any} oldValue 旧值
      * @param {any} newValue 新值
+     * @returns {Promise<BehaviorLog>} 记录的日志
      */
     async logModification(sessionId, fieldId, oldValue, newValue) {
-        await this.logAction(sessionId, {
+        // 更新字段修改统计
+        let stats = this.fieldModifications.get(fieldId);
+        if (!stats) {
+            stats = {
+                fieldId: fieldId,
+                modificationCount: 0,
+                history: [],
+                lastValue: oldValue
+            };
+            this.fieldModifications.set(fieldId, stats);
+        }
+
+        stats.modificationCount++;
+        stats.history.push({
+            oldValue: oldValue,
+            newValue: newValue,
+            timestamp: Date.now()
+        });
+        stats.lastValue = newValue;
+
+        return await this.logAction(sessionId, {
             type: ActionType.FIELD_MODIFY,
-            details: { fieldId, oldValue, newValue }
+            details: { 
+                fieldId, 
+                oldValue, 
+                newValue,
+                modificationCount: stats.modificationCount
+            }
         });
     }
+
+    /**
+     * 获取字段修改统计
+     * @param {string} fieldId - 字段ID
+     * @returns {FieldModificationStats|null} 字段修改统计
+     */
+    getFieldModificationStats(fieldId) {
+        return this.fieldModifications.get(fieldId) || null;
+    }
+
+    /**
+     * 获取所有字段修改统计
+     * @returns {FieldModificationStats[]} 所有字段修改统计
+     */
+    getAllFieldModificationStats() {
+        return Array.from(this.fieldModifications.values());
+    }
+
+    // ================= 提示查看记录 =================
 
     /**
      * 记录提示查看
      * @param {string} sessionId 会话ID
      * @param {string} hintId 提示ID
+     * @param {string} [hintType='info'] 提示类型
+     * @returns {Promise<BehaviorLog>} 记录的日志
      */
-    async logHintView(sessionId, hintId) {
-        await this.logAction(sessionId, {
+    async logHintView(sessionId, hintId, hintType = 'info') {
+        const now = Date.now();
+        
+        // 更新提示查看统计
+        let stats = this.hintViews.get(hintId);
+        if (!stats) {
+            stats = {
+                hintId: hintId,
+                hintType: hintType,
+                viewCount: 0,
+                firstViewAt: now,
+                lastViewAt: now
+            };
+            this.hintViews.set(hintId, stats);
+        }
+
+        stats.viewCount++;
+        stats.lastViewAt = now;
+
+        return await this.logAction(sessionId, {
             type: ActionType.HINT_VIEW,
-            details: { hintId }
+            details: { 
+                hintId, 
+                hintType,
+                viewCount: stats.viewCount,
+                viewedAt: now
+            }
         });
     }
+
+    /**
+     * 获取提示查看统计
+     * @param {string} hintId - 提示ID
+     * @returns {HintViewStats|null} 提示查看统计
+     */
+    getHintViewStats(hintId) {
+        return this.hintViews.get(hintId) || null;
+    }
+
+    /**
+     * 获取所有提示查看统计
+     * @returns {HintViewStats[]} 所有提示查看统计
+     */
+    getAllHintViewStats() {
+        return Array.from(this.hintViews.values());
+    }
+
+    /**
+     * 计算提示查看率
+     * @param {number} totalHints - 总提示数
+     * @returns {number} 提示查看率 (0-1)
+     */
+    calculateHintViewRate(totalHints) {
+        if (totalHints <= 0) return 0;
+        const viewedHints = this.hintViews.size;
+        return viewedHints / totalHints;
+    }
+
+    // ================= 错误记录 =================
+
+    /**
+     * 错误类型枚举
+     */
+    /**
+     * 错误类型枚举
+     * @enum {string}
+     */
+    static ErrorTypes = {
+        CONCEPT: 'concept_error',      // 概念错误：专业术语、标准引用、定义理解错误
+        CALCULATION: 'calculation_error', // 计算错误：数值计算、公式应用、单位换算错误
+        PROCESS: 'process_error',      // 流程错误：步骤顺序、操作流程、方法选择错误
+        FORMAT: 'format_error'         // 格式错误：格式规范、必填项、模板填写错误
+    };
+
+    /**
+     * 错误类型中文名称映射
+     */
+    static ErrorTypeNames = {
+        [ProcessTrackerService.ErrorTypes.CONCEPT]: '概念错误',
+        [ProcessTrackerService.ErrorTypes.CALCULATION]: '计算错误',
+        [ProcessTrackerService.ErrorTypes.PROCESS]: '流程错误',
+        [ProcessTrackerService.ErrorTypes.FORMAT]: '格式错误'
+    };
+
+    /**
+     * 错误分类关键词配置
+     * 用于基于消息内容自动分类错误
+     */
+    static ErrorClassificationKeywords = {
+        [ProcessTrackerService.ErrorTypes.CONCEPT]: [
+            '概念', '定义', '标准', '规范', '术语', '原理', '理论',
+            '含义', '意义', '理解', '认识', '知识', '专业', '国标',
+            'GB', 'HJ', '标准号', '条款', '规定', '要求', '依据',
+            '方法', '原则', '基础', '基本', '核心', '关键'
+        ],
+        [ProcessTrackerService.ErrorTypes.CALCULATION]: [
+            '计算', '数值', '公式', '单位', '换算', '结果', '数据',
+            '精度', '误差', '偏差', '范围', '阈值', '限值', '浓度',
+            '含量', '比例', '百分比', '平均', '总量', '数量', '面积',
+            '体积', '质量', '重量', '温度', '湿度', 'pH', '溶解氧',
+            'mg/L', 'μg/L', '℃', '%', '小数', '整数', '四舍五入'
+        ],
+        [ProcessTrackerService.ErrorTypes.PROCESS]: [
+            '流程', '步骤', '顺序', '先后', '操作', '程序', '方法',
+            '阶段', '环节', '过程', '次序', '前后', '之前', '之后',
+            '首先', '然后', '最后', '接着', '跳过', '遗漏', '缺少',
+            '重复', '颠倒', '混淆', '采样', '保存', '运输', '分析'
+        ],
+        [ProcessTrackerService.ErrorTypes.FORMAT]: [
+            '格式', '模板', '填写', '必填', '空白', '缺失', '遗漏',
+            '规范', '样式', '编号', '日期', '时间', '签名', '盖章',
+            '表格', '字段', '内容', '长度', '字数', '字符', '输入',
+            '选择', '勾选', '上传', '附件', '图片', '文件'
+        ]
+    };
+
+    /**
+     * 字段类型与错误类型的映射
+     * 用于基于字段类型辅助分类
+     */
+    static FieldTypeErrorMapping = {
+        // 数值类型字段通常关联计算错误
+        'number': ProcessTrackerService.ErrorTypes.CALCULATION,
+        'decimal': ProcessTrackerService.ErrorTypes.CALCULATION,
+        'percentage': ProcessTrackerService.ErrorTypes.CALCULATION,
+        // 选择类型字段通常关联概念错误
+        'select': ProcessTrackerService.ErrorTypes.CONCEPT,
+        'radio': ProcessTrackerService.ErrorTypes.CONCEPT,
+        'checkbox': ProcessTrackerService.ErrorTypes.CONCEPT,
+        // 文本类型字段通常关联格式错误
+        'text': ProcessTrackerService.ErrorTypes.FORMAT,
+        'textarea': ProcessTrackerService.ErrorTypes.FORMAT,
+        // 日期时间类型字段通常关联格式错误
+        'date': ProcessTrackerService.ErrorTypes.FORMAT,
+        'time': ProcessTrackerService.ErrorTypes.FORMAT,
+        'datetime': ProcessTrackerService.ErrorTypes.FORMAT
+    };
+
+    /**
+     * 验证规则类型与错误类型的映射
+     */
+    static ValidationRuleErrorMapping = {
+        'required': ProcessTrackerService.ErrorTypes.FORMAT,
+        'minLength': ProcessTrackerService.ErrorTypes.FORMAT,
+        'maxLength': ProcessTrackerService.ErrorTypes.FORMAT,
+        'pattern': ProcessTrackerService.ErrorTypes.FORMAT,
+        'min': ProcessTrackerService.ErrorTypes.CALCULATION,
+        'max': ProcessTrackerService.ErrorTypes.CALCULATION,
+        'range': ProcessTrackerService.ErrorTypes.CALCULATION,
+        'precision': ProcessTrackerService.ErrorTypes.CALCULATION,
+        'enum': ProcessTrackerService.ErrorTypes.CONCEPT,
+        'custom': ProcessTrackerService.ErrorTypes.CONCEPT
+    };
 
     /**
      * 记录错误发生
      * @param {string} sessionId 会话ID
      * @param {string} errorType 错误类型
      * @param {Object} errorDetails 错误详情
+     * @returns {Promise<BehaviorLog>} 记录的日志
      */
     async logError(sessionId, errorType, errorDetails) {
-        await this.logAction(sessionId, {
+        return await this.logAction(sessionId, {
             type: ActionType.ERROR_OCCUR,
-            details: { errorType, ...errorDetails }
+            details: { 
+                errorType, 
+                errorTypeName: ProcessTrackerService.ErrorTypeNames[errorType] || '未知错误',
+                ...errorDetails,
+                occurredAt: Date.now()
+            }
         });
     }
 
     /**
-     * 获取会话分析数据
+     * 自动分类并记录错误
      * @param {string} sessionId 会话ID
+     * @param {Object} error 错误对象
+     * @param {string} error.message 错误消息
+     * @param {string} [error.field] 相关字段
+     * @param {string} [error.fieldType] 字段类型
+     * @param {any} [error.value] 错误值
+     * @param {string} [error.validationRule] 验证规则类型
+     * @param {Object} [error.context] 额外上下文
+     * @returns {Promise<{log: BehaviorLog, errorType: string}>} 记录的日志和错误类型
      */
-    async getSessionAnalytics(sessionId) {
-        const logs = await this._getSessionLogs(sessionId);
-        
-        return {
-            totalActions: logs.length,
-            pageViews: logs.filter(l => l.action_type === ActionType.PAGE_VIEW).length,
-            modifications: logs.filter(l => l.action_type === ActionType.FIELD_MODIFY).length,
-            hintsViewed: logs.filter(l => l.action_type === ActionType.HINT_VIEW).length,
-            errors: logs.filter(l => l.action_type === ActionType.ERROR_OCCUR).length,
-            averageDuration: this._calculateAverageDuration(logs)
-        };
+    async classifyAndLogError(sessionId, error) {
+        const errorType = this.classifyError(error);
+        const log = await this.logError(sessionId, errorType, {
+            message: error.message,
+            field: error.field,
+            fieldType: error.fieldType,
+            value: error.value,
+            validationRule: error.validationRule,
+            context: error.context
+        });
+        return { log, errorType };
     }
 
     /**
-     * 获取班级分析数据
-     * @param {string} classId 班级ID
+     * 分类错误
+     * 使用多维度分析来确定错误类型：
+     * 1. 消息关键词匹配
+     * 2. 字段类型推断
+     * 3. 验证规则类型推断
+     * 4. 值模式分析
+     * 
+     * @param {Object} error - 错误对象
+     * @param {string} error.message - 错误消息
+     * @param {string} [error.field] - 相关字段
+     * @param {string} [error.fieldType] - 字段类型
+     * @param {any} [error.value] - 错误值
+     * @param {string} [error.validationRule] - 验证规则类型
+     * @returns {string} 错误类型
      */
-    async getClassAnalytics(classId) {
-        if (!this.supabase) return null;
+    classifyError(error) {
+        const scores = {
+            [ProcessTrackerService.ErrorTypes.CONCEPT]: 0,
+            [ProcessTrackerService.ErrorTypes.CALCULATION]: 0,
+            [ProcessTrackerService.ErrorTypes.PROCESS]: 0,
+            [ProcessTrackerService.ErrorTypes.FORMAT]: 0
+        };
 
-        // 获取班级所有学生的行为日志
-        const { data: logs, error } = await this.supabase
-            .from('vs_behavior_logs')
-            .select('*')
-            .eq('class_id', classId);
-
-        if (error) {
-            console.error('获取班级分析失败:', error);
-            return null;
+        // 1. 基于消息关键词分析
+        const messageScore = this._analyzeMessageKeywords(error.message || '');
+        for (const [type, score] of Object.entries(messageScore)) {
+            scores[type] += score * 3; // 消息关键词权重最高
         }
 
-        return this._analyzeClassData(logs || []);
+        // 2. 基于字段类型分析
+        if (error.fieldType) {
+            const fieldTypeError = ProcessTrackerService.FieldTypeErrorMapping[error.fieldType];
+            if (fieldTypeError) {
+                scores[fieldTypeError] += 2;
+            }
+        }
+
+        // 3. 基于验证规则类型分析
+        if (error.validationRule) {
+            const ruleTypeError = ProcessTrackerService.ValidationRuleErrorMapping[error.validationRule];
+            if (ruleTypeError) {
+                scores[ruleTypeError] += 2;
+            }
+        }
+
+        // 4. 基于值模式分析
+        if (error.value !== undefined && error.value !== null) {
+            const valueScore = this._analyzeValuePattern(error.value);
+            for (const [type, score] of Object.entries(valueScore)) {
+                scores[type] += score;
+            }
+        }
+
+        // 5. 基于字段名分析
+        if (error.field) {
+            const fieldScore = this._analyzeFieldName(error.field);
+            for (const [type, score] of Object.entries(fieldScore)) {
+                scores[type] += score;
+            }
+        }
+
+        // 找出得分最高的错误类型
+        let maxScore = 0;
+        let resultType = ProcessTrackerService.ErrorTypes.FORMAT; // 默认为格式错误
+
+        for (const [type, score] of Object.entries(scores)) {
+            if (score > maxScore) {
+                maxScore = score;
+                resultType = type;
+            }
+        }
+
+        return resultType;
     }
 
     /**
-     * 识别疑难步骤
+     * 分析消息中的关键词
+     * @param {string} message - 错误消息
+     * @returns {Object} 各错误类型的得分
+     * @private
+     */
+    _analyzeMessageKeywords(message) {
+        const scores = {
+            [ProcessTrackerService.ErrorTypes.CONCEPT]: 0,
+            [ProcessTrackerService.ErrorTypes.CALCULATION]: 0,
+            [ProcessTrackerService.ErrorTypes.PROCESS]: 0,
+            [ProcessTrackerService.ErrorTypes.FORMAT]: 0
+        };
+
+        const lowerMessage = message.toLowerCase();
+
+        for (const [errorType, keywords] of Object.entries(ProcessTrackerService.ErrorClassificationKeywords)) {
+            for (const keyword of keywords) {
+                if (lowerMessage.includes(keyword.toLowerCase())) {
+                    scores[errorType]++;
+                }
+            }
+        }
+
+        return scores;
+    }
+
+    /**
+     * 分析值的模式
+     * @param {any} value - 错误值
+     * @returns {Object} 各错误类型的得分
+     * @private
+     */
+    _analyzeValuePattern(value) {
+        const scores = {
+            [ProcessTrackerService.ErrorTypes.CONCEPT]: 0,
+            [ProcessTrackerService.ErrorTypes.CALCULATION]: 0,
+            [ProcessTrackerService.ErrorTypes.PROCESS]: 0,
+            [ProcessTrackerService.ErrorTypes.FORMAT]: 0
+        };
+
+        const strValue = String(value);
+
+        // 检查是否为数值相关
+        if (!isNaN(parseFloat(strValue)) || /[\d.]+/.test(strValue)) {
+            scores[ProcessTrackerService.ErrorTypes.CALCULATION]++;
+        }
+
+        // 检查是否包含单位
+        if (/mg\/L|μg\/L|℃|%|ppm|ppb|mol|g\/L/i.test(strValue)) {
+            scores[ProcessTrackerService.ErrorTypes.CALCULATION]++;
+        }
+
+        // 检查是否为空或格式问题
+        if (strValue.trim() === '' || strValue === 'undefined' || strValue === 'null') {
+            scores[ProcessTrackerService.ErrorTypes.FORMAT]++;
+        }
+
+        // 检查是否包含标准编号
+        if (/GB|HJ|DB|NY|SL|CJ/i.test(strValue)) {
+            scores[ProcessTrackerService.ErrorTypes.CONCEPT]++;
+        }
+
+        return scores;
+    }
+
+    /**
+     * 分析字段名
+     * @param {string} fieldName - 字段名
+     * @returns {Object} 各错误类型的得分
+     * @private
+     */
+    _analyzeFieldName(fieldName) {
+        const scores = {
+            [ProcessTrackerService.ErrorTypes.CONCEPT]: 0,
+            [ProcessTrackerService.ErrorTypes.CALCULATION]: 0,
+            [ProcessTrackerService.ErrorTypes.PROCESS]: 0,
+            [ProcessTrackerService.ErrorTypes.FORMAT]: 0
+        };
+
+        const lowerField = fieldName.toLowerCase();
+
+        // 数值相关字段
+        const calculationFields = ['temperature', 'ph', 'concentration', 'value', 'amount', 
+            'quantity', 'weight', 'volume', 'area', 'depth', 'width', 'height', 'count',
+            '温度', '浓度', '含量', '数量', '重量', '体积', '面积', '深度'];
+        for (const field of calculationFields) {
+            if (lowerField.includes(field)) {
+                scores[ProcessTrackerService.ErrorTypes.CALCULATION]++;
+                break;
+            }
+        }
+
+        // 概念相关字段
+        const conceptFields = ['method', 'type', 'category', 'standard', 'purpose',
+            '方法', '类型', '类别', '标准', '目的', '原理'];
+        for (const field of conceptFields) {
+            if (lowerField.includes(field)) {
+                scores[ProcessTrackerService.ErrorTypes.CONCEPT]++;
+                break;
+            }
+        }
+
+        // 流程相关字段
+        const processFields = ['step', 'stage', 'phase', 'order', 'sequence',
+            '步骤', '阶段', '顺序', '流程'];
+        for (const field of processFields) {
+            if (lowerField.includes(field)) {
+                scores[ProcessTrackerService.ErrorTypes.PROCESS]++;
+                break;
+            }
+        }
+
+        // 格式相关字段
+        const formatFields = ['id', 'code', 'number', 'date', 'time', 'name', 'title',
+            '编号', '日期', '时间', '名称', '标题'];
+        for (const field of formatFields) {
+            if (lowerField.includes(field)) {
+                scores[ProcessTrackerService.ErrorTypes.FORMAT]++;
+                break;
+            }
+        }
+
+        return scores;
+    }
+
+    /**
+     * 获取错误类型的中文名称
+     * @param {string} errorType - 错误类型
+     * @returns {string} 中文名称
+     */
+    getErrorTypeName(errorType) {
+        return ProcessTrackerService.ErrorTypeNames[errorType] || '未知错误';
+    }
+
+    /**
+     * 获取所有错误类型
+     * @returns {Object} 错误类型枚举
+     */
+    static getErrorTypes() {
+        return ProcessTrackerService.ErrorTypes;
+    }
+
+    /**
+     * 验证错误类型是否有效
+     * @param {string} errorType - 错误类型
+     * @returns {boolean} 是否有效
+     */
+    static isValidErrorType(errorType) {
+        return Object.values(ProcessTrackerService.ErrorTypes).includes(errorType);
+    }
+
+    // ================= 疑难点识别 =================
+
+    /**
+     * 检查是否为疑难点（停顿超过阈值）
+     * @param {number} duration 停顿时长（毫秒）
+     * @param {number} threshold 阈值（秒），默认使用DEFAULT
+     * @returns {boolean} 是否为疑难点
+     */
+    isDifficultPoint(duration, threshold = PAUSE_THRESHOLD.DEFAULT) {
+        return duration > threshold * 1000;
+    }
+
+    /**
+     * 标记疑难点
+     * @param {string} sessionId - 会话ID
+     * @param {string} stepId - 步骤ID
+     * @param {number} duration - 停顿时长（毫秒）
+     * @param {string} [reason] - 标记原因
+     */
+    async markDifficultPoint(sessionId, stepId, duration, reason = 'pause_threshold_exceeded') {
+        this.difficultPoints.add(stepId);
+        
+        await this.logAction(sessionId, {
+            type: ActionType.PAGE_VIEW,
+            details: {
+                stepId,
+                duration,
+                isDifficultPoint: true,
+                reason,
+                threshold: PAUSE_THRESHOLD.DEFAULT * 1000
+            }
+        });
+    }
+
+    /**
+     * 获取当前会话的疑难点列表
+     * @returns {string[]} 疑难点步骤ID列表
+     */
+    getDifficultPoints() {
+        return Array.from(this.difficultPoints);
+    }
+
+    /**
+     * 识别疑难步骤（从数据库分析）
      * @param {string} workstationId 工位ID
+     * @returns {Promise<Array>} 疑难步骤列表
      */
     async identifyDifficultSteps(workstationId) {
-        if (!this.supabase) return [];
+        // 先从本地日志分析
+        const localAnalysis = this._analyzeLocalDifficultSteps(workstationId);
+        
+        if (!this.supabase) {
+            return localAnalysis;
+        }
 
         const { data: logs, error } = await this.supabase
             .from('vs_behavior_logs')
             .select('*')
             .eq('workstation_id', workstationId);
 
-        if (error) return [];
+        if (error) return localAnalysis;
 
         // 分析停顿时间超过阈值的步骤
         const stepDurations = {};
         const stepHints = {};
         const stepErrors = {};
+        const stepVisitors = {};
 
         for (const log of logs || []) {
             const stepId = log.details?.stepId;
             if (!stepId) continue;
 
-            if (log.action_type === ActionType.PAGE_VIEW) {
+            const actionType = log.action_type || log.actionType;
+
+            if (actionType === ActionType.PAGE_VIEW) {
                 if (!stepDurations[stepId]) stepDurations[stepId] = [];
                 stepDurations[stepId].push(log.details.duration || 0);
+                
+                if (!stepVisitors[stepId]) stepVisitors[stepId] = new Set();
+                stepVisitors[stepId].add(log.user_id || log.userId);
             }
-            if (log.action_type === ActionType.HINT_VIEW) {
+            if (actionType === ActionType.HINT_VIEW) {
                 stepHints[stepId] = (stepHints[stepId] || 0) + 1;
             }
-            if (log.action_type === ActionType.ERROR_OCCUR) {
+            if (actionType === ActionType.ERROR_OCCUR) {
                 stepErrors[stepId] = (stepErrors[stepId] || 0) + 1;
+            }
+        }
+
+        const difficultSteps = [];
+        for (const stepId of Object.keys(stepDurations)) {
+            const durations = stepDurations[stepId];
+            const avgDuration = durations.reduce((a, b) => a + b, 0) / durations.length;
+            const visitorCount = stepVisitors[stepId]?.size || 0;
+            const hintViewCount = stepHints[stepId] || 0;
+            const errorCount = stepErrors[stepId] || 0;
+            
+            // 计算疑难指数
+            const hintViewRate = visitorCount > 0 ? hintViewCount / visitorCount : 0;
+            const errorRate = visitorCount > 0 ? errorCount / visitorCount : 0;
+            
+            if (avgDuration > PAUSE_THRESHOLD.DEFAULT * 1000 || 
+                hintViewRate > 0.5 || 
+                errorRate > 0.3) {
+                difficultSteps.push({
+                    stepId,
+                    averageDuration: avgDuration,
+                    hintViewCount: hintViewCount,
+                    hintViewRate: hintViewRate,
+                    errorCount: errorCount,
+                    errorRate: errorRate,
+                    visitorCount: visitorCount,
+                    isDifficult: true,
+                    difficultyScore: this._calculateDifficultyScore(avgDuration, hintViewRate, errorRate)
+                });
+            }
+        }
+
+        // 按疑难指数排序
+        return difficultSteps.sort((a, b) => b.difficultyScore - a.difficultyScore);
+    }
+
+    /**
+     * 计算疑难指数
+     * @param {number} avgDuration - 平均停顿时长（毫秒）
+     * @param {number} hintViewRate - 提示查看率
+     * @param {number} errorRate - 错误率
+     * @returns {number} 疑难指数 (0-100)
+     */
+    _calculateDifficultyScore(avgDuration, hintViewRate, errorRate) {
+        // 停顿时长得分 (0-40分)
+        const durationScore = Math.min(40, (avgDuration / (PAUSE_THRESHOLD.DEFAULT * 1000)) * 20);
+        
+        // 提示查看率得分 (0-30分)
+        const hintScore = hintViewRate * 30;
+        
+        // 错误率得分 (0-30分)
+        const errorScore = errorRate * 30;
+        
+        return Math.round(durationScore + hintScore + errorScore);
+    }
+
+    /**
+     * 分析本地日志中的疑难步骤
+     * @param {string} workstationId - 工位ID
+     * @returns {Array} 疑难步骤列表
+     */
+    _analyzeLocalDifficultSteps(workstationId) {
+        const stepDurations = {};
+        
+        for (const log of this.localLogs) {
+            const stepId = log.details?.stepId;
+            if (!stepId) continue;
+            
+            if (log.actionType === ActionType.PAGE_VIEW && log.details?.duration) {
+                if (!stepDurations[stepId]) stepDurations[stepId] = [];
+                stepDurations[stepId].push(log.details.duration);
             }
         }
 
@@ -836,8 +3309,6 @@ class ProcessTrackerService {
                 difficultSteps.push({
                     stepId,
                     averageDuration: avgDuration,
-                    hintViewCount: stepHints[stepId] || 0,
-                    errorCount: stepErrors[stepId] || 0,
                     isDifficult: true
                 });
             }
@@ -846,14 +3317,207 @@ class ProcessTrackerService {
         return difficultSteps;
     }
 
+    // ================= 统计分析功能 =================
+
     /**
-     * 检查是否为疑难点（停顿超过阈值）
-     * @param {number} duration 停顿时长（毫秒）
-     * @param {number} threshold 阈值（秒），默认使用DEFAULT
+     * 获取会话分析数据
+     * @param {string} sessionId 会话ID
+     * @returns {Promise<Object>} 会话分析数据
      */
-    isDifficultPoint(duration, threshold = PAUSE_THRESHOLD.DEFAULT) {
-        return duration > threshold * 1000;
+    async getSessionAnalytics(sessionId) {
+        const logs = await this._getSessionLogs(sessionId);
+        
+        const pageViews = logs.filter(l => 
+            (l.action_type || l.actionType) === ActionType.PAGE_VIEW
+        );
+        const modifications = logs.filter(l => 
+            (l.action_type || l.actionType) === ActionType.FIELD_MODIFY
+        );
+        const hintsViewed = logs.filter(l => 
+            (l.action_type || l.actionType) === ActionType.HINT_VIEW
+        );
+        const errors = logs.filter(l => 
+            (l.action_type || l.actionType) === ActionType.ERROR_OCCUR
+        );
+
+        // 计算各项统计
+        const avgDuration = this._calculateAverageDuration(pageViews);
+        const totalDuration = pageViews.reduce((sum, l) => sum + (l.details?.duration || 0), 0);
+        
+        // 统计疑难点
+        const difficultPointLogs = pageViews.filter(l => l.details?.isDifficultPoint);
+
+        return {
+            totalActions: logs.length,
+            pageViews: pageViews.length,
+            modifications: modifications.length,
+            hintsViewed: hintsViewed.length,
+            errors: errors.length,
+            averageDuration: avgDuration,
+            totalDuration: totalDuration,
+            difficultPoints: difficultPointLogs.length,
+            fieldModificationStats: this.getAllFieldModificationStats(),
+            hintViewStats: this.getAllHintViewStats()
+        };
     }
+
+    /**
+     * 获取学生分析数据
+     * @param {string} userId - 用户ID
+     * @returns {Promise<Object>} 学生分析数据
+     */
+    async getStudentAnalytics(userId) {
+        let logs = this.localLogs.filter(l => l.userId === userId);
+        
+        if (this.supabase) {
+            const { data, error } = await this.supabase
+                .from('vs_behavior_logs')
+                .select('*')
+                .eq('user_id', userId);
+            
+            if (!error && data) {
+                logs = [...logs, ...data];
+            }
+        }
+
+        const pageViews = logs.filter(l => 
+            (l.action_type || l.actionType) === ActionType.PAGE_VIEW
+        );
+        const modifications = logs.filter(l => 
+            (l.action_type || l.actionType) === ActionType.FIELD_MODIFY
+        );
+        const hintsViewed = logs.filter(l => 
+            (l.action_type || l.actionType) === ActionType.HINT_VIEW
+        );
+        const errors = logs.filter(l => 
+            (l.action_type || l.actionType) === ActionType.ERROR_OCCUR
+        );
+
+        // 按步骤分组统计
+        const stepStats = this._groupByStep(logs);
+
+        return {
+            userId,
+            totalActions: logs.length,
+            totalStudyTime: pageViews.reduce((sum, l) => sum + (l.details?.duration || 0), 0),
+            averagePauseDuration: this._calculateAverageDuration(pageViews),
+            totalModifications: modifications.length,
+            totalHintsViewed: hintsViewed.length,
+            totalErrors: errors.length,
+            stepStats: stepStats,
+            errorsByType: this._groupErrorsByType(errors)
+        };
+    }
+
+    /**
+     * 获取班级分析数据
+     * @param {string} classId 班级ID
+     * @returns {Promise<Object>} 班级分析数据
+     */
+    async getClassAnalytics(classId) {
+        let logs = [];
+        
+        if (this.supabase) {
+            const { data, error } = await this.supabase
+                .from('vs_behavior_logs')
+                .select('*')
+                .eq('class_id', classId);
+
+            if (error) {
+                console.error('获取班级分析失败:', error);
+                return null;
+            }
+            logs = data || [];
+        }
+
+        return this._analyzeClassData(logs);
+    }
+
+    /**
+     * 计算班级统计数据
+     * @param {string} classId - 班级ID
+     * @param {string} workstationId - 工位ID（可选）
+     * @returns {Promise<Object>} 班级统计数据
+     */
+    async calculateClassStatistics(classId, workstationId = null) {
+        const classAnalytics = await this.getClassAnalytics(classId);
+        if (!classAnalytics) return null;
+
+        const difficultSteps = workstationId 
+            ? await this.identifyDifficultSteps(workstationId)
+            : [];
+
+        return {
+            ...classAnalytics,
+            difficultSteps,
+            commonErrors: await this._identifyCommonErrors(classId)
+        };
+    }
+
+    /**
+     * 生成班级分析报告
+     * @param {string} classId - 班级ID
+     * @param {Object} options - 报告选项
+     * @returns {Promise<Object>} 分析报告
+     */
+    async generateClassReport(classId, options = {}) {
+        const { workstationId, startDate, endDate } = options;
+        
+        const classStats = await this.calculateClassStatistics(classId, workstationId);
+        if (!classStats) return null;
+
+        return {
+            reportId: `report_${Date.now()}`,
+            generatedAt: Date.now(),
+            classId,
+            workstationId,
+            period: { startDate, endDate },
+            summary: {
+                totalStudents: classStats.totalStudents,
+                activeStudents: classStats.activeStudents || classStats.totalStudents,
+                averageProgress: classStats.averageProgress || 0,
+                averageScore: classStats.averageScore || 0
+            },
+            behaviorAnalysis: {
+                averagePauseDuration: classStats.averagePauseDuration,
+                hintViewRate: classStats.hintViewRate,
+                errorRate: classStats.errorRate
+            },
+            difficultSteps: classStats.difficultSteps,
+            commonErrors: classStats.commonErrors,
+            recommendations: this._generateRecommendations(classStats)
+        };
+    }
+
+    /**
+     * 生成教学建议
+     * @param {Object} classStats - 班级统计数据
+     * @returns {string[]} 教学建议列表
+     */
+    _generateRecommendations(classStats) {
+        const recommendations = [];
+
+        if (classStats.averagePauseDuration > PAUSE_THRESHOLD.DEFAULT * 1000) {
+            recommendations.push('学生在某些步骤停顿时间较长，建议增加相关知识点的讲解');
+        }
+
+        if (classStats.hintViewRate > 0.5) {
+            recommendations.push('提示查看率较高，建议在课前加强相关内容的预习指导');
+        }
+
+        if (classStats.errorRate > 0.3) {
+            recommendations.push('错误率较高，建议针对常见错误进行专项练习');
+        }
+
+        if (classStats.difficultSteps && classStats.difficultSteps.length > 0) {
+            const topDifficult = classStats.difficultSteps[0];
+            recommendations.push(`步骤"${topDifficult.stepId}"是主要疑难点，建议重点讲解`);
+        }
+
+        return recommendations;
+    }
+
+    // ================= 内部辅助方法 =================
 
     /**
      * 同步日志到服务器
@@ -864,9 +3528,19 @@ class ProcessTrackerService {
         const logsToSync = [...this.localLogs];
         this.localLogs = [];
 
+        // 转换字段名为数据库格式
+        const dbLogs = logsToSync.map(log => ({
+            id: log.id,
+            session_id: log.sessionId,
+            user_id: log.userId,
+            timestamp: log.timestamp,
+            action_type: log.actionType,
+            details: log.details
+        }));
+
         const { error } = await this.supabase
             .from('vs_behavior_logs')
-            .insert(logsToSync);
+            .insert(dbLogs);
 
         if (error) {
             console.error('同步日志失败:', error);
@@ -877,10 +3551,15 @@ class ProcessTrackerService {
 
     /**
      * 获取会话日志
+     * @param {string} sessionId - 会话ID
+     * @returns {Promise<BehaviorLog[]>} 日志列表
      */
     async _getSessionLogs(sessionId) {
+        // 本地日志
+        const localLogs = this.localLogs.filter(l => l.sessionId === sessionId);
+        
         if (!this.supabase) {
-            return this.localLogs.filter(l => l.session_id === sessionId);
+            return localLogs;
         }
 
         const { data, error } = await this.supabase
@@ -888,14 +3567,22 @@ class ProcessTrackerService {
             .select('*')
             .eq('session_id', sessionId);
 
-        return error ? [] : (data || []);
+        if (error) return localLogs;
+        
+        // 合并本地和远程日志
+        return [...localLogs, ...(data || [])];
     }
 
     /**
      * 计算平均停留时长
+     * @param {Array} logs - 日志列表
+     * @returns {number} 平均停留时长（毫秒）
      */
     _calculateAverageDuration(logs) {
-        const pageViews = logs.filter(l => l.action_type === ActionType.PAGE_VIEW);
+        const pageViews = logs.filter(l => 
+            (l.action_type || l.actionType) === ActionType.PAGE_VIEW &&
+            l.details?.duration
+        );
         if (pageViews.length === 0) return 0;
         
         const totalDuration = pageViews.reduce((sum, l) => sum + (l.details?.duration || 0), 0);
@@ -904,19 +3591,674 @@ class ProcessTrackerService {
 
     /**
      * 分析班级数据
+     * @param {Array} logs - 日志列表
+     * @returns {Object} 班级分析数据
      */
     _analyzeClassData(logs) {
-        const students = new Set(logs.map(l => l.user_id));
-        const pageViews = logs.filter(l => l.action_type === ActionType.PAGE_VIEW);
-        const hints = logs.filter(l => l.action_type === ActionType.HINT_VIEW);
-        const errors = logs.filter(l => l.action_type === ActionType.ERROR_OCCUR);
+        const students = new Set(logs.map(l => l.user_id || l.userId));
+        const pageViews = logs.filter(l => 
+            (l.action_type || l.actionType) === ActionType.PAGE_VIEW
+        );
+        const hints = logs.filter(l => 
+            (l.action_type || l.actionType) === ActionType.HINT_VIEW
+        );
+        const errors = logs.filter(l => 
+            (l.action_type || l.actionType) === ActionType.ERROR_OCCUR
+        );
+
+        const totalStudents = students.size;
 
         return {
-            totalStudents: students.size,
+            totalStudents: totalStudents,
             averagePauseDuration: this._calculateAverageDuration(pageViews),
-            hintViewRate: students.size > 0 ? hints.length / students.size : 0,
-            errorRate: students.size > 0 ? errors.length / students.size : 0
+            hintViewRate: totalStudents > 0 ? hints.length / totalStudents : 0,
+            errorRate: totalStudents > 0 ? errors.length / totalStudents : 0,
+            totalPageViews: pageViews.length,
+            totalHintViews: hints.length,
+            totalErrors: errors.length
         };
+    }
+
+    /**
+     * 按步骤分组统计
+     * @param {Array} logs - 日志列表
+     * @returns {Object} 步骤统计
+     */
+    _groupByStep(logs) {
+        const stepStats = {};
+        
+        for (const log of logs) {
+            const stepId = log.details?.stepId;
+            if (!stepId) continue;
+            
+            if (!stepStats[stepId]) {
+                stepStats[stepId] = {
+                    stepId,
+                    totalDuration: 0,
+                    visitCount: 0,
+                    modificationCount: 0,
+                    hintViewCount: 0,
+                    errorCount: 0
+                };
+            }
+            
+            const actionType = log.action_type || log.actionType;
+            
+            if (actionType === ActionType.PAGE_VIEW) {
+                stepStats[stepId].totalDuration += log.details?.duration || 0;
+                stepStats[stepId].visitCount++;
+            } else if (actionType === ActionType.FIELD_MODIFY) {
+                stepStats[stepId].modificationCount++;
+            } else if (actionType === ActionType.HINT_VIEW) {
+                stepStats[stepId].hintViewCount++;
+            } else if (actionType === ActionType.ERROR_OCCUR) {
+                stepStats[stepId].errorCount++;
+            }
+        }
+        
+        return stepStats;
+    }
+
+    /**
+     * 按错误类型分组
+     * @param {Array} errorLogs - 错误日志列表
+     * @returns {Object} 错误类型统计
+     */
+    _groupErrorsByType(errorLogs) {
+        const errorsByType = {};
+        
+        for (const log of errorLogs) {
+            const errorType = log.details?.errorType || 'unknown';
+            if (!errorsByType[errorType]) {
+                errorsByType[errorType] = 0;
+            }
+            errorsByType[errorType]++;
+        }
+        
+        return errorsByType;
+    }
+
+    /**
+     * 识别共性问题
+     * @param {string} classId - 班级ID
+     * @returns {Promise<Array>} 共性问题列表
+     */
+    async _identifyCommonErrors(classId) {
+        let logs = [];
+        
+        if (this.supabase) {
+            const { data, error } = await this.supabase
+                .from('vs_behavior_logs')
+                .select('*')
+                .eq('class_id', classId)
+                .eq('action_type', ActionType.ERROR_OCCUR);
+            
+            if (!error && data) {
+                logs = data;
+            }
+        }
+
+        // 统计每种错误的出现次数和影响学生数
+        const errorStats = {};
+        const students = new Set();
+        
+        for (const log of logs) {
+            const userId = log.user_id || log.userId;
+            students.add(userId);
+            
+            const errorKey = `${log.details?.errorType}_${log.details?.stepId}`;
+            if (!errorStats[errorKey]) {
+                errorStats[errorKey] = {
+                    errorType: log.details?.errorType,
+                    stepId: log.details?.stepId,
+                    count: 0,
+                    affectedStudents: new Set()
+                };
+            }
+            errorStats[errorKey].count++;
+            errorStats[errorKey].affectedStudents.add(userId);
+        }
+
+        const totalStudents = students.size;
+        const commonErrors = [];
+
+        for (const key of Object.keys(errorStats)) {
+            const stats = errorStats[key];
+            const affectedPercentage = totalStudents > 0 
+                ? stats.affectedStudents.size / totalStudents 
+                : 0;
+            
+            // 超过阈值则标记为共性问题
+            if (affectedPercentage >= COMMON_ERROR_THRESHOLD) {
+                commonErrors.push({
+                    errorType: stats.errorType,
+                    stepId: stats.stepId,
+                    occurrenceCount: stats.count,
+                    affectedStudents: stats.affectedStudents.size,
+                    affectedPercentage: affectedPercentage,
+                    isCommonError: true
+                });
+            }
+        }
+
+        return commonErrors.sort((a, b) => b.affectedPercentage - a.affectedPercentage);
+    }
+
+    /**
+     * 清除当前会话的追踪数据
+     */
+    clearSessionData() {
+        this.pageEnterTime = {};
+        this.fieldModifications.clear();
+        this.hintViews.clear();
+        this.difficultPoints.clear();
+        this.currentSessionId = null;
+        this.currentStepId = null;
+        this.currentStageId = null;
+    }
+
+    /**
+     * 强制同步所有本地日志
+     */
+    async flushLogs() {
+        await this._syncLogs();
+    }
+
+    /**
+     * 获取本地日志数量
+     * @returns {number} 本地日志数量
+     */
+    getLocalLogCount() {
+        return this.localLogs.length;
+    }
+
+    /**
+     * 导出会话日志
+     * @param {string} sessionId - 会话ID
+     * @returns {Promise<BehaviorLog[]>} 日志列表
+     */
+    async exportSessionLogs(sessionId) {
+        return await this._getSessionLogs(sessionId);
+    }
+
+    // ================= 错误热力图与资源推荐 =================
+
+    /**
+     * 知识点与学习资源映射表
+     * 根据错误类型和步骤关联推荐学习资源
+     */
+    static KnowledgeResourceMapping = {
+        // 概念错误相关资源
+        [ProcessTrackerService.ErrorTypes.CONCEPT]: {
+            default: [
+                { id: 'res-concept-1', name: '环境监测基础概念', type: 'document', url: '#/knowledge/concept-basics' },
+                { id: 'res-concept-2', name: '国家标准术语解读', type: 'video', url: '#/knowledge/standard-terms' }
+            ],
+            'env-monitoring': [
+                { id: 'res-env-1', name: 'HJ/T 91-2002 地表水监测技术规范', type: 'standard', url: '#/knowledge/hjt-91-2002' },
+                { id: 'res-env-2', name: '水质监测基础知识', type: 'course', url: '#/knowledge/water-quality-basics' }
+            ],
+            'hazwaste': [
+                { id: 'res-haz-1', name: 'GB 5085系列危废鉴别标准', type: 'standard', url: '#/knowledge/gb-5085' },
+                { id: 'res-haz-2', name: '危险废物鉴别流程', type: 'video', url: '#/knowledge/hazwaste-identification' }
+            ],
+            'sampling': [
+                { id: 'res-samp-1', name: 'HJ 25.1-2019 建设用地土壤调查导则', type: 'standard', url: '#/knowledge/hj-25-1-2019' },
+                { id: 'res-samp-2', name: '采样布点方法详解', type: 'course', url: '#/knowledge/sampling-methods' }
+            ]
+        },
+        // 计算错误相关资源
+        [ProcessTrackerService.ErrorTypes.CALCULATION]: {
+            default: [
+                { id: 'res-calc-1', name: '环境监测数据计算方法', type: 'document', url: '#/knowledge/calculation-methods' },
+                { id: 'res-calc-2', name: '单位换算与精度控制', type: 'video', url: '#/knowledge/unit-conversion' }
+            ],
+            'env-monitoring': [
+                { id: 'res-env-calc-1', name: '水质指标计算公式', type: 'document', url: '#/knowledge/water-quality-formulas' },
+                { id: 'res-env-calc-2', name: '监测数据有效数字处理', type: 'course', url: '#/knowledge/significant-figures' }
+            ],
+            'data-analysis': [
+                { id: 'res-data-1', name: '监测数据统计分析方法', type: 'course', url: '#/knowledge/statistical-analysis' },
+                { id: 'res-data-2', name: '质量控制数据处理', type: 'document', url: '#/knowledge/qc-data-processing' }
+            ]
+        },
+        // 流程错误相关资源
+        [ProcessTrackerService.ErrorTypes.PROCESS]: {
+            default: [
+                { id: 'res-proc-1', name: '环境监测标准操作流程', type: 'document', url: '#/knowledge/sop-overview' },
+                { id: 'res-proc-2', name: '实验室操作规范', type: 'video', url: '#/knowledge/lab-procedures' }
+            ],
+            'env-monitoring': [
+                { id: 'res-env-proc-1', name: '水质采样操作流程', type: 'video', url: '#/knowledge/water-sampling-sop' },
+                { id: 'res-env-proc-2', name: '样品保存与运输规范', type: 'document', url: '#/knowledge/sample-preservation' }
+            ],
+            'instrument': [
+                { id: 'res-inst-1', name: '分析仪器操作规程', type: 'video', url: '#/knowledge/instrument-operation' },
+                { id: 'res-inst-2', name: '仪器校准与维护', type: 'course', url: '#/knowledge/instrument-calibration' }
+            ]
+        },
+        // 格式错误相关资源
+        [ProcessTrackerService.ErrorTypes.FORMAT]: {
+            default: [
+                { id: 'res-fmt-1', name: '监测报告格式规范', type: 'document', url: '#/knowledge/report-format' },
+                { id: 'res-fmt-2', name: '原始记录填写要求', type: 'video', url: '#/knowledge/record-filling' }
+            ],
+            'env-monitoring': [
+                { id: 'res-env-fmt-1', name: '采样记录表填写示例', type: 'document', url: '#/knowledge/sampling-record-example' },
+                { id: 'res-env-fmt-2', name: '监测报告编写指南', type: 'course', url: '#/knowledge/report-writing-guide' }
+            ]
+        }
+    };
+
+    /**
+     * 生成错误分布热力图数据
+     * 根据工位或班级的错误日志，生成各步骤的错误热力图数据
+     * @param {string} workstationId - 工位ID
+     * @param {string} [classId] - 班级ID（可选）
+     * @returns {Promise<Object>} 热力图数据
+     */
+    async generateErrorHeatmap(workstationId, classId = null) {
+        let logs = [];
+        
+        // 从数据库获取错误日志
+        if (this.supabase) {
+            let query = this.supabase
+                .from('vs_behavior_logs')
+                .select('*')
+                .eq('action_type', ActionType.ERROR_OCCUR);
+            
+            if (workstationId) {
+                query = query.eq('details->>workstationId', workstationId);
+            }
+            if (classId) {
+                query = query.eq('class_id', classId);
+            }
+            
+            const { data, error } = await query;
+            if (!error && data) {
+                logs = data;
+            }
+        }
+
+        // 如果没有数据库数据，使用本地日志
+        if (logs.length === 0) {
+            logs = this.localLogs.filter(l => 
+                l.actionType === ActionType.ERROR_OCCUR &&
+                (!workstationId || l.details?.workstationId === workstationId)
+            );
+        }
+
+        // 按步骤和错误类型统计
+        const stepErrorStats = {};
+        const totalStudents = new Set();
+        
+        for (const log of logs) {
+            const stepId = log.details?.stepId || 'unknown';
+            const stageId = log.details?.stageId || 'unknown';
+            const errorType = log.details?.errorType || 'unknown';
+            const userId = log.user_id || log.userId;
+            
+            totalStudents.add(userId);
+            
+            const key = `${stageId}_${stepId}`;
+            if (!stepErrorStats[key]) {
+                stepErrorStats[key] = {
+                    stepId,
+                    stageId,
+                    stepName: log.details?.stepName || stepId,
+                    stageName: log.details?.stageName || stageId,
+                    totalErrors: 0,
+                    errorsByType: {},
+                    affectedStudents: new Set(),
+                    errors: []
+                };
+            }
+            
+            stepErrorStats[key].totalErrors++;
+            stepErrorStats[key].affectedStudents.add(userId);
+            stepErrorStats[key].errors.push({
+                errorType,
+                message: log.details?.message,
+                field: log.details?.field,
+                timestamp: log.timestamp
+            });
+            
+            if (!stepErrorStats[key].errorsByType[errorType]) {
+                stepErrorStats[key].errorsByType[errorType] = 0;
+            }
+            stepErrorStats[key].errorsByType[errorType]++;
+        }
+
+        // 计算热力值（0-1范围）
+        const maxErrors = Math.max(...Object.values(stepErrorStats).map(s => s.totalErrors), 1);
+        const heatmapData = [];
+        
+        for (const key of Object.keys(stepErrorStats)) {
+            const stats = stepErrorStats[key];
+            const heatValue = stats.totalErrors / maxErrors;
+            const affectedPercentage = totalStudents.size > 0 
+                ? stats.affectedStudents.size / totalStudents.size 
+                : 0;
+            
+            // 确定主要错误类型
+            let dominantErrorType = 'unknown';
+            let maxTypeCount = 0;
+            for (const [type, count] of Object.entries(stats.errorsByType)) {
+                if (count > maxTypeCount) {
+                    maxTypeCount = count;
+                    dominantErrorType = type;
+                }
+            }
+            
+            heatmapData.push({
+                stepId: stats.stepId,
+                stageId: stats.stageId,
+                stepName: stats.stepName,
+                stageName: stats.stageName,
+                totalErrors: stats.totalErrors,
+                affectedStudents: stats.affectedStudents.size,
+                affectedPercentage,
+                heatValue,
+                heatLevel: this._getHeatLevel(heatValue),
+                dominantErrorType,
+                dominantErrorTypeName: ProcessTrackerService.ErrorTypeNames[dominantErrorType] || '未知',
+                errorsByType: stats.errorsByType,
+                isHighFrequency: heatValue >= 0.5 || affectedPercentage >= COMMON_ERROR_THRESHOLD
+            });
+        }
+
+        // 按热力值降序排序
+        heatmapData.sort((a, b) => b.heatValue - a.heatValue);
+
+        return {
+            workstationId,
+            classId,
+            totalStudents: totalStudents.size,
+            totalErrors: logs.length,
+            maxErrorsPerStep: maxErrors,
+            heatmapData,
+            highFrequencySteps: heatmapData.filter(d => d.isHighFrequency),
+            generatedAt: Date.now()
+        };
+    }
+
+    /**
+     * 获取热力等级
+     * @param {number} heatValue - 热力值（0-1）
+     * @returns {string} 热力等级
+     */
+    _getHeatLevel(heatValue) {
+        if (heatValue >= 0.8) return 'critical';  // 严重
+        if (heatValue >= 0.6) return 'high';      // 高
+        if (heatValue >= 0.4) return 'medium';    // 中
+        if (heatValue >= 0.2) return 'low';       // 低
+        return 'minimal';                          // 极低
+    }
+
+    /**
+     * 根据错误类型和上下文推荐学习资源
+     * @param {string} errorType - 错误类型
+     * @param {Object} context - 上下文信息
+     * @param {string} [context.workstationId] - 工位ID
+     * @param {string} [context.stepId] - 步骤ID
+     * @param {string} [context.stageId] - 阶段ID
+     * @param {string} [context.field] - 字段名
+     * @returns {Array} 推荐的学习资源列表
+     */
+    recommendLearningResources(errorType, context = {}) {
+        const resources = [];
+        const mapping = ProcessTrackerService.KnowledgeResourceMapping;
+        
+        // 获取错误类型对应的资源映射
+        const typeMapping = mapping[errorType] || mapping[ProcessTrackerService.ErrorTypes.FORMAT];
+        
+        // 1. 添加工位特定资源
+        if (context.workstationId && typeMapping[context.workstationId]) {
+            resources.push(...typeMapping[context.workstationId].map(r => ({
+                ...r,
+                relevance: 'high',
+                reason: `针对${this._getWorkstationName(context.workstationId)}的专项资源`
+            })));
+        }
+        
+        // 2. 添加默认资源
+        if (typeMapping.default) {
+            resources.push(...typeMapping.default.map(r => ({
+                ...r,
+                relevance: 'medium',
+                reason: `${ProcessTrackerService.ErrorTypeNames[errorType] || '错误'}相关基础资源`
+            })));
+        }
+        
+        // 3. 根据步骤/阶段添加特定资源
+        if (context.stageId) {
+            const stageResources = this._getStageSpecificResources(context.stageId, errorType);
+            resources.push(...stageResources);
+        }
+        
+        // 去重并限制数量
+        const uniqueResources = this._deduplicateResources(resources);
+        return uniqueResources.slice(0, 5);
+    }
+
+    /**
+     * 获取工位名称
+     * @param {string} workstationId - 工位ID
+     * @returns {string} 工位名称
+     */
+    _getWorkstationName(workstationId) {
+        const workstation = PRESET_WORKSTATIONS.find(w => w.id === workstationId);
+        return workstation ? workstation.name : workstationId;
+    }
+
+    /**
+     * 获取阶段特定资源
+     * @param {string} stageId - 阶段ID
+     * @param {string} errorType - 错误类型
+     * @returns {Array} 资源列表
+     */
+    _getStageSpecificResources(stageId, errorType) {
+        const resources = [];
+        
+        // 根据阶段类型推荐资源
+        if (stageId.includes('plan') || stageId.includes('design')) {
+            resources.push({
+                id: 'res-stage-plan',
+                name: '方案设计要点与常见问题',
+                type: 'document',
+                url: '#/knowledge/plan-design-tips',
+                relevance: 'high',
+                reason: '方案设计阶段专项指导'
+            });
+        }
+        
+        if (stageId.includes('record') || stageId.includes('filling')) {
+            resources.push({
+                id: 'res-stage-record',
+                name: '原始记录填写规范',
+                type: 'video',
+                url: '#/knowledge/record-filling-guide',
+                relevance: 'high',
+                reason: '记录填写阶段专项指导'
+            });
+        }
+        
+        if (stageId.includes('report')) {
+            resources.push({
+                id: 'res-stage-report',
+                name: '报告编写模板与示例',
+                type: 'document',
+                url: '#/knowledge/report-templates',
+                relevance: 'high',
+                reason: '报告生成阶段专项指导'
+            });
+        }
+        
+        if (stageId.includes('operation') || stageId.includes('simulation')) {
+            resources.push({
+                id: 'res-stage-operation',
+                name: '操作流程视频演示',
+                type: 'video',
+                url: '#/knowledge/operation-demo',
+                relevance: 'high',
+                reason: '操作执行阶段专项指导'
+            });
+        }
+        
+        return resources;
+    }
+
+    /**
+     * 资源去重
+     * @param {Array} resources - 资源列表
+     * @returns {Array} 去重后的资源列表
+     */
+    _deduplicateResources(resources) {
+        const seen = new Set();
+        return resources.filter(r => {
+            if (seen.has(r.id)) return false;
+            seen.add(r.id);
+            return true;
+        });
+    }
+
+    /**
+     * 获取带资源推荐的错误分析报告
+     * @param {string} workstationId - 工位ID
+     * @param {string} [classId] - 班级ID
+     * @returns {Promise<Object>} 错误分析报告（含热力图和资源推荐）
+     */
+    async getErrorAnalysisWithResources(workstationId, classId = null) {
+        // 生成热力图数据
+        const heatmap = await this.generateErrorHeatmap(workstationId, classId);
+        
+        // 为高频错误步骤添加资源推荐
+        const analysisWithResources = heatmap.heatmapData.map(stepData => {
+            const resources = this.recommendLearningResources(stepData.dominantErrorType, {
+                workstationId,
+                stepId: stepData.stepId,
+                stageId: stepData.stageId
+            });
+            
+            return {
+                ...stepData,
+                recommendedResources: resources,
+                teachingSuggestion: this._generateTeachingSuggestion(stepData)
+            };
+        });
+
+        // 识别共性问题
+        const commonErrors = await this._identifyCommonErrors(classId);
+        
+        // 为共性问题添加资源推荐
+        const commonErrorsWithResources = commonErrors.map(error => ({
+            ...error,
+            recommendedResources: this.recommendLearningResources(error.errorType, {
+                workstationId,
+                stepId: error.stepId
+            })
+        }));
+
+        return {
+            workstationId,
+            classId,
+            summary: {
+                totalStudents: heatmap.totalStudents,
+                totalErrors: heatmap.totalErrors,
+                highFrequencyStepCount: heatmap.highFrequencySteps.length,
+                commonErrorCount: commonErrors.length
+            },
+            heatmap: {
+                ...heatmap,
+                heatmapData: analysisWithResources
+            },
+            commonErrors: commonErrorsWithResources,
+            overallRecommendations: this._generateOverallRecommendations(heatmap, commonErrors),
+            generatedAt: Date.now()
+        };
+    }
+
+    /**
+     * 生成步骤教学建议
+     * @param {Object} stepData - 步骤数据
+     * @returns {string} 教学建议
+     */
+    _generateTeachingSuggestion(stepData) {
+        const suggestions = [];
+        
+        if (stepData.heatLevel === 'critical') {
+            suggestions.push(`步骤"${stepData.stepName}"错误率极高，建议进行专项讲解和练习`);
+        } else if (stepData.heatLevel === 'high') {
+            suggestions.push(`步骤"${stepData.stepName}"是主要疑难点，建议增加示例演示`);
+        }
+        
+        const errorTypeName = ProcessTrackerService.ErrorTypeNames[stepData.dominantErrorType];
+        if (errorTypeName) {
+            suggestions.push(`主要错误类型为${errorTypeName}，建议针对性加强相关知识点`);
+        }
+        
+        if (stepData.affectedPercentage >= 0.5) {
+            suggestions.push('超过半数学生在此步骤出错，建议课堂重点讲解');
+        }
+        
+        return suggestions.join('；') || '暂无特别建议';
+    }
+
+    /**
+     * 生成整体教学建议
+     * @param {Object} heatmap - 热力图数据
+     * @param {Array} commonErrors - 共性问题列表
+     * @returns {Array} 整体建议列表
+     */
+    _generateOverallRecommendations(heatmap, commonErrors) {
+        const recommendations = [];
+        
+        // 基于高频错误步骤的建议
+        if (heatmap.highFrequencySteps.length > 0) {
+            const topStep = heatmap.highFrequencySteps[0];
+            recommendations.push({
+                type: 'focus',
+                priority: 'high',
+                message: `重点关注"${topStep.stepName}"，该步骤错误率最高`,
+                relatedSteps: heatmap.highFrequencySteps.map(s => s.stepId)
+            });
+        }
+        
+        // 基于共性问题的建议
+        if (commonErrors.length > 0) {
+            const errorTypes = [...new Set(commonErrors.map(e => e.errorType))];
+            const errorTypeNames = errorTypes.map(t => ProcessTrackerService.ErrorTypeNames[t] || t);
+            recommendations.push({
+                type: 'common_error',
+                priority: 'high',
+                message: `发现${commonErrors.length}个共性问题，主要类型：${errorTypeNames.join('、')}`,
+                relatedErrors: commonErrors.map(e => e.errorType)
+            });
+        }
+        
+        // 基于错误类型分布的建议
+        const errorTypeDistribution = {};
+        for (const step of heatmap.heatmapData) {
+            for (const [type, count] of Object.entries(step.errorsByType)) {
+                errorTypeDistribution[type] = (errorTypeDistribution[type] || 0) + count;
+            }
+        }
+        
+        const dominantType = Object.entries(errorTypeDistribution)
+            .sort((a, b) => b[1] - a[1])[0];
+        
+        if (dominantType) {
+            const typeName = ProcessTrackerService.ErrorTypeNames[dominantType[0]] || dominantType[0];
+            recommendations.push({
+                type: 'error_type',
+                priority: 'medium',
+                message: `${typeName}是最常见的错误类型，建议加强相关基础知识教学`,
+                errorType: dominantType[0],
+                count: dominantType[1]
+            });
+        }
+        
+        return recommendations;
     }
 }
 
@@ -924,16 +4266,159 @@ class ProcessTrackerService {
 // ================= 职业成长服务 =================
 
 /**
+ * 职业档案接口定义
+ * @typedef {Object} CareerProfile
+ * @property {string} user_id - 用户ID
+ * @property {number} level - 当前等级 (1-15)
+ * @property {string} levelTitle - 等级标识 (CareerLevel枚举值)
+ * @property {string} levelTitleCN - 等级中文名称
+ * @property {string} levelIcon - 等级图标
+ * @property {number} currentXP - 当前等级内的经验值
+ * @property {number} totalXP - 累计总经验值
+ * @property {number} xpToNextLevel - 距下一等级所需经验值
+ * @property {number} completedWorkstations - 已完成工位数
+ * @property {number} completedTasks - 已完成任务数
+ * @property {number} totalStudyTime - 总学习时长（分钟）
+ * @property {number} achievementCount - 成就数量
+ * @property {number} certificateCount - 上岗证数量
+ * @property {number} [classRank] - 班级排名
+ * @property {number} [globalRank] - 全局排名
+ * @property {number} [streakDays] - 连续学习天数
+ * @property {string} [lastStudyDate] - 最后学习日期
+ */
+
+/**
+ * 等级晋升结果接口
+ * @typedef {Object} LevelUpResult
+ * @property {number} newLevel - 新等级
+ * @property {string} newTitle - 新等级标识
+ * @property {string} newTitleCN - 新等级中文名称
+ * @property {number} remainingXP - 晋升后剩余经验值
+ * @property {string[]} unlockedWorkstations - 新解锁的工位ID列表
+ * @property {string[]} unlockedTasks - 新解锁的任务ID列表
+ */
+
+/**
+ * 等级解锁配置
+ * 定义各等级解锁的工位和任务
+ */
+const LEVEL_UNLOCK_CONFIG = {
+    1: {
+        workstations: ['env-monitoring'],
+        tasks: ['task-env-water-sampling'],
+        features: ['基础实训功能']
+    },
+    2: {
+        workstations: ['sampling-center'],
+        tasks: ['task-sampling-soil'],
+        features: ['采样规划沙盒']
+    },
+    3: {
+        workstations: ['hazwaste-lab'],
+        tasks: [],
+        features: ['危废鉴别剧本杀模式']
+    },
+    4: {
+        workstations: ['data-center'],
+        tasks: [],
+        features: ['数据分析工具']
+    },
+    5: {
+        workstations: ['instrument-room'],
+        tasks: [],
+        features: ['虚拟仪器操作']
+    },
+    6: {
+        workstations: [],
+        tasks: [],
+        features: ['高级报告模板']
+    },
+    7: {
+        workstations: [],
+        tasks: [],
+        features: ['AI助教高级功能']
+    },
+    8: {
+        workstations: ['emergency-center'],
+        tasks: [],
+        features: ['应急响应模拟']
+    },
+    9: {
+        workstations: [],
+        tasks: [],
+        features: ['竞赛模式']
+    },
+    10: {
+        workstations: [],
+        tasks: [],
+        features: ['自定义工位']
+    },
+    11: {
+        workstations: [],
+        tasks: [],
+        features: ['团队协作功能']
+    },
+    12: {
+        workstations: [],
+        tasks: [],
+        features: ['高级数据导出']
+    },
+    13: {
+        workstations: [],
+        tasks: [],
+        features: ['专家认证']
+    },
+    14: {
+        workstations: [],
+        tasks: [],
+        features: ['导师功能']
+    },
+    15: {
+        workstations: [],
+        tasks: [],
+        features: ['项目经理特权', '全部功能解锁']
+    }
+};
+
+/**
  * 职业成长服务类
+ * 管理用户的职业等级、经验值、晋升等功能
+ * Requirements: 7.1, 7.2, 7.3, 7.4
  */
 class CareerService {
     constructor(supabase) {
         this.supabase = supabase;
+        this.levelUpCallbacks = [];
+    }
+
+    /**
+     * 注册等级晋升回调函数
+     * @param {Function} callback 回调函数，接收LevelUpResult参数
+     */
+    onLevelUp(callback) {
+        if (typeof callback === 'function') {
+            this.levelUpCallbacks.push(callback);
+        }
+    }
+
+    /**
+     * 触发等级晋升事件
+     * @param {LevelUpResult} result 晋升结果
+     */
+    _triggerLevelUp(result) {
+        this.levelUpCallbacks.forEach(callback => {
+            try {
+                callback(result);
+            } catch (e) {
+                console.error('Level up callback error:', e);
+            }
+        });
     }
 
     /**
      * 获取用户职业档案
      * @param {string} userId 用户ID
+     * @returns {Promise<CareerProfile>} 职业档案
      */
     async getCareerProfile(userId) {
         // 先尝试从数据库获取
@@ -955,12 +4440,15 @@ class CareerService {
 
     /**
      * 增加经验值
+     * Requirements: 7.1 - 根据任务难度和完成质量奖励经验值
      * @param {string} userId 用户ID
      * @param {number} xp 经验值
-     * @param {string} source 来源
+     * @param {string} source 来源描述
+     * @returns {Promise<{profile: CareerProfile, xpGained: number, source: string, levelUp: LevelUpResult|null}>}
      */
     async addExperience(userId, xp, source) {
         const profile = await this.getCareerProfile(userId);
+        const oldLevel = profile.level;
         const newTotalXP = profile.totalXP + xp;
         
         const updatedProfile = {
@@ -969,22 +4457,62 @@ class CareerService {
             currentXP: profile.currentXP + xp
         };
 
-        // 检查是否升级
-        const levelUpResult = this.checkLevelUp(updatedProfile);
+        // 检查是否升级（可能连升多级）
+        let levelUpResult = null;
+        let currentCheckProfile = { ...updatedProfile };
+        
+        while (true) {
+            const singleLevelUp = this.checkLevelUp(currentCheckProfile);
+            if (!singleLevelUp) break;
+            
+            // 更新到新等级
+            currentCheckProfile.level = singleLevelUp.newLevel;
+            currentCheckProfile.levelTitle = singleLevelUp.newTitle;
+            
+            // 获取新等级解锁的内容
+            const unlockConfig = LEVEL_UNLOCK_CONFIG[singleLevelUp.newLevel] || { workstations: [], tasks: [], features: [] };
+            
+            // 合并或创建levelUpResult
+            if (!levelUpResult) {
+                levelUpResult = {
+                    ...singleLevelUp,
+                    unlockedWorkstations: unlockConfig.workstations,
+                    unlockedTasks: unlockConfig.tasks,
+                    unlockedFeatures: unlockConfig.features
+                };
+            } else {
+                // 连升多级时合并解锁内容
+                levelUpResult.newLevel = singleLevelUp.newLevel;
+                levelUpResult.newTitle = singleLevelUp.newTitle;
+                levelUpResult.newTitleCN = singleLevelUp.newTitleCN;
+                levelUpResult.unlockedWorkstations = [...levelUpResult.unlockedWorkstations, ...unlockConfig.workstations];
+                levelUpResult.unlockedTasks = [...levelUpResult.unlockedTasks, ...unlockConfig.tasks];
+                levelUpResult.unlockedFeatures = [...levelUpResult.unlockedFeatures, ...unlockConfig.features];
+            }
+        }
+
+        // 应用最终等级
         if (levelUpResult) {
             updatedProfile.level = levelUpResult.newLevel;
             updatedProfile.levelTitle = levelUpResult.newTitle;
-            updatedProfile.currentXP = levelUpResult.remainingXP;
+            // 计算当前等级内的XP
+            const currentLevelConfig = LEVEL_CONFIG.find(c => c.level === levelUpResult.newLevel);
+            updatedProfile.currentXP = newTotalXP - (currentLevelConfig ? currentLevelConfig.xpRequired : 0);
         }
 
         // 更新XP到下一级所需
-        updatedProfile.xpToNextLevel = this._calculateXPToNextLevel(updatedProfile.level, updatedProfile.currentXP);
+        updatedProfile.xpToNextLevel = this._calculateXPToNextLevel(updatedProfile.level, updatedProfile.totalXP);
 
         // 保存更新
         await this._saveProfile(userId, updatedProfile);
 
+        // 触发等级晋升事件
+        if (levelUpResult) {
+            this._triggerLevelUp(levelUpResult);
+        }
+
         return {
-            profile: updatedProfile,
+            profile: this._enrichProfile(updatedProfile),
             xpGained: xp,
             source: source,
             levelUp: levelUpResult
@@ -993,7 +4521,9 @@ class CareerService {
 
     /**
      * 检查是否升级
+     * Requirements: 7.2 - 当经验值达到阈值时自动晋升职业等级
      * @param {Object} profile 职业档案
+     * @returns {LevelUpResult|null} 晋升结果，未晋升返回null
      */
     checkLevelUp(profile) {
         const currentLevelConfig = LEVEL_CONFIG.find(c => c.level === profile.level);
@@ -1008,7 +4538,8 @@ class CareerService {
                 newLevel: nextLevelConfig.level,
                 newTitle: nextLevelConfig.title,
                 newTitleCN: nextLevelConfig.titleCN,
-                remainingXP: profile.totalXP - nextLevelConfig.xpRequired
+                remainingXP: profile.totalXP - nextLevelConfig.xpRequired,
+                levelIcon: nextLevelConfig.icon
             };
         }
 
@@ -1017,27 +4548,81 @@ class CareerService {
 
     /**
      * 获取等级配置
+     * @returns {Array} 等级配置列表
      */
     getLevelConfig() {
         return LEVEL_CONFIG;
     }
 
     /**
-     * 获取指定等级解锁的功能
+     * 获取等级解锁配置
+     * @returns {Object} 等级解锁配置
+     */
+    getLevelUnlockConfig() {
+        return LEVEL_UNLOCK_CONFIG;
+    }
+
+    /**
+     * 获取指定等级解锁的所有功能（累计）
+     * Requirements: 7.4 - 职业等级提升解锁新的工位或高级任务
      * @param {number} level 等级
+     * @returns {Array<{type: string, id: string, name: string}>} 解锁的功能列表
      */
     getUnlockedFeatures(level) {
         const features = [];
+        const workstationNames = {
+            'env-monitoring': '环境监测站',
+            'sampling-center': '采样规划中心',
+            'hazwaste-lab': '危废鉴别实验室',
+            'data-center': '数据处理中心',
+            'instrument-room': '仪器操作室',
+            'emergency-center': '应急响应中心'
+        };
         
-        // 根据等级解锁工位
-        if (level >= 1) features.push({ type: 'workstation', id: 'env-monitoring', name: '环境监测站' });
-        if (level >= 2) features.push({ type: 'workstation', id: 'sampling-center', name: '采样规划中心' });
-        if (level >= 3) features.push({ type: 'workstation', id: 'hazwaste-lab', name: '危废鉴别实验室' });
-        if (level >= 4) features.push({ type: 'workstation', id: 'data-center', name: '数据处理中心' });
-        if (level >= 5) features.push({ type: 'workstation', id: 'instrument-room', name: '仪器操作室' });
-        if (level >= 8) features.push({ type: 'workstation', id: 'emergency-center', name: '应急响应中心' });
+        // 累计所有已解锁等级的功能
+        for (let l = 1; l <= level; l++) {
+            const config = LEVEL_UNLOCK_CONFIG[l];
+            if (config) {
+                // 添加工位
+                config.workstations.forEach(wsId => {
+                    features.push({ 
+                        type: 'workstation', 
+                        id: wsId, 
+                        name: workstationNames[wsId] || wsId,
+                        unlockedAtLevel: l
+                    });
+                });
+                // 添加任务
+                config.tasks.forEach(taskId => {
+                    features.push({ 
+                        type: 'task', 
+                        id: taskId, 
+                        name: taskId,
+                        unlockedAtLevel: l
+                    });
+                });
+                // 添加特性
+                config.features.forEach(feature => {
+                    features.push({ 
+                        type: 'feature', 
+                        id: feature, 
+                        name: feature,
+                        unlockedAtLevel: l
+                    });
+                });
+            }
+        }
 
         return features;
+    }
+
+    /**
+     * 获取指定等级新解锁的功能（仅该等级）
+     * @param {number} level 等级
+     * @returns {Object} 该等级解锁的功能
+     */
+    getNewUnlocksAtLevel(level) {
+        return LEVEL_UNLOCK_CONFIG[level] || { workstations: [], tasks: [], features: [] };
     }
 
     /**
@@ -1051,29 +4636,130 @@ class CareerService {
 
     /**
      * 根据任务难度和得分计算经验值
+     * Requirements: 7.1 - 根据任务难度和完成质量奖励经验值
      * @param {string} difficulty 难度 ('beginner'|'intermediate'|'advanced')
      * @param {number} score 得分 (0-100)
      * @param {number} baseXP 基础经验值
+     * @returns {number} 计算后的经验值
      */
     calculateXPReward(difficulty, score, baseXP) {
+        // 难度系数：入门1.0，进阶1.5，高级2.0
         const difficultyMultiplier = {
             'beginner': 1.0,
             'intermediate': 1.5,
             'advanced': 2.0
         };
 
-        const scoreMultiplier = score / 100;
+        // 得分系数：得分/100
+        const scoreMultiplier = Math.max(0, Math.min(100, score)) / 100;
         const multiplier = difficultyMultiplier[difficulty] || 1.0;
 
-        return Math.round(baseXP * multiplier * scoreMultiplier);
+        // 额外奖励：满分额外10%，90分以上额外5%
+        let bonusMultiplier = 1.0;
+        if (score >= 100) {
+            bonusMultiplier = 1.1;
+        } else if (score >= 90) {
+            bonusMultiplier = 1.05;
+        }
+
+        return Math.round(baseXP * multiplier * scoreMultiplier * bonusMultiplier);
     }
 
     /**
-     * 丰富档案数据
+     * 更新用户统计数据
+     * @param {string} userId 用户ID
+     * @param {Object} stats 统计数据更新
+     * @param {number} [stats.completedTasks] 增加的完成任务数
+     * @param {number} [stats.completedWorkstations] 增加的完成工位数
+     * @param {number} [stats.studyTime] 增加的学习时长（分钟）
+     * @param {number} [stats.achievementCount] 增加的成就数
+     * @param {number} [stats.certificateCount] 增加的证书数
+     */
+    async updateStats(userId, stats) {
+        const profile = await this.getCareerProfile(userId);
+        
+        const updatedProfile = {
+            ...profile,
+            completedTasks: profile.completedTasks + (stats.completedTasks || 0),
+            completedWorkstations: profile.completedWorkstations + (stats.completedWorkstations || 0),
+            totalStudyTime: profile.totalStudyTime + (stats.studyTime || 0),
+            achievementCount: profile.achievementCount + (stats.achievementCount || 0),
+            certificateCount: profile.certificateCount + (stats.certificateCount || 0)
+        };
+
+        await this._saveProfile(userId, updatedProfile);
+        return this._enrichProfile(updatedProfile);
+    }
+
+    /**
+     * 获取等级进度信息
+     * Requirements: 7.3 - 显示当前等级、经验值进度、距下一等级所需经验
+     * @param {string} userId 用户ID
+     * @returns {Promise<Object>} 等级进度信息
+     */
+    async getLevelProgress(userId) {
+        const profile = await this.getCareerProfile(userId);
+        const currentLevelConfig = LEVEL_CONFIG.find(c => c.level === profile.level);
+        const nextLevelConfig = LEVEL_CONFIG.find(c => c.level === profile.level + 1);
+        
+        const currentLevelXP = currentLevelConfig ? currentLevelConfig.xpRequired : 0;
+        const nextLevelXP = nextLevelConfig ? nextLevelConfig.xpRequired : currentLevelXP;
+        const xpInCurrentLevel = profile.totalXP - currentLevelXP;
+        const xpNeededForLevel = nextLevelXP - currentLevelXP;
+        const progressPercent = xpNeededForLevel > 0 
+            ? Math.min(100, Math.round((xpInCurrentLevel / xpNeededForLevel) * 100))
+            : 100;
+
+        return {
+            level: profile.level,
+            levelTitle: profile.levelTitle,
+            levelTitleCN: profile.levelTitleCN,
+            levelIcon: profile.levelIcon,
+            currentXP: xpInCurrentLevel,
+            totalXP: profile.totalXP,
+            xpToNextLevel: nextLevelConfig ? nextLevelXP - profile.totalXP : 0,
+            xpNeededForLevel: xpNeededForLevel,
+            progressPercent: progressPercent,
+            isMaxLevel: !nextLevelConfig
+        };
+    }
+
+    /**
+     * 检查是否达到最高等级
+     * Requirements: 7.5 - 达到最高等级显示"项目经理"称号
+     * @param {number} level 等级
+     * @returns {boolean} 是否为最高等级
+     */
+    isMaxLevel(level) {
+        const maxLevel = Math.max(...LEVEL_CONFIG.map(c => c.level));
+        return level >= maxLevel;
+    }
+
+    /**
+     * 获取最高等级配置
+     * @returns {Object} 最高等级配置
+     */
+    getMaxLevelConfig() {
+        return LEVEL_CONFIG[LEVEL_CONFIG.length - 1];
+    }
+
+    /**
+     * 丰富档案数据，添加计算字段
+     * @param {Object} profile 原始档案数据
+     * @returns {CareerProfile} 丰富后的档案数据
      */
     _enrichProfile(profile) {
         const levelConfig = LEVEL_CONFIG.find(c => c.level === profile.level) || LEVEL_CONFIG[0];
         const nextLevelConfig = LEVEL_CONFIG.find(c => c.level === profile.level + 1);
+        const currentLevelXP = levelConfig ? levelConfig.xpRequired : 0;
+        const nextLevelXP = nextLevelConfig ? nextLevelConfig.xpRequired : currentLevelXP;
+        
+        // 计算当前等级内的经验值
+        const xpInCurrentLevel = profile.totalXP - currentLevelXP;
+        const xpNeededForLevel = nextLevelXP - currentLevelXP;
+        const progressPercent = xpNeededForLevel > 0 
+            ? Math.min(100, Math.round((xpInCurrentLevel / xpNeededForLevel) * 100))
+            : 100;
 
         return {
             ...profile,
@@ -1081,8 +4767,12 @@ class CareerService {
             levelTitleCN: levelConfig.titleCN,
             levelIcon: levelConfig.icon,
             xpToNextLevel: nextLevelConfig 
-                ? nextLevelConfig.xpRequired - profile.totalXP 
-                : 0
+                ? nextLevelXP - profile.totalXP 
+                : 0,
+            xpInCurrentLevel: xpInCurrentLevel,
+            xpNeededForLevel: xpNeededForLevel,
+            progressPercent: progressPercent,
+            isMaxLevel: !nextLevelConfig
         };
     }
 
@@ -1133,18 +4823,250 @@ class CareerService {
 
     /**
      * 计算到下一级所需XP
+     * @param {number} currentLevel 当前等级
+     * @param {number} totalXP 总经验值
+     * @returns {number} 距下一级所需经验值
      */
-    _calculateXPToNextLevel(currentLevel, currentXP) {
+    _calculateXPToNextLevel(currentLevel, totalXP) {
         const nextLevelConfig = LEVEL_CONFIG.find(c => c.level === currentLevel + 1);
         if (!nextLevelConfig) return 0;
         
-        const currentLevelConfig = LEVEL_CONFIG.find(c => c.level === currentLevel);
-        const xpInCurrentLevel = currentLevelConfig ? currentLevelConfig.xpRequired : 0;
+        return Math.max(0, nextLevelConfig.xpRequired - totalXP);
+    }
+
+    /**
+     * 获取职业档案展示数据
+     * Requirements: 7.3 - 显示当前等级、XP进度、距下一等级所需XP、统计数据
+     * @param {string} userId 用户ID
+     * @returns {Promise<Object>} 展示数据
+     */
+    async getProfileDisplayData(userId) {
+        const profile = await this.getCareerProfile(userId);
+        const levelProgress = await this.getLevelProgress(userId);
+        const unlockedFeatures = this.getUnlockedFeatures(profile.level);
         
-        return nextLevelConfig.xpRequired - xpInCurrentLevel - currentXP;
+        // 获取下一等级解锁内容预览
+        const nextLevelUnlocks = this.getNewUnlocksAtLevel(profile.level + 1);
+        
+        return {
+            // 基本信息
+            userId: profile.user_id,
+            level: profile.level,
+            levelTitle: profile.levelTitle,
+            levelTitleCN: profile.levelTitleCN,
+            levelIcon: profile.levelIcon,
+            
+            // 经验值信息
+            totalXP: profile.totalXP,
+            currentLevelXP: levelProgress.currentXP,
+            xpToNextLevel: levelProgress.xpToNextLevel,
+            xpNeededForLevel: levelProgress.xpNeededForLevel,
+            progressPercent: levelProgress.progressPercent,
+            isMaxLevel: levelProgress.isMaxLevel,
+            
+            // 统计数据
+            stats: {
+                completedWorkstations: profile.completedWorkstations,
+                completedTasks: profile.completedTasks,
+                totalStudyTime: profile.totalStudyTime,
+                achievementCount: profile.achievementCount,
+                certificateCount: profile.certificateCount,
+                streakDays: profile.streakDays || 0
+            },
+            
+            // 排名信息
+            ranking: {
+                classRank: profile.classRank,
+                globalRank: profile.globalRank
+            },
+            
+            // 解锁内容
+            unlockedFeatures: unlockedFeatures,
+            nextLevelUnlocks: nextLevelUnlocks
+        };
     }
 }
 
+
+// ================= 等级晋升UI辅助函数 =================
+
+/**
+ * 显示等级晋升通知和动画
+ * Requirements: 7.2 - 触发晋升动画和通知
+ * @param {LevelUpResult} levelUpResult 晋升结果
+ */
+function showLevelUpNotification(levelUpResult) {
+    if (!levelUpResult) return;
+
+    // 创建晋升通知模态框
+    const modal = document.createElement('div');
+    modal.id = 'level-up-modal';
+    modal.className = 'fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center';
+    modal.innerHTML = `
+        <div class="level-up-content text-center animate-bounce-in">
+            <div class="relative">
+                <!-- 光环效果 -->
+                <div class="absolute inset-0 bg-gradient-to-r from-amber-500/30 to-orange-500/30 rounded-full blur-3xl animate-pulse"></div>
+                
+                <!-- 等级图标 -->
+                <div class="relative w-32 h-32 mx-auto mb-6 bg-gradient-to-br from-amber-400 to-orange-600 rounded-full flex items-center justify-center shadow-2xl shadow-amber-500/50 animate-level-up">
+                    <i class="${levelUpResult.levelIcon || 'ri-medal-line'} text-5xl text-white"></i>
+                </div>
+            </div>
+            
+            <!-- 晋升文字 -->
+            <div class="mb-4">
+                <p class="text-amber-400 text-lg mb-2">🎉 恭喜晋升！</p>
+                <h2 class="text-3xl font-bold text-white mb-2">${levelUpResult.newTitleCN}</h2>
+                <p class="text-gray-400">Lv.${levelUpResult.newLevel}</p>
+            </div>
+            
+            <!-- 解锁内容 -->
+            ${levelUpResult.unlockedWorkstations && levelUpResult.unlockedWorkstations.length > 0 ? `
+            <div class="bg-white/10 rounded-xl p-4 mb-4 max-w-sm mx-auto">
+                <p class="text-sm text-gray-400 mb-2">🔓 新解锁工位</p>
+                <div class="flex flex-wrap gap-2 justify-center">
+                    ${levelUpResult.unlockedWorkstations.map(ws => `
+                        <span class="px-3 py-1 bg-purple-500/30 text-purple-300 rounded-full text-sm">${ws}</span>
+                    `).join('')}
+                </div>
+            </div>
+            ` : ''}
+            
+            ${levelUpResult.unlockedFeatures && levelUpResult.unlockedFeatures.length > 0 ? `
+            <div class="bg-white/10 rounded-xl p-4 mb-4 max-w-sm mx-auto">
+                <p class="text-sm text-gray-400 mb-2">✨ 新解锁功能</p>
+                <div class="flex flex-wrap gap-2 justify-center">
+                    ${levelUpResult.unlockedFeatures.map(f => `
+                        <span class="px-3 py-1 bg-emerald-500/30 text-emerald-300 rounded-full text-sm">${f}</span>
+                    `).join('')}
+                </div>
+            </div>
+            ` : ''}
+            
+            <!-- 关闭按钮 -->
+            <button onclick="closeLevelUpModal()" class="px-8 py-3 bg-gradient-to-r from-amber-500 to-orange-600 rounded-xl font-medium hover:from-amber-600 hover:to-orange-700 transition text-white">
+                太棒了！
+            </button>
+        </div>
+    `;
+
+    // 添加动画样式
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes bounce-in {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.05); }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes level-up {
+            0%, 100% { transform: scale(1) rotate(0deg); }
+            25% { transform: scale(1.1) rotate(-5deg); }
+            75% { transform: scale(1.1) rotate(5deg); }
+        }
+        .animate-bounce-in { animation: bounce-in 0.6s ease-out; }
+        .animate-level-up { animation: level-up 1s ease-in-out infinite; }
+    `;
+    document.head.appendChild(style);
+
+    document.body.appendChild(modal);
+
+    // 播放音效（如果有）
+    try {
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleQAA');
+        audio.volume = 0.3;
+        audio.play().catch(() => {});
+    } catch (e) {}
+}
+
+/**
+ * 关闭等级晋升模态框
+ */
+function closeLevelUpModal() {
+    const modal = document.getElementById('level-up-modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+/**
+ * 更新页面上的职业等级显示
+ * Requirements: 7.3 - 显示当前等级、XP进度、距下一等级所需XP
+ * @param {CareerProfile} profile 职业档案
+ */
+function updateCareerDisplay(profile) {
+    if (!profile) return;
+
+    // 更新导航栏等级显示
+    const levelBadge = document.querySelector('.flex.items-center.gap-2.bg-gradient-to-r.from-amber-500\\/20');
+    if (levelBadge) {
+        const titleSpan = levelBadge.querySelector('.text-amber-300');
+        const levelSpan = levelBadge.querySelector('.text-xs.text-gray-400');
+        if (titleSpan) titleSpan.textContent = profile.levelTitleCN;
+        if (levelSpan) levelSpan.textContent = `Lv.${profile.level}`;
+    }
+
+    // 更新经验值进度条
+    const xpBar = document.querySelector('.w-32.h-2.bg-gray-700');
+    if (xpBar) {
+        const progressBar = xpBar.querySelector('div');
+        if (progressBar) {
+            progressBar.style.width = `${profile.progressPercent}%`;
+        }
+    }
+
+    // 更新经验值文字
+    const xpText = document.querySelector('.text-xs.text-gray-400');
+    if (xpText && xpText.textContent.includes('XP')) {
+        const currentLevelXP = profile.xpInCurrentLevel || 0;
+        const neededXP = profile.xpNeededForLevel || 1000;
+        xpText.textContent = `${currentLevelXP}/${neededXP} XP`;
+    }
+
+    // 更新欢迎区域的称号
+    const welcomeTitle = document.querySelector('.text-purple-400');
+    if (welcomeTitle && welcomeTitle.closest('h2')) {
+        welcomeTitle.textContent = profile.levelTitleCN;
+    }
+
+    // 更新统计数据
+    const statWorkstations = document.getElementById('stat-workstations');
+    const statTasks = document.getElementById('stat-tasks');
+    const statTime = document.getElementById('stat-time');
+
+    if (statWorkstations) {
+        statWorkstations.textContent = `${profile.completedWorkstations || 0}/6`;
+    }
+    if (statTasks) {
+        statTasks.textContent = `${profile.completedTasks || 0}`;
+    }
+    if (statTime) {
+        const hours = Math.floor((profile.totalStudyTime || 0) / 60);
+        statTime.textContent = `${hours}h`;
+    }
+}
+
+/**
+ * 初始化职业等级系统UI
+ * 注册等级晋升回调
+ */
+function initCareerSystemUI() {
+    if (window.VirtualStation && window.VirtualStation.careerService) {
+        window.VirtualStation.careerService.onLevelUp((result) => {
+            showLevelUpNotification(result);
+        });
+    }
+}
+
+// 页面加载完成后初始化
+if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initCareerSystemUI);
+    } else {
+        initCareerSystemUI();
+    }
+}
 
 // ================= 成就服务 =================
 
@@ -1456,10 +5378,2234 @@ class AchievementService {
 }
 
 
+// ================= AI助教服务 =================
+
+/**
+ * 国家标准数据库
+ * 包含环境监测相关的国家标准和行业标准
+ */
+const NATIONAL_STANDARDS_DATABASE = {
+    // 危险废物鉴别标准
+    'GB 5085.1-2007': {
+        id: 'GB 5085.1-2007',
+        name: '危险废物鉴别标准 腐蚀性鉴别',
+        category: 'hazwaste',
+        publishDate: '2007-04-01',
+        clauses: {
+            '4.1': '腐蚀性鉴别值：pH≤2或pH≥12.5',
+            '4.2': '对钢材的腐蚀速率超过6.35mm/年',
+            '5': '腐蚀性鉴别方法按照GB/T 15555.12执行'
+        }
+    },
+    'GB 5085.2-2007': {
+        id: 'GB 5085.2-2007',
+        name: '危险废物鉴别标准 急性毒性初筛',
+        category: 'hazwaste',
+        publishDate: '2007-04-01',
+        clauses: {
+            '4.1': '经口摄入LD50≤200mg/kg',
+            '4.2': '经皮肤接触LD50≤1000mg/kg',
+            '4.3': '蒸气、烟雾或粉尘吸入LC50≤10mg/L'
+        }
+    },
+    'GB 5085.3-2007': {
+        id: 'GB 5085.3-2007',
+        name: '危险废物鉴别标准 浸出毒性鉴别',
+        category: 'hazwaste',
+        publishDate: '2007-04-01',
+        clauses: {
+            '4': '浸出毒性鉴别标准值见附录A',
+            '5': '浸出方法按照HJ/T 299或HJ/T 300执行',
+            'A.1': '无机元素及化合物浸出毒性鉴别标准值',
+            'A.2': '有机物浸出毒性鉴别标准值'
+        }
+    },
+    'GB 5085.4-2007': {
+        id: 'GB 5085.4-2007',
+        name: '危险废物鉴别标准 易燃性鉴别',
+        category: 'hazwaste',
+        publishDate: '2007-04-01',
+        clauses: {
+            '4.1': '液态易燃性：闪点<60℃',
+            '4.2': '固态易燃性：能被点燃并持续燃烧',
+            '4.3': '氧化性：能引起或促进其他物质燃烧'
+        }
+    },
+    'GB 5085.5-2007': {
+        id: 'GB 5085.5-2007',
+        name: '危险废物鉴别标准 反应性鉴别',
+        category: 'hazwaste',
+        publishDate: '2007-04-01',
+        clauses: {
+            '4.1': '与水反应产生可燃气体',
+            '4.2': '与酸接触产生有毒气体',
+            '4.3': '在常温常压下易发生爆炸或爆轰'
+        }
+    },
+    'GB 5085.6-2007': {
+        id: 'GB 5085.6-2007',
+        name: '危险废物鉴别标准 毒性物质含量鉴别',
+        category: 'hazwaste',
+        publishDate: '2007-04-01',
+        clauses: {
+            '4': '毒性物质含量鉴别标准值见附录A',
+            'A.1': '剧毒物质名录',
+            'A.2': '有毒物质名录'
+        }
+    },
+    'GB 5085.7-2019': {
+        id: 'GB 5085.7-2019',
+        name: '危险废物鉴别标准 通则',
+        category: 'hazwaste',
+        publishDate: '2019-11-01',
+        clauses: {
+            '4.1': '危险废物鉴别程序',
+            '4.2': '危险废物混合后的判定规则',
+            '4.3': '危险废物处理后的判定规则',
+            '5': '危险废物鉴别报告编制要求'
+        }
+    },
+    // 地表水监测标准
+    'HJ/T 91-2002': {
+        id: 'HJ/T 91-2002',
+        name: '地表水和污水监测技术规范',
+        category: 'water',
+        publishDate: '2002-12-01',
+        clauses: {
+            '4.1': '监测断面的布设原则',
+            '4.2': '采样点位的确定方法',
+            '5.1': '采样时间和频次要求',
+            '5.2': '采样方法和采样器具',
+            '6': '样品的保存和运输',
+            '7': '质量保证和质量控制'
+        }
+    },
+    'HJ 493-2009': {
+        id: 'HJ 493-2009',
+        name: '水质 样品的保存和管理技术规定',
+        category: 'water',
+        publishDate: '2009-09-01',
+        clauses: {
+            '4': '样品容器的选择',
+            '5': '样品的保存方法',
+            '6': '样品的运输要求',
+            '7': '样品的保存期限'
+        }
+    },
+    // 土壤监测标准
+    'HJ 25.1-2019': {
+        id: 'HJ 25.1-2019',
+        name: '建设用地土壤污染状况调查技术导则',
+        category: 'soil',
+        publishDate: '2019-12-01',
+        clauses: {
+            '4': '工作程序',
+            '5.1': '第一阶段土壤污染状况调查',
+            '5.2': '第二阶段土壤污染状况调查',
+            '6': '采样布点原则',
+            '7': '样品采集和保存',
+            '8': '调查报告编制'
+        }
+    },
+    'HJ 25.2-2019': {
+        id: 'HJ 25.2-2019',
+        name: '建设用地土壤污染风险管控和修复监测技术导则',
+        category: 'soil',
+        publishDate: '2019-12-01',
+        clauses: {
+            '4': '监测工作程序',
+            '5': '监测点位布设',
+            '6': '样品采集和分析',
+            '7': '监测报告编制'
+        }
+    },
+    'HJ 613-2011': {
+        id: 'HJ 613-2011',
+        name: '土壤 干物质和水分的测定 重量法',
+        category: 'soil',
+        publishDate: '2011-02-01',
+        clauses: {
+            '4': '方法原理',
+            '5': '试剂和材料',
+            '6': '仪器和设备',
+            '7': '样品采集和保存',
+            '8': '分析步骤',
+            '9': '结果计算'
+        }
+    },
+    // 大气监测标准
+    'HJ 664-2013': {
+        id: 'HJ 664-2013',
+        name: '环境空气质量监测点位布设技术规范',
+        category: 'air',
+        publishDate: '2013-01-01',
+        clauses: {
+            '4': '监测点位布设原则',
+            '5': '城市环境空气质量监测点位布设',
+            '6': '区域环境空气质量监测点位布设',
+            '7': '监测点位的调整'
+        }
+    },
+    'HJ 194-2017': {
+        id: 'HJ 194-2017',
+        name: '环境空气质量手工监测技术规范',
+        category: 'air',
+        publishDate: '2017-12-01',
+        clauses: {
+            '4': '监测项目和分析方法',
+            '5': '采样方法',
+            '6': '样品运输和保存',
+            '7': '质量保证和质量控制'
+        }
+    }
+};
+
+/**
+ * 标准引用正则表达式模式
+ * 用于识别文本中的国家标准引用
+ */
+const STANDARD_REFERENCE_PATTERNS = [
+    // GB xxxx.x-xxxx 格式
+    /GB\s*\/?\s*T?\s*(\d{4,5})(?:\.(\d+))?-(\d{4})/gi,
+    // HJ xxxx-xxxx 格式
+    /HJ\s*\/?\s*T?\s*(\d{2,4})(?:\.(\d+))?-(\d{4})/gi,
+    // GB/T xxxx-xxxx 格式
+    /GB\/T\s*(\d{4,5})(?:\.(\d+))?-(\d{4})/gi,
+    // HJ/T xxxx-xxxx 格式
+    /HJ\/T\s*(\d{2,4})(?:\.(\d+))?-(\d{4})/gi
+];
+
+/**
+ * AI助教服务类
+ * 提供基于RAG知识库的垂直领域智能问答系统
+ */
+class AITutorService {
+    constructor() {
+        this.supabase = null;
+        this.conversations = new Map();
+        this.knowledgeBase = NATIONAL_STANDARDS_DATABASE;
+    }
+
+    /**
+     * 初始化服务
+     * @param {Object} supabase - Supabase客户端实例
+     */
+    initialize(supabase) {
+        this.supabase = supabase;
+    }
+
+    // ================= 标准引用格式化 =================
+
+    /**
+     * 解析文本中的国家标准引用
+     * @param {string} text - 待解析的文本
+     * @returns {Array<{match: string, standardId: string, normalized: string}>} 解析结果
+     */
+    parseStandardReferences(text) {
+        if (!text || typeof text !== 'string') {
+            return [];
+        }
+
+        const references = [];
+        const seen = new Set();
+
+        for (const pattern of STANDARD_REFERENCE_PATTERNS) {
+            // 重置正则表达式的lastIndex
+            pattern.lastIndex = 0;
+            let match;
+            
+            while ((match = pattern.exec(text)) !== null) {
+                const fullMatch = match[0];
+                const normalized = this._normalizeStandardId(fullMatch);
+                
+                // 避免重复
+                if (!seen.has(normalized)) {
+                    seen.add(normalized);
+                    references.push({
+                        match: fullMatch,
+                        standardId: normalized,
+                        normalized: normalized,
+                        position: match.index
+                    });
+                }
+            }
+        }
+
+        return references.sort((a, b) => a.position - b.position);
+    }
+
+    /**
+     * 标准化标准编号格式
+     * @param {string} rawId - 原始标准编号
+     * @returns {string} 标准化后的编号
+     */
+    _normalizeStandardId(rawId) {
+        if (!rawId) return '';
+        
+        // 移除多余空格
+        let normalized = rawId.replace(/\s+/g, ' ').trim();
+        
+        // 统一格式：GB 5085.1-2007 或 HJ/T 91-2002
+        normalized = normalized
+            .replace(/GB\s*\/?\s*T\s*/gi, 'GB/T ')
+            .replace(/HJ\s*\/?\s*T\s*/gi, 'HJ/T ')
+            .replace(/GB\s+/gi, 'GB ')
+            .replace(/HJ\s+/gi, 'HJ ');
+        
+        // 确保编号和年份之间有连字符
+        normalized = normalized.replace(/(\d)\s*-\s*(\d)/g, '$1-$2');
+        
+        return normalized.trim();
+    }
+
+    /**
+     * 从知识库获取标准详细信息
+     * @param {string} standardId - 标准编号
+     * @returns {Object|null} 标准信息
+     */
+    getStandardInfo(standardId) {
+        const normalized = this._normalizeStandardId(standardId);
+        
+        // 直接查找
+        if (this.knowledgeBase[normalized]) {
+            return this.knowledgeBase[normalized];
+        }
+        
+        // 模糊匹配（处理格式差异）
+        for (const [key, value] of Object.entries(this.knowledgeBase)) {
+            if (this._normalizeStandardId(key) === normalized) {
+                return value;
+            }
+            // 尝试不带斜杠的匹配
+            const keyWithoutSlash = key.replace(/\//g, '');
+            const normalizedWithoutSlash = normalized.replace(/\//g, '');
+            if (keyWithoutSlash === normalizedWithoutSlash) {
+                return value;
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * 获取标准的特定条款内容
+     * @param {string} standardId - 标准编号
+     * @param {string} clauseId - 条款编号
+     * @returns {Object|null} 条款信息
+     */
+    getStandardClause(standardId, clauseId) {
+        const standard = this.getStandardInfo(standardId);
+        if (!standard || !standard.clauses) {
+            return null;
+        }
+
+        const clauseContent = standard.clauses[clauseId];
+        if (!clauseContent) {
+            return null;
+        }
+
+        return {
+            standardId: standard.id,
+            standardName: standard.name,
+            clause: clauseId,
+            content: clauseContent,
+            link: `#/knowledge/standard/${standard.id}#${clauseId}`
+        };
+    }
+
+    /**
+     * 为AI回答添加标准引用格式化
+     * 解析回答中的标准引用并添加详细信息
+     * @param {string} content - AI回答内容
+     * @returns {Object} 格式化结果
+     */
+    formatStandardReferences(content) {
+        if (!content || typeof content !== 'string') {
+            return {
+                formattedContent: content || '',
+                references: [],
+                hasReferences: false
+            };
+        }
+
+        // 解析标准引用
+        const parsedRefs = this.parseStandardReferences(content);
+        
+        if (parsedRefs.length === 0) {
+            return {
+                formattedContent: content,
+                references: [],
+                hasReferences: false
+            };
+        }
+
+        // 收集标准引用详细信息
+        const references = [];
+        let formattedContent = content;
+
+        for (const ref of parsedRefs) {
+            const standardInfo = this.getStandardInfo(ref.standardId);
+            
+            if (standardInfo) {
+                references.push({
+                    standardId: standardInfo.id,
+                    standardName: standardInfo.name,
+                    clause: '',
+                    content: `${standardInfo.name}（${standardInfo.id}）`,
+                    link: `#/knowledge/standard/${standardInfo.id}`,
+                    category: standardInfo.category,
+                    publishDate: standardInfo.publishDate
+                });
+
+                // 在内容中添加标准名称（如果原文只有编号）
+                if (!content.includes(standardInfo.name)) {
+                    formattedContent = formattedContent.replace(
+                        new RegExp(this._escapeRegExp(ref.match), 'g'),
+                        `${standardInfo.name}（${standardInfo.id}）`
+                    );
+                }
+            } else {
+                // 未找到标准信息，仍然记录引用
+                references.push({
+                    standardId: ref.standardId,
+                    standardName: ref.standardId,
+                    clause: '',
+                    content: ref.standardId,
+                    link: null,
+                    category: 'unknown',
+                    publishDate: null
+                });
+            }
+        }
+
+        return {
+            formattedContent,
+            references,
+            hasReferences: references.length > 0
+        };
+    }
+
+    /**
+     * 转义正则表达式特殊字符
+     * @param {string} string - 待转义的字符串
+     * @returns {string} 转义后的字符串
+     */
+    _escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    /**
+     * 验证AI回答是否包含正确的标准引用格式
+     * 根据Requirements 5.2：回答涉及国家标准时必须引用具体标准编号和条款内容
+     * @param {string} content - AI回答内容
+     * @param {boolean} expectsStandardRef - 是否期望包含标准引用
+     * @returns {Object} 验证结果
+     */
+    validateStandardReferenceFormat(content, expectsStandardRef = false) {
+        const result = {
+            valid: true,
+            hasStandardReferences: false,
+            references: [],
+            issues: [],
+            suggestions: []
+        };
+
+        if (!content || typeof content !== 'string') {
+            result.valid = false;
+            result.issues.push('回答内容为空');
+            return result;
+        }
+
+        // 解析标准引用
+        const parsedRefs = this.parseStandardReferences(content);
+        result.hasStandardReferences = parsedRefs.length > 0;
+        result.references = parsedRefs;
+
+        // 如果期望有标准引用但没有找到
+        if (expectsStandardRef && !result.hasStandardReferences) {
+            result.valid = false;
+            result.issues.push('回答涉及专业内容但未引用相关国家标准');
+            result.suggestions.push('建议添加相关国家标准引用，如GB 5085系列、HJ/T 91-2002等');
+        }
+
+        // 验证每个引用的格式
+        for (const ref of parsedRefs) {
+            const standardInfo = this.getStandardInfo(ref.standardId);
+            
+            if (!standardInfo) {
+                result.issues.push(`未找到标准 ${ref.standardId} 的详细信息`);
+                result.suggestions.push(`请确认标准编号 ${ref.standardId} 是否正确`);
+            } else {
+                // 检查是否包含标准名称
+                if (!content.includes(standardInfo.name)) {
+                    result.suggestions.push(`建议在引用 ${ref.standardId} 时同时注明标准名称：${standardInfo.name}`);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * 生成带标准引用的AI回答
+     * @param {string} question - 用户问题
+     * @param {Object} context - 上下文信息
+     * @returns {Promise<Object>} AI回答结果
+     */
+    async generateAnswerWithReferences(question, context = {}) {
+        // 检查问题是否涉及标准相关内容
+        const standardKeywords = ['标准', '规范', 'GB', 'HJ', '鉴别', '监测', '采样', '检测', '方法'];
+        const expectsStandardRef = standardKeywords.some(keyword => 
+            question.toLowerCase().includes(keyword.toLowerCase())
+        );
+
+        // 搜索相关知识
+        const relevantKnowledge = this._searchRelevantKnowledge(question, context);
+
+        // 构建增强的提示词
+        const enhancedPrompt = this._buildEnhancedPrompt(question, relevantKnowledge, context);
+
+        // 调用AI API（如果配置了）
+        let aiResponse = null;
+        if (typeof window !== 'undefined' && window.AIAssistant && window.AIAssistant.isConfigured()) {
+            const result = await window.AIAssistant.callAPI(enhancedPrompt);
+            if (result.success) {
+                aiResponse = result.content;
+            }
+        }
+
+        // 如果没有AI响应，使用知识库生成回答
+        if (!aiResponse) {
+            aiResponse = this._generateKnowledgeBasedAnswer(question, relevantKnowledge);
+        }
+
+        // 格式化标准引用
+        const formatted = this.formatStandardReferences(aiResponse);
+
+        // 验证标准引用格式
+        const validation = this.validateStandardReferenceFormat(formatted.formattedContent, expectsStandardRef);
+
+        return {
+            content: formatted.formattedContent,
+            references: formatted.references,
+            hasReferences: formatted.hasReferences,
+            validation: validation,
+            relevantKnowledge: relevantKnowledge,
+            timestamp: Date.now()
+        };
+    }
+
+    /**
+     * 搜索相关知识
+     * @param {string} query - 查询内容
+     * @param {Object} context - 上下文
+     * @returns {Array} 相关知识列表
+     */
+    _searchRelevantKnowledge(query, context = {}) {
+        const results = [];
+        const queryLower = query.toLowerCase();
+
+        // 关键词映射到标准类别
+        const categoryKeywords = {
+            hazwaste: ['危废', '危险废物', '鉴别', '腐蚀', '毒性', '易燃', '反应性'],
+            water: ['水质', '地表水', '污水', '采样', '监测'],
+            soil: ['土壤', '建设用地', '污染调查', '布点'],
+            air: ['大气', '空气', '环境空气']
+        };
+
+        // 确定相关类别
+        const relevantCategories = new Set();
+        for (const [category, keywords] of Object.entries(categoryKeywords)) {
+            if (keywords.some(kw => queryLower.includes(kw))) {
+                relevantCategories.add(category);
+            }
+        }
+
+        // 如果有上下文中的工位信息，添加相关类别
+        if (context.workstationId) {
+            const workstationCategoryMap = {
+                'env-monitoring': 'water',
+                'hazwaste-lab': 'hazwaste',
+                'sampling-center': 'soil'
+            };
+            const category = workstationCategoryMap[context.workstationId];
+            if (category) {
+                relevantCategories.add(category);
+            }
+        }
+
+        // 搜索知识库
+        for (const [standardId, standard] of Object.entries(this.knowledgeBase)) {
+            // 按类别过滤
+            if (relevantCategories.size > 0 && !relevantCategories.has(standard.category)) {
+                continue;
+            }
+
+            // 计算相关性得分
+            let score = 0;
+            
+            // 标准名称匹配
+            if (queryLower.includes(standard.name.toLowerCase())) {
+                score += 10;
+            }
+            
+            // 标准编号匹配
+            if (queryLower.includes(standardId.toLowerCase())) {
+                score += 15;
+            }
+
+            // 条款内容匹配
+            for (const [clauseId, clauseContent] of Object.entries(standard.clauses || {})) {
+                if (queryLower.includes(clauseContent.toLowerCase())) {
+                    score += 5;
+                }
+            }
+
+            if (score > 0) {
+                results.push({
+                    standardId,
+                    standard,
+                    score,
+                    relevantClauses: this._findRelevantClauses(standard, query)
+                });
+            }
+        }
+
+        // 按相关性排序
+        return results.sort((a, b) => b.score - a.score).slice(0, 5);
+    }
+
+    /**
+     * 查找相关条款
+     * @param {Object} standard - 标准信息
+     * @param {string} query - 查询内容
+     * @returns {Array} 相关条款列表
+     */
+    _findRelevantClauses(standard, query) {
+        const clauses = [];
+        const queryLower = query.toLowerCase();
+
+        for (const [clauseId, content] of Object.entries(standard.clauses || {})) {
+            if (content.toLowerCase().includes(queryLower) || 
+                queryLower.includes(content.toLowerCase())) {
+                clauses.push({
+                    clauseId,
+                    content
+                });
+            }
+        }
+
+        return clauses;
+    }
+
+    /**
+     * 构建增强的提示词
+     * @param {string} question - 用户问题
+     * @param {Array} relevantKnowledge - 相关知识
+     * @param {Object} context - 上下文
+     * @returns {string} 增强的提示词
+     */
+    _buildEnhancedPrompt(question, relevantKnowledge, context) {
+        let prompt = `你是一位专业的环境监测领域助教，请回答以下问题。
+
+问题：${question}
+
+`;
+
+        if (relevantKnowledge.length > 0) {
+            prompt += `相关国家标准参考：
+`;
+            for (const item of relevantKnowledge) {
+                prompt += `- ${item.standard.name}（${item.standardId}）
+`;
+                for (const clause of item.relevantClauses) {
+                    prompt += `  第${clause.clauseId}条：${clause.content}
+`;
+                }
+            }
+            prompt += `
+`;
+        }
+
+        prompt += `要求：
+1. 回答必须准确、专业
+2. 如果涉及国家标准，必须引用具体标准编号（如GB 5085.1-2007）和相关条款内容
+3. 使用通俗易懂的语言解释专业术语
+4. 如果问题涉及操作流程，请按步骤说明`;
+
+        return prompt;
+    }
+
+    /**
+     * 基于知识库生成回答
+     * @param {string} question - 用户问题
+     * @param {Array} relevantKnowledge - 相关知识
+     * @returns {string} 生成的回答
+     */
+    _generateKnowledgeBasedAnswer(question, relevantKnowledge) {
+        if (relevantKnowledge.length === 0) {
+            return '抱歉，我暂时无法找到与您问题相关的专业资料。请尝试更具体地描述您的问题，或者查阅相关国家标准文档。';
+        }
+
+        let answer = '根据相关国家标准，';
+        
+        for (const item of relevantKnowledge) {
+            answer += `\n\n根据${item.standard.name}（${item.standardId}）：`;
+            
+            for (const clause of item.relevantClauses) {
+                answer += `\n- 第${clause.clauseId}条规定：${clause.content}`;
+            }
+        }
+
+        answer += '\n\n如需了解更多详细内容，建议查阅上述标准的完整文本。';
+
+        return answer;
+    }
+
+    /**
+     * 获取所有可用的国家标准列表
+     * @param {string} [category] - 可选的类别过滤
+     * @returns {Array} 标准列表
+     */
+    getAvailableStandards(category = null) {
+        const standards = [];
+        
+        for (const [id, standard] of Object.entries(this.knowledgeBase)) {
+            if (!category || standard.category === category) {
+                standards.push({
+                    id: standard.id,
+                    name: standard.name,
+                    category: standard.category,
+                    publishDate: standard.publishDate,
+                    clauseCount: Object.keys(standard.clauses || {}).length
+                });
+            }
+        }
+
+        return standards.sort((a, b) => a.id.localeCompare(b.id));
+    }
+
+    /**
+     * 添加自定义标准到知识库
+     * @param {Object} standard - 标准信息
+     * @returns {boolean} 是否添加成功
+     */
+    addStandard(standard) {
+        if (!standard || !standard.id || !standard.name) {
+            return false;
+        }
+
+        this.knowledgeBase[standard.id] = {
+            id: standard.id,
+            name: standard.name,
+            category: standard.category || 'custom',
+            publishDate: standard.publishDate || null,
+            clauses: standard.clauses || {}
+        };
+
+        return true;
+    }
+}
+
+
+// ================= 知识库管理服务 =================
+
+/**
+ * 国标分类枚举
+ * Requirements: 6.2 - 按标准编号、发布日期、适用范围分类存储
+ */
+const StandardCategory = {
+    HAZWASTE: 'hazwaste',       // 危险废物
+    WATER: 'water',             // 水质监测
+    SOIL: 'soil',               // 土壤监测
+    AIR: 'air',                 // 大气监测
+    GENERAL: 'general',         // 通用标准
+    CUSTOM: 'custom'            // 自定义
+};
+
+/**
+ * 国标分类中文名称映射
+ */
+const StandardCategoryNames = {
+    [StandardCategory.HAZWASTE]: '危险废物',
+    [StandardCategory.WATER]: '水质监测',
+    [StandardCategory.SOIL]: '土壤监测',
+    [StandardCategory.AIR]: '大气监测',
+    [StandardCategory.GENERAL]: '通用标准',
+    [StandardCategory.CUSTOM]: '自定义'
+};
+
+/**
+ * 国标状态枚举
+ */
+const StandardStatus = {
+    ACTIVE: 'active',           // 现行有效
+    SUPERSEDED: 'superseded',   // 已被替代
+    ABOLISHED: 'abolished'      // 已废止
+};
+
+/**
+ * 国标状态中文名称映射
+ */
+const StandardStatusNames = {
+    [StandardStatus.ACTIVE]: '现行有效',
+    [StandardStatus.SUPERSEDED]: '已被替代',
+    [StandardStatus.ABOLISHED]: '已废止'
+};
+
+/**
+ * 知识库管理服务类
+ * 提供国标分类存储、浏览和搜索功能
+ * Requirements: 6.1, 6.2, 6.3, 6.5
+ */
+class KnowledgeBaseService {
+    constructor() {
+        this.supabase = null;
+        this.standards = new Map();
+        this.documents = new Map();
+        this._initializeFromDatabase();
+    }
+
+    /**
+     * 初始化服务
+     * @param {Object} supabase - Supabase客户端实例
+     */
+    initialize(supabase) {
+        this.supabase = supabase;
+    }
+
+    /**
+     * 从预设数据库初始化标准数据
+     * @private
+     */
+    _initializeFromDatabase() {
+        // 将NATIONAL_STANDARDS_DATABASE转换为结构化格式
+        for (const [id, standard] of Object.entries(NATIONAL_STANDARDS_DATABASE)) {
+            this.standards.set(id, {
+                id: id,
+                name: standard.name,
+                englishName: standard.englishName || null,
+                category: standard.category,
+                status: StandardStatus.ACTIVE,
+                publishDate: standard.publishDate ? new Date(standard.publishDate) : null,
+                implementationDate: standard.implementationDate ? new Date(standard.implementationDate) : null,
+                scope: standard.scope || this._inferScope(standard.category),
+                abstract: standard.abstract || null,
+                supersedes: standard.supersedes || null,
+                supersededBy: standard.supersededBy || null,
+                relatedStandards: standard.relatedStandards || [],
+                clauses: standard.clauses || {},
+                tables: standard.tables || [],
+                appendices: standard.appendices || [],
+                documentId: standard.documentId || null,
+                sourceUrl: standard.sourceUrl || null,
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            });
+        }
+    }
+
+    /**
+     * 根据分类推断适用范围
+     * @param {string} category - 标准分类
+     * @returns {string} 适用范围描述
+     * @private
+     */
+    _inferScope(category) {
+        const scopeMap = {
+            [StandardCategory.HAZWASTE]: '危险废物鉴别、处理和管理',
+            [StandardCategory.WATER]: '地表水、地下水和污水监测',
+            [StandardCategory.SOIL]: '土壤污染调查和监测',
+            [StandardCategory.AIR]: '环境空气质量监测',
+            [StandardCategory.GENERAL]: '环境监测通用技术要求'
+        };
+        return scopeMap[category] || '环境监测相关领域';
+    }
+
+    // ================= 国标分类存储 (Requirements: 6.2) =================
+
+    /**
+     * 按标准编号获取标准
+     * @param {string} standardId - 标准编号
+     * @returns {Object|null} 标准信息
+     */
+    getStandardById(standardId) {
+        const normalized = this._normalizeStandardId(standardId);
+        return this.standards.get(normalized) || null;
+    }
+
+    /**
+     * 按分类获取标准列表
+     * @param {string} category - 标准分类
+     * @returns {Array} 标准列表
+     */
+    getStandardsByCategory(category) {
+        const results = [];
+        for (const standard of this.standards.values()) {
+            if (standard.category === category) {
+                results.push(standard);
+            }
+        }
+        return results.sort((a, b) => a.id.localeCompare(b.id));
+    }
+
+    /**
+     * 按发布日期范围获取标准列表
+     * @param {Date|string} startDate - 开始日期
+     * @param {Date|string} endDate - 结束日期
+     * @returns {Array} 标准列表
+     */
+    getStandardsByDateRange(startDate, endDate) {
+        const start = startDate instanceof Date ? startDate : new Date(startDate);
+        const end = endDate instanceof Date ? endDate : new Date(endDate);
+        
+        const results = [];
+        for (const standard of this.standards.values()) {
+            if (standard.publishDate) {
+                const pubDate = standard.publishDate instanceof Date 
+                    ? standard.publishDate 
+                    : new Date(standard.publishDate);
+                if (pubDate >= start && pubDate <= end) {
+                    results.push(standard);
+                }
+            }
+        }
+        return results.sort((a, b) => {
+            const dateA = a.publishDate instanceof Date ? a.publishDate : new Date(a.publishDate);
+            const dateB = b.publishDate instanceof Date ? b.publishDate : new Date(b.publishDate);
+            return dateB - dateA; // 按日期降序
+        });
+    }
+
+    /**
+     * 按适用范围搜索标准
+     * @param {string} scopeKeyword - 适用范围关键词
+     * @returns {Array} 标准列表
+     */
+    getStandardsByScope(scopeKeyword) {
+        const keyword = scopeKeyword.toLowerCase();
+        const results = [];
+        for (const standard of this.standards.values()) {
+            if (standard.scope && standard.scope.toLowerCase().includes(keyword)) {
+                results.push(standard);
+            }
+            // 也搜索标准名称
+            if (standard.name && standard.name.toLowerCase().includes(keyword)) {
+                if (!results.includes(standard)) {
+                    results.push(standard);
+                }
+            }
+        }
+        return results;
+    }
+
+    /**
+     * 获取所有标准列表（支持多种排序方式）
+     * @param {Object} options - 选项
+     * @param {string} options.sortBy - 排序字段 ('id'|'name'|'publishDate'|'category')
+     * @param {string} options.sortOrder - 排序方向 ('asc'|'desc')
+     * @param {string} options.category - 过滤分类
+     * @param {string} options.status - 过滤状态
+     * @returns {Array} 标准列表
+     */
+    getAllStandards(options = {}) {
+        const { sortBy = 'id', sortOrder = 'asc', category = null, status = null } = options;
+        
+        let results = Array.from(this.standards.values());
+        
+        // 过滤
+        if (category) {
+            results = results.filter(s => s.category === category);
+        }
+        if (status) {
+            results = results.filter(s => s.status === status);
+        }
+        
+        // 排序
+        results.sort((a, b) => {
+            let valueA, valueB;
+            
+            switch (sortBy) {
+                case 'publishDate':
+                    valueA = a.publishDate ? new Date(a.publishDate).getTime() : 0;
+                    valueB = b.publishDate ? new Date(b.publishDate).getTime() : 0;
+                    break;
+                case 'name':
+                    valueA = a.name || '';
+                    valueB = b.name || '';
+                    break;
+                case 'category':
+                    valueA = a.category || '';
+                    valueB = b.category || '';
+                    break;
+                default:
+                    valueA = a.id || '';
+                    valueB = b.id || '';
+            }
+            
+            if (typeof valueA === 'string') {
+                return sortOrder === 'asc' 
+                    ? valueA.localeCompare(valueB)
+                    : valueB.localeCompare(valueA);
+            }
+            return sortOrder === 'asc' ? valueA - valueB : valueB - valueA;
+        });
+        
+        return results;
+    }
+
+    /**
+     * 获取标准分类统计
+     * @returns {Object} 各分类的标准数量
+     */
+    getCategoryStats() {
+        const stats = {};
+        for (const category of Object.values(StandardCategory)) {
+            stats[category] = {
+                count: 0,
+                name: StandardCategoryNames[category]
+            };
+        }
+        
+        for (const standard of this.standards.values()) {
+            if (stats[standard.category]) {
+                stats[standard.category].count++;
+            }
+        }
+        
+        return stats;
+    }
+
+    /**
+     * 获取标准的特定条款
+     * @param {string} standardId - 标准编号
+     * @param {string} clauseId - 条款编号
+     * @returns {Object|null} 条款信息
+     */
+    getStandardClause(standardId, clauseId) {
+        const standard = this.getStandardById(standardId);
+        if (!standard || !standard.clauses) {
+            return null;
+        }
+        
+        const content = standard.clauses[clauseId];
+        if (!content) {
+            return null;
+        }
+        
+        return {
+            standardId: standard.id,
+            standardName: standard.name,
+            clauseId: clauseId,
+            content: content,
+            category: standard.category
+        };
+    }
+
+    /**
+     * 添加或更新标准
+     * @param {Object} standardData - 标准数据
+     * @returns {Object} 添加/更新后的标准
+     */
+    addOrUpdateStandard(standardData) {
+        if (!standardData || !standardData.id) {
+            throw new Error('标准编号不能为空');
+        }
+        
+        const normalized = this._normalizeStandardId(standardData.id);
+        const existing = this.standards.get(normalized);
+        
+        const standard = {
+            id: normalized,
+            name: standardData.name || existing?.name || normalized,
+            englishName: standardData.englishName || existing?.englishName || null,
+            category: standardData.category || existing?.category || StandardCategory.GENERAL,
+            status: standardData.status || existing?.status || StandardStatus.ACTIVE,
+            publishDate: standardData.publishDate ? new Date(standardData.publishDate) : existing?.publishDate || null,
+            implementationDate: standardData.implementationDate ? new Date(standardData.implementationDate) : existing?.implementationDate || null,
+            scope: standardData.scope || existing?.scope || null,
+            abstract: standardData.abstract || existing?.abstract || null,
+            supersedes: standardData.supersedes || existing?.supersedes || null,
+            supersededBy: standardData.supersededBy || existing?.supersededBy || null,
+            relatedStandards: standardData.relatedStandards || existing?.relatedStandards || [],
+            clauses: standardData.clauses || existing?.clauses || {},
+            tables: standardData.tables || existing?.tables || [],
+            appendices: standardData.appendices || existing?.appendices || [],
+            documentId: standardData.documentId || existing?.documentId || null,
+            sourceUrl: standardData.sourceUrl || existing?.sourceUrl || null,
+            createdAt: existing?.createdAt || Date.now(),
+            updatedAt: Date.now()
+        };
+        
+        this.standards.set(normalized, standard);
+        
+        // 同步到NATIONAL_STANDARDS_DATABASE
+        NATIONAL_STANDARDS_DATABASE[normalized] = {
+            id: standard.id,
+            name: standard.name,
+            category: standard.category,
+            publishDate: standard.publishDate ? this._formatDate(standard.publishDate) : null,
+            clauses: standard.clauses
+        };
+        
+        return standard;
+    }
+
+    /**
+     * 删除标准
+     * @param {string} standardId - 标准编号
+     * @returns {boolean} 是否删除成功
+     */
+    deleteStandard(standardId) {
+        const normalized = this._normalizeStandardId(standardId);
+        const deleted = this.standards.delete(normalized);
+        if (deleted) {
+            delete NATIONAL_STANDARDS_DATABASE[normalized];
+        }
+        return deleted;
+    }
+
+    // ================= 标准浏览界面数据 =================
+
+    /**
+     * 获取标准浏览数据（用于UI渲染）
+     * @param {Object} filters - 过滤条件
+     * @returns {Object} 浏览数据
+     */
+    getStandardsBrowseData(filters = {}) {
+        const { category, searchKeyword, sortBy = 'category', sortOrder = 'asc' } = filters;
+        
+        let standards = this.getAllStandards({ sortBy, sortOrder, category });
+        
+        // 关键词搜索
+        if (searchKeyword) {
+            const keyword = searchKeyword.toLowerCase();
+            standards = standards.filter(s => 
+                s.id.toLowerCase().includes(keyword) ||
+                s.name.toLowerCase().includes(keyword) ||
+                (s.scope && s.scope.toLowerCase().includes(keyword))
+            );
+        }
+        
+        // 按分类分组
+        const groupedByCategory = {};
+        for (const standard of standards) {
+            const cat = standard.category || StandardCategory.GENERAL;
+            if (!groupedByCategory[cat]) {
+                groupedByCategory[cat] = {
+                    category: cat,
+                    categoryName: StandardCategoryNames[cat] || cat,
+                    standards: []
+                };
+            }
+            groupedByCategory[cat].standards.push({
+                id: standard.id,
+                name: standard.name,
+                publishDate: standard.publishDate ? this._formatDate(standard.publishDate) : '未知',
+                scope: standard.scope || '未指定',
+                status: standard.status,
+                statusName: StandardStatusNames[standard.status] || standard.status,
+                clauseCount: Object.keys(standard.clauses || {}).length
+            });
+        }
+        
+        return {
+            categories: Object.values(groupedByCategory),
+            totalCount: standards.length,
+            categoryStats: this.getCategoryStats()
+        };
+    }
+
+    /**
+     * 获取标准详情（用于UI渲染）
+     * @param {string} standardId - 标准编号
+     * @returns {Object|null} 标准详情
+     */
+    getStandardDetail(standardId) {
+        const standard = this.getStandardById(standardId);
+        if (!standard) {
+            return null;
+        }
+        
+        // 格式化条款列表
+        const clauseList = [];
+        for (const [clauseId, content] of Object.entries(standard.clauses || {})) {
+            clauseList.push({
+                id: clauseId,
+                content: content
+            });
+        }
+        // 按条款编号排序
+        clauseList.sort((a, b) => {
+            const numA = parseFloat(a.id) || 0;
+            const numB = parseFloat(b.id) || 0;
+            return numA - numB;
+        });
+        
+        return {
+            id: standard.id,
+            name: standard.name,
+            englishName: standard.englishName,
+            category: standard.category,
+            categoryName: StandardCategoryNames[standard.category] || standard.category,
+            status: standard.status,
+            statusName: StandardStatusNames[standard.status] || standard.status,
+            publishDate: standard.publishDate ? this._formatDate(standard.publishDate) : '未知',
+            implementationDate: standard.implementationDate ? this._formatDate(standard.implementationDate) : '未知',
+            scope: standard.scope || '未指定',
+            abstract: standard.abstract,
+            supersedes: standard.supersedes,
+            supersededBy: standard.supersededBy,
+            relatedStandards: standard.relatedStandards,
+            clauses: clauseList,
+            tables: standard.tables,
+            appendices: standard.appendices,
+            sourceUrl: standard.sourceUrl
+        };
+    }
+
+    // ================= 辅助方法 =================
+
+    /**
+     * 标准化标准编号
+     * @param {string} rawId - 原始编号
+     * @returns {string} 标准化后的编号
+     * @private
+     */
+    _normalizeStandardId(rawId) {
+        if (!rawId) return '';
+        
+        let normalized = rawId.replace(/\s+/g, ' ').trim();
+        normalized = normalized
+            .replace(/GB\s*\/?\s*T\s*/gi, 'GB/T ')
+            .replace(/HJ\s*\/?\s*T\s*/gi, 'HJ/T ')
+            .replace(/GB\s+/gi, 'GB ')
+            .replace(/HJ\s+/gi, 'HJ ');
+        normalized = normalized.replace(/(\d)\s*-\s*(\d)/g, '$1-$2');
+        
+        return normalized.trim();
+    }
+
+    /**
+     * 格式化日期
+     * @param {Date|string} date - 日期
+     * @returns {string} 格式化后的日期字符串
+     * @private
+     */
+    _formatDate(date) {
+        if (!date) return '';
+        const d = date instanceof Date ? date : new Date(date);
+        if (isNaN(d.getTime())) return '';
+        return d.toISOString().split('T')[0];
+    }
+
+    // ================= 数据库同步方法 =================
+
+    /**
+     * 从Supabase加载标准数据
+     * @returns {Promise<void>}
+     */
+    async loadFromDatabase() {
+        if (!this.supabase) {
+            console.warn('Supabase未初始化，使用本地数据');
+            return;
+        }
+        
+        try {
+            const { data, error } = await this.supabase
+                .from('vs_national_standards')
+                .select('*')
+                .order('id');
+            
+            if (error) throw error;
+            
+            if (data && data.length > 0) {
+                for (const row of data) {
+                    this.standards.set(row.id, {
+                        id: row.id,
+                        name: row.name,
+                        englishName: row.english_name,
+                        category: row.category,
+                        status: row.status,
+                        publishDate: row.publish_date ? new Date(row.publish_date) : null,
+                        implementationDate: row.implementation_date ? new Date(row.implementation_date) : null,
+                        scope: row.scope,
+                        abstract: row.abstract,
+                        supersedes: row.supersedes,
+                        supersededBy: row.superseded_by,
+                        relatedStandards: row.related_standards || [],
+                        clauses: row.clauses || {},
+                        tables: row.tables || [],
+                        appendices: row.appendices || [],
+                        documentId: row.document_id,
+                        sourceUrl: row.source_url,
+                        createdAt: new Date(row.created_at).getTime(),
+                        updatedAt: new Date(row.updated_at).getTime()
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('加载标准数据失败:', error);
+        }
+    }
+
+    /**
+     * 保存标准到Supabase
+     * @param {Object} standard - 标准数据
+     * @returns {Promise<Object>} 保存结果
+     */
+    async saveToDatabase(standard) {
+        if (!this.supabase) {
+            console.warn('Supabase未初始化，仅保存到本地');
+            return { success: true, local: true };
+        }
+        
+        try {
+            const { data, error } = await this.supabase
+                .from('vs_national_standards')
+                .upsert({
+                    id: standard.id,
+                    name: standard.name,
+                    english_name: standard.englishName,
+                    category: standard.category,
+                    status: standard.status,
+                    publish_date: standard.publishDate ? this._formatDate(standard.publishDate) : null,
+                    implementation_date: standard.implementationDate ? this._formatDate(standard.implementationDate) : null,
+                    scope: standard.scope,
+                    abstract: standard.abstract,
+                    supersedes: standard.supersedes,
+                    superseded_by: standard.supersededBy,
+                    related_standards: standard.relatedStandards,
+                    clauses: standard.clauses,
+                    tables: standard.tables,
+                    appendices: standard.appendices,
+                    document_id: standard.documentId,
+                    source_url: standard.sourceUrl
+                }, { onConflict: 'id' });
+            
+            if (error) throw error;
+            
+            return { success: true, data };
+        } catch (error) {
+            console.error('保存标准数据失败:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // ================= 知识库搜索 (Requirements: 6.5) =================
+
+    /**
+     * 关键词搜索
+     * 搜索知识库中包含指定关键词的内容
+     * @param {string} query - 搜索关键词
+     * @param {Object} filters - 过滤条件
+     * @param {string} [filters.category] - 标准分类过滤
+     * @param {string} [filters.type] - 内容类型过滤 ('standard'|'document'|'all')
+     * @param {number} [filters.limit] - 返回结果数量限制
+     * @returns {Promise<Array>} 搜索结果列表，每个结果包含关键词
+     */
+    async search(query, filters = {}) {
+        if (!query || typeof query !== 'string') {
+            return [];
+        }
+
+        const keyword = query.trim().toLowerCase();
+        if (keyword.length === 0) {
+            return [];
+        }
+
+        const { category = null, type = 'all', limit = 50 } = filters;
+        const results = [];
+
+        // 搜索国家标准
+        if (type === 'all' || type === 'standard') {
+            for (const standard of this.standards.values()) {
+                // 分类过滤
+                if (category && standard.category !== category) {
+                    continue;
+                }
+
+                const matchInfo = this._matchStandardWithKeyword(standard, keyword);
+                if (matchInfo.matched) {
+                    results.push({
+                        type: 'standard',
+                        id: standard.id,
+                        title: standard.name,
+                        category: standard.category,
+                        categoryName: StandardCategoryNames[standard.category] || standard.category,
+                        matchedFields: matchInfo.fields,
+                        matchedContent: matchInfo.content,
+                        relevanceScore: matchInfo.score,
+                        source: {
+                            standardId: standard.id,
+                            standardName: standard.name,
+                            publishDate: standard.publishDate ? this._formatDate(standard.publishDate) : null
+                        }
+                    });
+                }
+            }
+        }
+
+        // 搜索知识文档
+        if (type === 'all' || type === 'document') {
+            for (const doc of this.documents.values()) {
+                const matchInfo = this._matchDocumentWithKeyword(doc, keyword);
+                if (matchInfo.matched) {
+                    results.push({
+                        type: 'document',
+                        id: doc.id,
+                        title: doc.title || doc.name,
+                        category: doc.category || 'general',
+                        categoryName: doc.categoryName || '通用文档',
+                        matchedFields: matchInfo.fields,
+                        matchedContent: matchInfo.content,
+                        relevanceScore: matchInfo.score,
+                        source: {
+                            documentId: doc.id,
+                            documentTitle: doc.title || doc.name
+                        }
+                    });
+                }
+            }
+        }
+
+        // 按相关性得分排序
+        results.sort((a, b) => b.relevanceScore - a.relevanceScore);
+
+        // 限制返回数量
+        return results.slice(0, limit);
+    }
+
+    /**
+     * 检查标准是否匹配关键词
+     * @param {Object} standard - 标准对象
+     * @param {string} keyword - 关键词（已转小写）
+     * @returns {Object} 匹配信息 { matched, fields, content, score }
+     * @private
+     */
+    _matchStandardWithKeyword(standard, keyword) {
+        const matchedFields = [];
+        const matchedContent = [];
+        let score = 0;
+
+        // 搜索标准编号（权重最高）
+        if (standard.id && standard.id.toLowerCase().includes(keyword)) {
+            matchedFields.push('id');
+            matchedContent.push(standard.id);
+            score += 10;
+        }
+
+        // 搜索标准名称（权重高）
+        if (standard.name && standard.name.toLowerCase().includes(keyword)) {
+            matchedFields.push('name');
+            matchedContent.push(standard.name);
+            score += 8;
+        }
+
+        // 搜索适用范围
+        if (standard.scope && standard.scope.toLowerCase().includes(keyword)) {
+            matchedFields.push('scope');
+            matchedContent.push(standard.scope);
+            score += 5;
+        }
+
+        // 搜索摘要
+        if (standard.abstract && standard.abstract.toLowerCase().includes(keyword)) {
+            matchedFields.push('abstract');
+            matchedContent.push(this._truncateText(standard.abstract, 200));
+            score += 4;
+        }
+
+        // 搜索条款内容
+        if (standard.clauses) {
+            for (const [clauseId, clauseContent] of Object.entries(standard.clauses)) {
+                if (clauseContent && clauseContent.toLowerCase().includes(keyword)) {
+                    matchedFields.push(`clause:${clauseId}`);
+                    matchedContent.push(`[${clauseId}] ${this._truncateText(clauseContent, 150)}`);
+                    score += 3;
+                    // 只记录前3个匹配的条款
+                    if (matchedContent.filter(c => c.startsWith('[')).length >= 3) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        return {
+            matched: matchedFields.length > 0,
+            fields: matchedFields,
+            content: matchedContent,
+            score: score
+        };
+    }
+
+    /**
+     * 检查文档是否匹配关键词
+     * @param {Object} doc - 文档对象
+     * @param {string} keyword - 关键词（已转小写）
+     * @returns {Object} 匹配信息 { matched, fields, content, score }
+     * @private
+     */
+    _matchDocumentWithKeyword(doc, keyword) {
+        const matchedFields = [];
+        const matchedContent = [];
+        let score = 0;
+
+        // 搜索文档标题（权重高）
+        const title = doc.title || doc.name || '';
+        if (title.toLowerCase().includes(keyword)) {
+            matchedFields.push('title');
+            matchedContent.push(title);
+            score += 8;
+        }
+
+        // 搜索文档描述
+        if (doc.description && doc.description.toLowerCase().includes(keyword)) {
+            matchedFields.push('description');
+            matchedContent.push(this._truncateText(doc.description, 200));
+            score += 5;
+        }
+
+        // 搜索文档内容
+        if (doc.content && doc.content.toLowerCase().includes(keyword)) {
+            matchedFields.push('content');
+            // 提取包含关键词的上下文
+            const context = this._extractKeywordContext(doc.content, keyword, 100);
+            matchedContent.push(context);
+            score += 4;
+        }
+
+        // 搜索标签
+        if (doc.tags && Array.isArray(doc.tags)) {
+            for (const tag of doc.tags) {
+                if (tag.toLowerCase().includes(keyword)) {
+                    matchedFields.push('tags');
+                    matchedContent.push(`标签: ${tag}`);
+                    score += 3;
+                    break;
+                }
+            }
+        }
+
+        return {
+            matched: matchedFields.length > 0,
+            fields: matchedFields,
+            content: matchedContent,
+            score: score
+        };
+    }
+
+    /**
+     * 语义搜索（基于简单的TF-IDF相似度）
+     * 返回与查询语义最相关的结果
+     * @param {string} query - 搜索查询
+     * @param {number} topK - 返回结果数量
+     * @returns {Promise<Array>} 搜索结果列表
+     */
+    async semanticSearch(query, topK = 10) {
+        if (!query || typeof query !== 'string') {
+            return [];
+        }
+
+        const queryTerms = this._tokenize(query);
+        if (queryTerms.length === 0) {
+            return [];
+        }
+
+        const results = [];
+
+        // 计算每个标准的相似度得分
+        for (const standard of this.standards.values()) {
+            const score = this._calculateSemanticScore(standard, queryTerms);
+            if (score > 0) {
+                results.push({
+                    type: 'standard',
+                    id: standard.id,
+                    title: standard.name,
+                    category: standard.category,
+                    categoryName: StandardCategoryNames[standard.category] || standard.category,
+                    semanticScore: score,
+                    source: {
+                        standardId: standard.id,
+                        standardName: standard.name,
+                        publishDate: standard.publishDate ? this._formatDate(standard.publishDate) : null
+                    }
+                });
+            }
+        }
+
+        // 计算每个文档的相似度得分
+        for (const doc of this.documents.values()) {
+            const score = this._calculateDocumentSemanticScore(doc, queryTerms);
+            if (score > 0) {
+                results.push({
+                    type: 'document',
+                    id: doc.id,
+                    title: doc.title || doc.name,
+                    category: doc.category || 'general',
+                    categoryName: doc.categoryName || '通用文档',
+                    semanticScore: score,
+                    source: {
+                        documentId: doc.id,
+                        documentTitle: doc.title || doc.name
+                    }
+                });
+            }
+        }
+
+        // 按语义得分排序
+        results.sort((a, b) => b.semanticScore - a.semanticScore);
+
+        return results.slice(0, topK);
+    }
+
+    /**
+     * 分词处理
+     * @param {string} text - 输入文本
+     * @returns {Array<string>} 分词结果
+     * @private
+     */
+    _tokenize(text) {
+        if (!text) return [];
+        
+        // 简单分词：按空格、标点分割，过滤停用词
+        const stopWords = new Set(['的', '是', '在', '和', '与', '或', '等', '及', '了', '对', '为', '中', '有', '将', '被', 'the', 'a', 'an', 'is', 'are', 'of', 'in', 'to', 'for', 'and', 'or']);
+        
+        const tokens = text
+            .toLowerCase()
+            .replace(/[，。、；：""''（）【】《》？！\s]+/g, ' ')
+            .split(' ')
+            .filter(token => token.length > 0 && !stopWords.has(token));
+        
+        return [...new Set(tokens)]; // 去重
+    }
+
+    /**
+     * 计算标准的语义相似度得分
+     * @param {Object} standard - 标准对象
+     * @param {Array<string>} queryTerms - 查询词列表
+     * @returns {number} 相似度得分
+     * @private
+     */
+    _calculateSemanticScore(standard, queryTerms) {
+        let score = 0;
+        
+        // 构建标准的文本内容
+        const textParts = [
+            standard.id || '',
+            standard.name || '',
+            standard.scope || '',
+            standard.abstract || ''
+        ];
+        
+        // 添加条款内容
+        if (standard.clauses) {
+            for (const content of Object.values(standard.clauses)) {
+                textParts.push(content || '');
+            }
+        }
+        
+        const fullText = textParts.join(' ').toLowerCase();
+        const docTerms = this._tokenize(fullText);
+        
+        // 计算词项匹配得分
+        for (const queryTerm of queryTerms) {
+            // 完全匹配
+            if (docTerms.includes(queryTerm)) {
+                score += 2;
+            }
+            // 部分匹配
+            else if (docTerms.some(term => term.includes(queryTerm) || queryTerm.includes(term))) {
+                score += 1;
+            }
+        }
+        
+        // 标准编号精确匹配加分
+        if (standard.id && queryTerms.some(term => standard.id.toLowerCase().includes(term))) {
+            score += 5;
+        }
+        
+        // 标准名称匹配加分
+        if (standard.name) {
+            const nameTerms = this._tokenize(standard.name);
+            const nameMatchCount = queryTerms.filter(qt => nameTerms.some(nt => nt.includes(qt) || qt.includes(nt))).length;
+            score += nameMatchCount * 2;
+        }
+        
+        return score;
+    }
+
+    /**
+     * 计算文档的语义相似度得分
+     * @param {Object} doc - 文档对象
+     * @param {Array<string>} queryTerms - 查询词列表
+     * @returns {number} 相似度得分
+     * @private
+     */
+    _calculateDocumentSemanticScore(doc, queryTerms) {
+        let score = 0;
+        
+        // 构建文档的文本内容
+        const textParts = [
+            doc.title || doc.name || '',
+            doc.description || '',
+            doc.content || ''
+        ];
+        
+        if (doc.tags && Array.isArray(doc.tags)) {
+            textParts.push(doc.tags.join(' '));
+        }
+        
+        const fullText = textParts.join(' ').toLowerCase();
+        const docTerms = this._tokenize(fullText);
+        
+        // 计算词项匹配得分
+        for (const queryTerm of queryTerms) {
+            if (docTerms.includes(queryTerm)) {
+                score += 2;
+            }
+            else if (docTerms.some(term => term.includes(queryTerm) || queryTerm.includes(term))) {
+                score += 1;
+            }
+        }
+        
+        // 标题匹配加分
+        const title = doc.title || doc.name || '';
+        if (title) {
+            const titleTerms = this._tokenize(title);
+            const titleMatchCount = queryTerms.filter(qt => titleTerms.some(tt => tt.includes(qt) || qt.includes(tt))).length;
+            score += titleMatchCount * 3;
+        }
+        
+        return score;
+    }
+
+    /**
+     * 截断文本
+     * @param {string} text - 原始文本
+     * @param {number} maxLength - 最大长度
+     * @returns {string} 截断后的文本
+     * @private
+     */
+    _truncateText(text, maxLength) {
+        if (!text || text.length <= maxLength) {
+            return text || '';
+        }
+        return text.substring(0, maxLength) + '...';
+    }
+
+    /**
+     * 提取关键词上下文
+     * @param {string} text - 原始文本
+     * @param {string} keyword - 关键词
+     * @param {number} contextLength - 上下文长度
+     * @returns {string} 包含关键词的上下文
+     * @private
+     */
+    _extractKeywordContext(text, keyword, contextLength) {
+        if (!text || !keyword) {
+            return '';
+        }
+        
+        const lowerText = text.toLowerCase();
+        const index = lowerText.indexOf(keyword);
+        
+        if (index === -1) {
+            return this._truncateText(text, contextLength * 2);
+        }
+        
+        const start = Math.max(0, index - contextLength);
+        const end = Math.min(text.length, index + keyword.length + contextLength);
+        
+        let context = text.substring(start, end);
+        if (start > 0) context = '...' + context;
+        if (end < text.length) context = context + '...';
+        
+        return context;
+    }
+
+    // ================= 版本历史管理 (Requirements: 6.3) =================
+
+    /**
+     * 创建文档版本记录
+     * 在更新文档前调用，保存当前版本到历史记录
+     * @param {string} documentId - 文档ID
+     * @param {Object} currentDocument - 当前文档数据
+     * @param {string} changeSummary - 更新内容摘要
+     * @param {string} changedBy - 更新者ID
+     * @returns {Promise<Object>} 创建的版本记录
+     */
+    async createDocumentVersion(documentId, currentDocument, changeSummary, changedBy) {
+        if (!documentId || !currentDocument) {
+            throw new Error('文档ID和文档数据不能为空');
+        }
+
+        // 获取当前最大版本号
+        const currentVersionNumber = await this._getLatestVersionNumber(documentId);
+        const newVersionNumber = currentVersionNumber + 1;
+
+        const versionRecord = {
+            id: this._generateVersionId(),
+            documentId: documentId,
+            versionNumber: newVersionNumber,
+            title: currentDocument.title || '',
+            content: currentDocument.content || '',
+            fileUrl: currentDocument.fileUrl || currentDocument.file_url || null,
+            changeSummary: changeSummary || '文档更新',
+            changedBy: changedBy || 'system',
+            createdAt: Date.now()
+        };
+
+        // 保存到本地缓存
+        if (!this._documentVersions) {
+            this._documentVersions = new Map();
+        }
+        if (!this._documentVersions.has(documentId)) {
+            this._documentVersions.set(documentId, []);
+        }
+        this._documentVersions.get(documentId).push(versionRecord);
+
+        // 保存到数据库
+        if (this.supabase) {
+            try {
+                const { data, error } = await this.supabase
+                    .from('vs_document_versions')
+                    .insert({
+                        id: versionRecord.id,
+                        document_id: documentId,
+                        version_number: newVersionNumber,
+                        title: versionRecord.title,
+                        content: versionRecord.content,
+                        file_url: versionRecord.fileUrl,
+                        change_summary: versionRecord.changeSummary,
+                        changed_by: versionRecord.changedBy
+                    });
+
+                if (error) {
+                    console.error('保存版本记录到数据库失败:', error);
+                }
+            } catch (error) {
+                console.error('保存版本记录失败:', error);
+            }
+        }
+
+        return versionRecord;
+    }
+
+    /**
+     * 获取文档的版本历史列表
+     * @param {string} documentId - 文档ID
+     * @returns {Promise<Array>} 版本历史列表（按版本号降序）
+     */
+    async getDocumentVersionHistory(documentId) {
+        if (!documentId) {
+            return [];
+        }
+
+        // 优先从数据库获取
+        if (this.supabase) {
+            try {
+                const { data, error } = await this.supabase
+                    .from('vs_document_versions')
+                    .select('*')
+                    .eq('document_id', documentId)
+                    .order('version_number', { ascending: false });
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    return data.map(row => ({
+                        id: row.id,
+                        documentId: row.document_id,
+                        versionNumber: row.version_number,
+                        title: row.title,
+                        content: row.content,
+                        fileUrl: row.file_url,
+                        changeSummary: row.change_summary,
+                        changedBy: row.changed_by,
+                        createdAt: new Date(row.created_at).getTime()
+                    }));
+                }
+            } catch (error) {
+                console.error('从数据库获取版本历史失败:', error);
+            }
+        }
+
+        // 从本地缓存获取
+        if (this._documentVersions && this._documentVersions.has(documentId)) {
+            const versions = this._documentVersions.get(documentId);
+            return [...versions].sort((a, b) => b.versionNumber - a.versionNumber);
+        }
+
+        return [];
+    }
+
+    /**
+     * 获取文档的特定版本
+     * @param {string} documentId - 文档ID
+     * @param {number} versionNumber - 版本号
+     * @returns {Promise<Object|null>} 版本数据
+     */
+    async getDocumentVersion(documentId, versionNumber) {
+        if (!documentId || versionNumber === undefined) {
+            return null;
+        }
+
+        // 优先从数据库获取
+        if (this.supabase) {
+            try {
+                const { data, error } = await this.supabase
+                    .from('vs_document_versions')
+                    .select('*')
+                    .eq('document_id', documentId)
+                    .eq('version_number', versionNumber)
+                    .single();
+
+                if (error && error.code !== 'PGRST116') throw error;
+
+                if (data) {
+                    return {
+                        id: data.id,
+                        documentId: data.document_id,
+                        versionNumber: data.version_number,
+                        title: data.title,
+                        content: data.content,
+                        fileUrl: data.file_url,
+                        changeSummary: data.change_summary,
+                        changedBy: data.changed_by,
+                        createdAt: new Date(data.created_at).getTime()
+                    };
+                }
+            } catch (error) {
+                console.error('从数据库获取版本失败:', error);
+            }
+        }
+
+        // 从本地缓存获取
+        if (this._documentVersions && this._documentVersions.has(documentId)) {
+            const versions = this._documentVersions.get(documentId);
+            return versions.find(v => v.versionNumber === versionNumber) || null;
+        }
+
+        return null;
+    }
+
+    /**
+     * 回滚文档到指定版本
+     * @param {string} documentId - 文档ID
+     * @param {number} targetVersionNumber - 目标版本号
+     * @param {string} rolledBackBy - 执行回滚的用户ID
+     * @returns {Promise<Object>} 回滚结果
+     */
+    async rollbackDocumentToVersion(documentId, targetVersionNumber, rolledBackBy) {
+        if (!documentId || targetVersionNumber === undefined) {
+            throw new Error('文档ID和目标版本号不能为空');
+        }
+
+        // 获取目标版本数据
+        const targetVersion = await this.getDocumentVersion(documentId, targetVersionNumber);
+        if (!targetVersion) {
+            throw new Error(`版本 ${targetVersionNumber} 不存在`);
+        }
+
+        // 获取当前文档数据
+        let currentDocument = null;
+        if (this.supabase) {
+            try {
+                const { data, error } = await this.supabase
+                    .from('vs_knowledge_documents')
+                    .select('*')
+                    .eq('id', documentId)
+                    .single();
+
+                if (error && error.code !== 'PGRST116') throw error;
+                if (data) {
+                    currentDocument = {
+                        id: data.id,
+                        title: data.title,
+                        content: data.content,
+                        fileUrl: data.file_url
+                    };
+                }
+            } catch (error) {
+                console.error('获取当前文档失败:', error);
+            }
+        }
+
+        // 如果有当前文档，先保存当前版本到历史
+        if (currentDocument) {
+            await this.createDocumentVersion(
+                documentId,
+                currentDocument,
+                `回滚前备份（回滚到版本 ${targetVersionNumber}）`,
+                rolledBackBy || 'system'
+            );
+        }
+
+        // 更新文档为目标版本的内容
+        const updatedDocument = {
+            title: targetVersion.title,
+            content: targetVersion.content,
+            fileUrl: targetVersion.fileUrl
+        };
+
+        if (this.supabase) {
+            try {
+                const { error } = await this.supabase
+                    .from('vs_knowledge_documents')
+                    .update({
+                        title: updatedDocument.title,
+                        content: updatedDocument.content,
+                        file_url: updatedDocument.fileUrl,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', documentId);
+
+                if (error) throw error;
+            } catch (error) {
+                console.error('更新文档失败:', error);
+                throw new Error('回滚失败：无法更新文档');
+            }
+        }
+
+        // 更新本地缓存
+        if (this.documents.has(documentId)) {
+            const doc = this.documents.get(documentId);
+            doc.title = updatedDocument.title;
+            doc.content = updatedDocument.content;
+            doc.fileUrl = updatedDocument.fileUrl;
+            doc.updatedAt = Date.now();
+        }
+
+        return {
+            success: true,
+            documentId: documentId,
+            rolledBackToVersion: targetVersionNumber,
+            previousTitle: currentDocument?.title,
+            newTitle: updatedDocument.title,
+            rolledBackBy: rolledBackBy || 'system',
+            rolledBackAt: Date.now()
+        };
+    }
+
+    /**
+     * 更新文档并自动创建版本记录
+     * @param {string} documentId - 文档ID
+     * @param {Object} updates - 更新内容
+     * @param {string} changeSummary - 更新摘要
+     * @param {string} changedBy - 更新者ID
+     * @returns {Promise<Object>} 更新结果
+     */
+    async updateDocumentWithVersion(documentId, updates, changeSummary, changedBy) {
+        if (!documentId || !updates) {
+            throw new Error('文档ID和更新内容不能为空');
+        }
+
+        // 获取当前文档
+        let currentDocument = null;
+        if (this.supabase) {
+            try {
+                const { data, error } = await this.supabase
+                    .from('vs_knowledge_documents')
+                    .select('*')
+                    .eq('id', documentId)
+                    .single();
+
+                if (error && error.code !== 'PGRST116') throw error;
+                if (data) {
+                    currentDocument = {
+                        id: data.id,
+                        title: data.title,
+                        content: data.content,
+                        fileUrl: data.file_url
+                    };
+                }
+            } catch (error) {
+                console.error('获取当前文档失败:', error);
+            }
+        }
+
+        // 如果文档存在，先保存当前版本
+        if (currentDocument) {
+            await this.createDocumentVersion(
+                documentId,
+                currentDocument,
+                changeSummary || '文档更新',
+                changedBy || 'system'
+            );
+        }
+
+        // 更新文档
+        if (this.supabase) {
+            try {
+                const updateData = {
+                    updated_at: new Date().toISOString()
+                };
+                if (updates.title !== undefined) updateData.title = updates.title;
+                if (updates.content !== undefined) updateData.content = updates.content;
+                if (updates.fileUrl !== undefined) updateData.file_url = updates.fileUrl;
+                if (updates.description !== undefined) updateData.description = updates.description;
+
+                const { error } = await this.supabase
+                    .from('vs_knowledge_documents')
+                    .update(updateData)
+                    .eq('id', documentId);
+
+                if (error) throw error;
+            } catch (error) {
+                console.error('更新文档失败:', error);
+                throw new Error('更新文档失败');
+            }
+        }
+
+        // 更新本地缓存
+        if (this.documents.has(documentId)) {
+            const doc = this.documents.get(documentId);
+            Object.assign(doc, updates);
+            doc.updatedAt = Date.now();
+        }
+
+        return {
+            success: true,
+            documentId: documentId,
+            updatedFields: Object.keys(updates),
+            changedBy: changedBy || 'system',
+            updatedAt: Date.now()
+        };
+    }
+
+    /**
+     * 获取文档的最新版本号
+     * @param {string} documentId - 文档ID
+     * @returns {Promise<number>} 最新版本号（如果没有版本记录则返回0）
+     * @private
+     */
+    async _getLatestVersionNumber(documentId) {
+        // 优先从数据库获取
+        if (this.supabase) {
+            try {
+                const { data, error } = await this.supabase
+                    .from('vs_document_versions')
+                    .select('version_number')
+                    .eq('document_id', documentId)
+                    .order('version_number', { ascending: false })
+                    .limit(1);
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    return data[0].version_number;
+                }
+            } catch (error) {
+                console.error('获取最新版本号失败:', error);
+            }
+        }
+
+        // 从本地缓存获取
+        if (this._documentVersions && this._documentVersions.has(documentId)) {
+            const versions = this._documentVersions.get(documentId);
+            if (versions.length > 0) {
+                return Math.max(...versions.map(v => v.versionNumber));
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * 生成版本记录ID
+     * @returns {string} 唯一ID
+     * @private
+     */
+    _generateVersionId() {
+        return 'ver_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    /**
+     * 比较两个版本的差异
+     * @param {string} documentId - 文档ID
+     * @param {number} versionA - 版本A编号
+     * @param {number} versionB - 版本B编号
+     * @returns {Promise<Object>} 差异信息
+     */
+    async compareVersions(documentId, versionA, versionB) {
+        const verA = await this.getDocumentVersion(documentId, versionA);
+        const verB = await this.getDocumentVersion(documentId, versionB);
+
+        if (!verA || !verB) {
+            throw new Error('指定的版本不存在');
+        }
+
+        return {
+            documentId: documentId,
+            versionA: {
+                number: versionA,
+                title: verA.title,
+                contentLength: verA.content?.length || 0,
+                createdAt: verA.createdAt
+            },
+            versionB: {
+                number: versionB,
+                title: verB.title,
+                contentLength: verB.content?.length || 0,
+                createdAt: verB.createdAt
+            },
+            differences: {
+                titleChanged: verA.title !== verB.title,
+                contentChanged: verA.content !== verB.content,
+                contentLengthDiff: (verB.content?.length || 0) - (verA.content?.length || 0)
+            }
+        };
+    }
+
+    /**
+     * 删除文档的所有版本历史
+     * @param {string} documentId - 文档ID
+     * @returns {Promise<Object>} 删除结果
+     */
+    async deleteVersionHistory(documentId) {
+        if (!documentId) {
+            throw new Error('文档ID不能为空');
+        }
+
+        let deletedCount = 0;
+
+        // 从数据库删除
+        if (this.supabase) {
+            try {
+                const { data, error } = await this.supabase
+                    .from('vs_document_versions')
+                    .delete()
+                    .eq('document_id', documentId);
+
+                if (error) throw error;
+                deletedCount = data?.length || 0;
+            } catch (error) {
+                console.error('删除版本历史失败:', error);
+            }
+        }
+
+        // 从本地缓存删除
+        if (this._documentVersions && this._documentVersions.has(documentId)) {
+            const versions = this._documentVersions.get(documentId);
+            deletedCount = Math.max(deletedCount, versions.length);
+            this._documentVersions.delete(documentId);
+        }
+
+        return {
+            success: true,
+            documentId: documentId,
+            deletedVersions: deletedCount
+        };
+    }
+}
+
 // ================= 导出到全局 =================
 
 // 创建全局实例
 const VirtualStation = new VirtualStationPlatform();
+const AITutor = new AITutorService();
+const KnowledgeBase = new KnowledgeBaseService();
 
 // 导出所有模块
 if (typeof window !== 'undefined') {
@@ -1470,16 +7616,50 @@ if (typeof window !== 'undefined') {
     window.ProcessTrackerService = ProcessTrackerService;
     window.CareerService = CareerService;
     window.AchievementService = AchievementService;
+    window.AITutorService = AITutorService;
+    window.AITutor = AITutor;
+    window.KnowledgeBaseService = KnowledgeBaseService;
+    window.KnowledgeBase = KnowledgeBase;
+    
+    // 导出标准引用相关
+    window.NATIONAL_STANDARDS_DATABASE = NATIONAL_STANDARDS_DATABASE;
+    window.STANDARD_REFERENCE_PATTERNS = STANDARD_REFERENCE_PATTERNS;
     
     // 导出枚举和配置
     window.WorkstationCategory = WorkstationCategory;
+    window.WorkstationCategoryNames = WorkstationCategoryNames;
+    window.WorkstationDifficulty = WorkstationDifficulty;
+    window.WorkstationDifficultyNames = WorkstationDifficultyNames;
     window.StageType = StageType;
+    window.StageTypeNames = StageTypeNames;
+    window.STANDARD_STAGE_ORDER = STANDARD_STAGE_ORDER;
     window.CareerLevel = CareerLevel;
     window.ActionType = ActionType;
     window.AchievementRarity = AchievementRarity;
+    window.TaskExecutionStatus = TaskExecutionStatus;
     window.LEVEL_CONFIG = LEVEL_CONFIG;
+    window.LEVEL_UNLOCK_CONFIG = LEVEL_UNLOCK_CONFIG;
+    
+    // 导出职业等级UI辅助函数
+    window.showLevelUpNotification = showLevelUpNotification;
+    window.closeLevelUpModal = closeLevelUpModal;
+    window.updateCareerDisplay = updateCareerDisplay;
+    window.initCareerSystemUI = initCareerSystemUI;
     window.PAUSE_THRESHOLD = PAUSE_THRESHOLD;
     window.COMMON_ERROR_THRESHOLD = COMMON_ERROR_THRESHOLD;
+    window.PRESET_WORKSTATIONS = PRESET_WORKSTATIONS;
+    window.PRESET_TASKS = PRESET_TASKS;
+    
+    // 导出国标分类相关
+    window.StandardCategory = StandardCategory;
+    window.StandardCategoryNames = StandardCategoryNames;
+    window.StandardStatus = StandardStatus;
+    window.StandardStatusNames = StandardStatusNames;
+    
+    // 导出错误分类相关
+    window.ErrorTypes = ProcessTrackerService.ErrorTypes;
+    window.ErrorTypeNames = ProcessTrackerService.ErrorTypeNames;
+    window.ErrorClassificationKeywords = ProcessTrackerService.ErrorClassificationKeywords;
 }
 
 // 支持ES模块导出
@@ -1492,13 +7672,32 @@ if (typeof module !== 'undefined' && module.exports) {
         ProcessTrackerService,
         CareerService,
         AchievementService,
+        AITutorService,
+        AITutor,
+        KnowledgeBaseService,
+        KnowledgeBase,
         WorkstationCategory,
+        WorkstationCategoryNames,
         StageType,
+        StageTypeNames,
+        STANDARD_STAGE_ORDER,
         CareerLevel,
         ActionType,
         AchievementRarity,
+        TaskExecutionStatus,
         LEVEL_CONFIG,
         PAUSE_THRESHOLD,
-        COMMON_ERROR_THRESHOLD
+        COMMON_ERROR_THRESHOLD,
+        PRESET_WORKSTATIONS,
+        PRESET_TASKS,
+        StandardCategory,
+        StandardCategoryNames,
+        StandardStatus,
+        StandardStatusNames,
+        ErrorTypes: ProcessTrackerService.ErrorTypes,
+        ErrorTypeNames: ProcessTrackerService.ErrorTypeNames,
+        ErrorClassificationKeywords: ProcessTrackerService.ErrorClassificationKeywords,
+        FieldTypeErrorMapping: ProcessTrackerService.FieldTypeErrorMapping,
+        ValidationRuleErrorMapping: ProcessTrackerService.ValidationRuleErrorMapping
     };
 }

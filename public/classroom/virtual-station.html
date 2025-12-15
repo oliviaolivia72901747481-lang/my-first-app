@@ -102,14 +102,34 @@
                 <div class="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl"></div>
                 <div class="relative z-10">
                     <h2 class="text-3xl font-bold mb-2">欢迎回到工位，<span class="text-purple-400">见习工程师</span></h2>
-                    <p class="text-gray-400 mb-6">今日任务：完成水质监测采样方案设计 | 预计用时：45分钟</p>
+                    <p id="welcome-subtitle" class="text-gray-400 mb-6">今日任务：完成水质监测采样方案设计 | 预计用时：45分钟</p>
+                    
+                    <!-- 总体进度统计 -->
+                    <div id="overall-progress" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-white/5 rounded-xl p-4">
+                            <div class="text-2xl font-bold text-purple-400" id="stat-workstations">0/0</div>
+                            <div class="text-xs text-gray-400">工位完成</div>
+                        </div>
+                        <div class="bg-white/5 rounded-xl p-4">
+                            <div class="text-2xl font-bold text-cyan-400" id="stat-tasks">0/0</div>
+                            <div class="text-xs text-gray-400">任务完成</div>
+                        </div>
+                        <div class="bg-white/5 rounded-xl p-4">
+                            <div class="text-2xl font-bold text-amber-400" id="stat-progress">0%</div>
+                            <div class="text-xs text-gray-400">总体进度</div>
+                        </div>
+                        <div class="bg-white/5 rounded-xl p-4">
+                            <div class="text-2xl font-bold text-emerald-400" id="stat-time">0h</div>
+                            <div class="text-xs text-gray-400">学习时长</div>
+                        </div>
+                    </div>
                     
                     <div class="flex gap-4">
-                        <button class="px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl font-medium hover:from-purple-600 hover:to-indigo-700 transition flex items-center gap-2">
+                        <button id="btn-continue" onclick="continueLastTask()" class="px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl font-medium hover:from-purple-600 hover:to-indigo-700 transition flex items-center gap-2">
                             <i class="ri-play-circle-line"></i>
                             继续上次任务
                         </button>
-                        <button class="px-6 py-3 bg-white/10 rounded-xl font-medium hover:bg-white/20 transition flex items-center gap-2">
+                        <button onclick="enterModule('workstation')" class="px-6 py-3 bg-white/10 rounded-xl font-medium hover:bg-white/20 transition flex items-center gap-2">
                             <i class="ri-file-list-3-line"></i>
                             查看任务清单
                         </button>
@@ -125,7 +145,7 @@
                 核心功能模块
             </h3>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 <!-- 模块1: 虚拟工位 -->
                 <div class="station-card rounded-2xl p-6 cursor-pointer" onclick="enterModule('workstation')">
                     <div class="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center mb-4">
@@ -160,8 +180,21 @@
                     <h4 class="text-lg font-bold mb-2">🤖 AI专业助教</h4>
                     <p class="text-gray-400 text-sm mb-4">RAG知识库支持，引用国标规范，AI预批改方案</p>
                     <div class="flex items-center justify-between">
-                        <span class="text-xs text-emerald-400">GB标准库已接入</span>
+                        <span onclick="event.stopPropagation(); openStandardsBrowser();" class="text-xs text-emerald-400 hover:underline cursor-pointer">GB标准库已接入</span>
                         <i class="ri-arrow-right-line text-emerald-400"></i>
+                    </div>
+                </div>
+                
+                <!-- 模块5: 国标知识库 -->
+                <div class="station-card rounded-2xl p-6 cursor-pointer" onclick="openStandardsBrowser()">
+                    <div class="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center mb-4">
+                        <i class="ri-book-2-line text-2xl"></i>
+                    </div>
+                    <h4 class="text-lg font-bold mb-2">📚 国标知识库</h4>
+                    <p class="text-gray-400 text-sm mb-4">按编号、日期、范围分类浏览国家标准</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-blue-400" id="standards-total-count">加载中...</span>
+                        <i class="ri-arrow-right-line text-blue-400"></i>
                     </div>
                 </div>
                 
@@ -187,143 +220,205 @@
                 选择实训工位
             </h3>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <!-- 工位1: 环境监测站 -->
-                <div class="glass-card rounded-2xl overflow-hidden group cursor-pointer" onclick="enterWorkstation('env-monitoring')">
-                    <div class="h-40 bg-gradient-to-br from-blue-900 to-cyan-900 relative">
-                        <div class="absolute inset-0 flex items-center justify-center">
-                            <i class="ri-flask-line text-6xl text-cyan-400/30 group-hover:text-cyan-400/50 transition"></i>
+            <!-- 动态渲染的工位网格 -->
+            <div id="workstation-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- 工位卡片将通过JavaScript动态渲染 -->
+                <div class="glass-card rounded-2xl p-8 col-span-full text-center">
+                    <i class="ri-loader-4-line text-4xl text-purple-400 animate-spin"></i>
+                    <p class="text-gray-400 mt-4">正在加载工位列表...</p>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 工位详情模态框 -->
+        <div id="workstation-detail-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
+            <div class="glass-card rounded-2xl w-full max-w-lg mx-4">
+                <div class="p-6 border-b border-gray-700">
+                    <div class="flex items-center justify-between">
+                        <h3 id="ws-detail-name" class="text-xl font-bold">工位名称</h3>
+                        <button onclick="closeWorkstationDetail()" class="text-gray-400 hover:text-white">
+                            <i class="ri-close-line text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <p id="ws-detail-desc" class="text-gray-400 mb-6">工位描述</p>
+                    
+                    <!-- 任务列表 -->
+                    <div id="ws-task-list" class="space-y-3 mb-6 max-h-60 overflow-y-auto">
+                        <!-- 任务列表将动态渲染 -->
+                    </div>
+                    
+                    <div class="space-y-4 mb-6">
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-400">任务进度</span>
+                            <span id="ws-detail-progress" class="text-white font-medium">0/0 任务完成</span>
                         </div>
-                        <div class="absolute top-4 right-4 px-3 py-1 bg-green-500/20 rounded-full text-green-400 text-xs border border-green-500/30">
-                            进行中
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-400">完成奖励</span>
+                            <span id="ws-detail-xp" class="text-amber-400 font-medium">+0 XP</span>
                         </div>
                     </div>
-                    <div class="p-6">
-                        <h4 class="text-lg font-bold mb-2">🧪 环境监测站</h4>
-                        <p class="text-gray-400 text-sm mb-4">水质监测、大气监测、土壤监测全流程实训</p>
+                    
+                    <div class="flex gap-4">
+                        <button onclick="closeWorkstationDetail()" class="flex-1 px-6 py-3 bg-white/10 rounded-xl font-medium hover:bg-white/20 transition">
+                            返回
+                        </button>
+                        <button id="ws-start-btn" onclick="startFirstTask()" class="flex-1 px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl font-medium hover:from-purple-600 hover:to-indigo-700 transition flex items-center justify-center gap-2">
+                            <i class="ri-play-circle-line"></i>
+                            开始任务
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 任务单展示模态框 -->
+        <div id="task-brief-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
+            <div class="glass-card rounded-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+                <div class="p-6 border-b border-gray-700">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center">
+                                <i class="ri-file-list-3-line text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 id="task-brief-title" class="text-xl font-bold">任务单</h3>
+                                <p id="task-brief-subtitle" class="text-xs text-gray-400">请仔细阅读任务要求</p>
+                            </div>
+                        </div>
+                        <button onclick="closeTaskBrief()" class="text-gray-400 hover:text-white">
+                            <i class="ri-close-line text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto p-6">
+                    <!-- 任务背景 -->
+                    <div class="mb-6">
+                        <h4 class="text-sm font-medium text-purple-400 mb-2 flex items-center gap-2">
+                            <i class="ri-book-open-line"></i>
+                            任务背景
+                        </h4>
+                        <div id="task-brief-background" class="bg-white/5 rounded-xl p-4 text-gray-300 text-sm leading-relaxed">
+                            任务背景内容
+                        </div>
+                    </div>
+                    
+                    <!-- 任务目标 -->
+                    <div class="mb-6">
+                        <h4 class="text-sm font-medium text-cyan-400 mb-2 flex items-center gap-2">
+                            <i class="ri-target-line"></i>
+                            任务目标
+                        </h4>
+                        <ul id="task-brief-objectives" class="space-y-2">
+                            <!-- 目标列表将动态渲染 -->
+                        </ul>
+                    </div>
+                    
+                    <!-- 任务要求 -->
+                    <div class="mb-6">
+                        <h4 class="text-sm font-medium text-emerald-400 mb-2 flex items-center gap-2">
+                            <i class="ri-checkbox-circle-line"></i>
+                            任务要求
+                        </h4>
+                        <ul id="task-brief-requirements" class="space-y-2">
+                            <!-- 要求列表将动态渲染 -->
+                        </ul>
+                    </div>
+                    
+                    <!-- 截止时间（如果有） -->
+                    <div id="task-brief-deadline-section" class="mb-6 hidden">
+                        <h4 class="text-sm font-medium text-red-400 mb-2 flex items-center gap-2">
+                            <i class="ri-time-line"></i>
+                            截止时间
+                        </h4>
+                        <div id="task-brief-deadline" class="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-300 text-sm">
+                            截止时间
+                        </div>
+                    </div>
+                    
+                    <!-- 任务奖励 -->
+                    <div class="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-xl p-4">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-2">
-                                <div class="w-24 h-2 bg-gray-700 rounded-full overflow-hidden">
-                                    <div class="h-full bg-cyan-500 rounded-full" style="width: 45%"></div>
-                                </div>
-                                <span class="text-xs text-gray-400">45%</span>
+                                <i class="ri-gift-line text-amber-400"></i>
+                                <span class="text-amber-300 font-medium">完成奖励</span>
                             </div>
-                            <span class="text-xs text-cyan-400">3/7 任务</span>
+                            <span id="task-brief-xp" class="text-amber-400 font-bold">+100 XP</span>
                         </div>
                     </div>
                 </div>
                 
-                <!-- 工位2: 危废鉴别实验室 -->
-                <div class="glass-card rounded-2xl overflow-hidden group cursor-pointer" onclick="location.href='hazwaste-detective.html'">
-                    <div class="h-40 bg-gradient-to-br from-orange-900 to-red-900 relative">
-                        <div class="absolute inset-0 flex items-center justify-center">
-                            <i class="ri-skull-line text-6xl text-orange-400/30 group-hover:text-orange-400/50 transition"></i>
-                        </div>
-                        <div class="absolute top-4 right-4 px-3 py-1 bg-purple-500/20 rounded-full text-purple-400 text-xs border border-purple-500/30">
-                            剧本杀模式
-                        </div>
+                <div class="p-6 border-t border-gray-700">
+                    <div class="flex gap-4">
+                        <button onclick="closeTaskBrief()" class="flex-1 px-6 py-3 bg-white/10 rounded-xl font-medium hover:bg-white/20 transition">
+                            稍后再说
+                        </button>
+                        <button id="accept-task-btn" onclick="acceptCurrentTask()" class="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl font-medium hover:from-emerald-600 hover:to-teal-700 transition flex items-center justify-center gap-2">
+                            <i class="ri-check-line"></i>
+                            接受任务
+                        </button>
                     </div>
-                    <div class="p-6">
-                        <h4 class="text-lg font-bold mb-2">☣️ 危废鉴别实验室</h4>
-                        <p class="text-gray-400 text-sm mb-4">GB 5085系列标准学习，沉浸式推理鉴别</p>
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <div class="w-24 h-2 bg-gray-700 rounded-full overflow-hidden">
-                                    <div class="h-full bg-orange-500 rounded-full" style="width: 20%"></div>
-                                </div>
-                                <span class="text-xs text-gray-400">20%</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 任务执行模态框 -->
+        <div id="task-execution-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden">
+            <div class="h-full flex flex-col">
+                <!-- 顶部进度条 -->
+                <div class="glass-card px-6 py-4">
+                    <div class="max-w-4xl mx-auto">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-3">
+                                <button onclick="exitTaskExecution()" class="text-gray-400 hover:text-white">
+                                    <i class="ri-arrow-left-line text-xl"></i>
+                                </button>
+                                <h3 id="exec-task-name" class="font-bold">任务名称</h3>
                             </div>
-                            <span class="text-xs text-orange-400">1/5 案件</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- 工位3: 采样规划中心 -->
-                <div class="glass-card rounded-2xl overflow-hidden group cursor-pointer" onclick="location.href='sampling-sandbox.html'">
-                    <div class="h-40 bg-gradient-to-br from-green-900 to-emerald-900 relative">
-                        <div class="absolute inset-0 flex items-center justify-center">
-                            <i class="ri-map-pin-line text-6xl text-emerald-400/30 group-hover:text-emerald-400/50 transition"></i>
-                        </div>
-                        <div class="absolute top-4 right-4 px-3 py-1 bg-blue-500/20 rounded-full text-blue-400 text-xs border border-blue-500/30">
-                            沙盒模式
-                        </div>
-                    </div>
-                    <div class="p-6">
-                        <h4 class="text-lg font-bold mb-2">📍 采样规划中心</h4>
-                        <p class="text-gray-400 text-sm mb-4">布点方案设计、采样计划制定、现场模拟</p>
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <div class="w-24 h-2 bg-gray-700 rounded-full overflow-hidden">
-                                    <div class="h-full bg-emerald-500 rounded-full" style="width: 0%"></div>
-                                </div>
-                                <span class="text-xs text-gray-400">0%</span>
+                            <div class="flex items-center gap-4">
+                                <span id="exec-stage-indicator" class="text-sm text-gray-400">阶段 1/5</span>
+                                <span id="exec-timer" class="text-sm text-cyan-400">00:00</span>
                             </div>
-                            <span class="text-xs text-emerald-400">未开始</span>
+                        </div>
+                        <!-- 阶段进度指示器 -->
+                        <div id="exec-stage-progress" class="flex items-center gap-2">
+                            <!-- 阶段指示器将动态渲染 -->
                         </div>
                     </div>
                 </div>
                 
-                <!-- 工位4: 数据处理中心 -->
-                <div class="glass-card rounded-2xl overflow-hidden group cursor-pointer opacity-60" onclick="showComingSoon()">
-                    <div class="h-40 bg-gradient-to-br from-purple-900 to-indigo-900 relative">
-                        <div class="absolute inset-0 flex items-center justify-center">
-                            <i class="ri-database-2-line text-6xl text-purple-400/30"></i>
-                        </div>
-                        <div class="absolute top-4 right-4 px-3 py-1 bg-gray-500/20 rounded-full text-gray-400 text-xs border border-gray-500/30">
-                            即将开放
-                        </div>
-                    </div>
-                    <div class="p-6">
-                        <h4 class="text-lg font-bold mb-2">📈 数据处理中心</h4>
-                        <p class="text-gray-400 text-sm mb-4">监测数据分析、报告生成、质量控制</p>
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs text-gray-500">敬请期待</span>
-                            <i class="ri-lock-line text-gray-500"></i>
+                <!-- 主内容区 -->
+                <div class="flex-1 overflow-y-auto p-6">
+                    <div class="max-w-4xl mx-auto">
+                        <!-- 当前阶段内容 -->
+                        <div id="exec-stage-content" class="glass-card rounded-2xl p-6">
+                            <!-- 阶段内容将动态渲染 -->
                         </div>
                     </div>
                 </div>
                 
-                <!-- 工位5: 仪器操作室 -->
-                <div class="glass-card rounded-2xl overflow-hidden group cursor-pointer opacity-60" onclick="showComingSoon()">
-                    <div class="h-40 bg-gradient-to-br from-pink-900 to-rose-900 relative">
-                        <div class="absolute inset-0 flex items-center justify-center">
-                            <i class="ri-microscope-line text-6xl text-pink-400/30"></i>
-                        </div>
-                        <div class="absolute top-4 right-4 px-3 py-1 bg-gray-500/20 rounded-full text-gray-400 text-xs border border-gray-500/30">
-                            即将开放
-                        </div>
-                    </div>
-                    <div class="p-6">
-                        <h4 class="text-lg font-bold mb-2">🔬 仪器操作室</h4>
-                        <p class="text-gray-400 text-sm mb-4">分析仪器虚拟操作、参数调节、故障排除</p>
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs text-gray-500">敬请期待</span>
-                            <i class="ri-lock-line text-gray-500"></i>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- 工位6: 应急响应中心 -->
-                <div class="glass-card rounded-2xl overflow-hidden group cursor-pointer opacity-60" onclick="showComingSoon()">
-                    <div class="h-40 bg-gradient-to-br from-red-900 to-amber-900 relative">
-                        <div class="absolute inset-0 flex items-center justify-center">
-                            <i class="ri-alarm-warning-line text-6xl text-red-400/30"></i>
-                        </div>
-                        <div class="absolute top-4 right-4 px-3 py-1 bg-gray-500/20 rounded-full text-gray-400 text-xs border border-gray-500/30">
-                            即将开放
-                        </div>
-                    </div>
-                    <div class="p-6">
-                        <h4 class="text-lg font-bold mb-2">🚨 应急响应中心</h4>
-                        <p class="text-gray-400 text-sm mb-4">环境应急预案、事故处置、现场指挥模拟</p>
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs text-gray-500">敬请期待</span>
-                            <i class="ri-lock-line text-gray-500"></i>
+                <!-- 底部操作栏 -->
+                <div class="glass-card px-6 py-4">
+                    <div class="max-w-4xl mx-auto flex items-center justify-between">
+                        <button id="exec-hint-btn" onclick="showStageHint()" class="px-4 py-2 bg-white/10 rounded-xl text-sm hover:bg-white/20 transition flex items-center gap-2">
+                            <i class="ri-lightbulb-line text-amber-400"></i>
+                            查看提示
+                        </button>
+                        <div class="flex gap-4">
+                            <button id="exec-prev-btn" onclick="prevStage()" class="px-6 py-3 bg-white/10 rounded-xl font-medium hover:bg-white/20 transition hidden">
+                                上一步
+                            </button>
+                            <button id="exec-next-btn" onclick="submitCurrentStage()" class="px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl font-medium hover:from-purple-600 hover:to-indigo-700 transition flex items-center gap-2">
+                                下一步
+                                <i class="ri-arrow-right-line"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
-        </section>
+        </div>
 
         <!-- 职业成长路径 -->
         <section class="mb-12">
@@ -332,9 +427,10 @@
                 职业成长路径
             </h3>
             
-            <div class="glass-card rounded-2xl p-6">
-                <div class="flex items-center justify-between mb-8">
-                    <!-- 等级进度 -->
+            <div id="career-growth-section" class="glass-card rounded-2xl p-6">
+                <!-- 等级进度 - 动态渲染 -->
+                <div id="career-level-progress" class="flex items-center justify-between mb-8 overflow-x-auto">
+                    <!-- 等级进度将通过JavaScript动态渲染 -->
                     <div class="flex items-center gap-8">
                         <div class="text-center">
                             <div class="w-16 h-16 bg-gradient-to-br from-gray-600 to-gray-700 rounded-full flex items-center justify-center mb-2 border-2 border-gray-500">
@@ -368,10 +464,46 @@
                     </div>
                 </div>
                 
+                <!-- XP进度详情 -->
+                <div id="career-xp-details" class="mb-6 p-4 bg-white/5 rounded-xl">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm text-gray-400">经验值进度</span>
+                        <span id="career-xp-text" class="text-sm text-amber-400">0 / 200 XP</span>
+                    </div>
+                    <div class="w-full h-3 bg-gray-700 rounded-full overflow-hidden">
+                        <div id="career-xp-bar" class="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                    <div class="flex items-center justify-between mt-2">
+                        <span id="career-current-level" class="text-xs text-gray-500">Lv.1 实习生</span>
+                        <span id="career-next-level" class="text-xs text-gray-500">下一级: Lv.2</span>
+                    </div>
+                </div>
+                
+                <!-- 统计数据 -->
+                <div id="career-stats" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white/5 rounded-xl p-3 text-center">
+                        <div id="career-stat-workstations" class="text-xl font-bold text-purple-400">0</div>
+                        <div class="text-xs text-gray-400">完成工位</div>
+                    </div>
+                    <div class="bg-white/5 rounded-xl p-3 text-center">
+                        <div id="career-stat-tasks" class="text-xl font-bold text-cyan-400">0</div>
+                        <div class="text-xs text-gray-400">完成任务</div>
+                    </div>
+                    <div class="bg-white/5 rounded-xl p-3 text-center">
+                        <div id="career-stat-time" class="text-xl font-bold text-emerald-400">0h</div>
+                        <div class="text-xs text-gray-400">学习时长</div>
+                    </div>
+                    <div class="bg-white/5 rounded-xl p-3 text-center">
+                        <div id="career-stat-achievements" class="text-xl font-bold text-amber-400">0</div>
+                        <div class="text-xs text-gray-400">获得成就</div>
+                    </div>
+                </div>
+                
                 <!-- 已获得勋章 -->
                 <div class="border-t border-gray-700 pt-6">
                     <h4 class="text-sm font-medium text-gray-400 mb-4">已获得勋章</h4>
-                    <div class="flex gap-4">
+                    <div id="career-badges" class="flex gap-4 flex-wrap">
+                        <!-- 勋章将通过JavaScript动态渲染 -->
                         <div class="text-center">
                             <div class="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center mb-1 badge">
                                 <i class="ri-drop-line text-xl"></i>
@@ -459,17 +591,512 @@
                     <button onclick="askQuestion('危险废物的腐蚀性如何判定？')" class="text-xs px-3 py-1 bg-gray-800 rounded-full hover:bg-gray-700 transition">腐蚀性判定</button>
                     <button onclick="askQuestion('浸出毒性鉴别的标准限值是多少？')" class="text-xs px-3 py-1 bg-gray-800 rounded-full hover:bg-gray-700 transition">浸出毒性限值</button>
                     <button onclick="askQuestion('采样方案设计需要考虑哪些因素？')" class="text-xs px-3 py-1 bg-gray-800 rounded-full hover:bg-gray-700 transition">采样方案设计</button>
+                    <button onclick="openStandardsBrowser()" class="text-xs px-3 py-1 bg-blue-800 rounded-full hover:bg-blue-700 transition flex items-center gap-1">
+                        <i class="ri-book-2-line"></i>
+                        浏览国标库
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- 国标浏览模态框 -->
+    <!-- Requirements: 6.2 - 按标准编号、发布日期、适用范围分类存储，创建标准浏览界面 -->
+    <div id="standards-browser-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
+        <div class="glass-card rounded-2xl w-full max-w-4xl mx-4 max-h-[85vh] flex flex-col">
+            <!-- 标题栏 -->
+            <div class="p-6 border-b border-gray-700 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                        <i class="ri-book-2-line text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold">国家标准知识库</h3>
+                        <p class="text-xs text-gray-400" id="standards-count">共 0 项标准</p>
+                    </div>
+                </div>
+                <button onclick="closeStandardsBrowser()" class="text-gray-400 hover:text-white">
+                    <i class="ri-close-line text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- 搜索和筛选栏 -->
+            <div class="p-4 border-b border-gray-700 bg-white/5">
+                <div class="flex gap-4 flex-wrap">
+                    <!-- 搜索框 -->
+                    <div class="flex-1 min-w-[200px]">
+                        <div class="relative">
+                            <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                            <input type="text" id="standards-search" placeholder="搜索标准编号、名称或适用范围..." 
+                                   class="w-full bg-gray-800 rounded-xl pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   oninput="filterStandards()">
+                        </div>
+                    </div>
+                    <!-- 分类筛选 -->
+                    <select id="standards-category-filter" class="bg-gray-800 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" onchange="filterStandards()">
+                        <option value="">全部分类</option>
+                        <option value="hazwaste">危险废物</option>
+                        <option value="water">水质监测</option>
+                        <option value="soil">土壤监测</option>
+                        <option value="air">大气监测</option>
+                        <option value="general">通用标准</option>
+                    </select>
+                    <!-- 排序方式 -->
+                    <select id="standards-sort" class="bg-gray-800 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" onchange="filterStandards()">
+                        <option value="category">按分类</option>
+                        <option value="id">按编号</option>
+                        <option value="publishDate">按发布日期</option>
+                        <option value="name">按名称</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- 分类统计 -->
+            <div class="p-4 border-b border-gray-700 bg-white/5">
+                <div id="category-stats" class="flex gap-3 flex-wrap">
+                    <!-- 分类统计将动态渲染 -->
+                </div>
+            </div>
+            
+            <!-- 标准列表 -->
+            <div class="flex-1 overflow-y-auto p-4" id="standards-list">
+                <!-- 标准列表将动态渲染 -->
+                <div class="text-center py-8 text-gray-400">
+                    <i class="ri-loader-4-line text-4xl animate-spin"></i>
+                    <p class="mt-4">正在加载标准库...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 标准详情模态框 -->
+    <div id="standard-detail-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] hidden items-center justify-center">
+        <div class="glass-card rounded-2xl w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col">
+            <!-- 标题栏 -->
+            <div class="p-6 border-b border-gray-700 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <button onclick="closeStandardDetail()" class="text-gray-400 hover:text-white">
+                        <i class="ri-arrow-left-line text-xl"></i>
+                    </button>
+                    <div>
+                        <h3 id="standard-detail-id" class="font-bold">GB XXXX-XXXX</h3>
+                        <p id="standard-detail-name" class="text-xs text-gray-400">标准名称</p>
+                    </div>
+                </div>
+                <button onclick="closeStandardDetail()" class="text-gray-400 hover:text-white">
+                    <i class="ri-close-line text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- 标准详情内容 -->
+            <div class="flex-1 overflow-y-auto p-6" id="standard-detail-content">
+                <!-- 详情内容将动态渲染 -->
+            </div>
+        </div>
+    </div>
+
+    <script src="js/virtual-station.js"></script>
     <script>
+        // ================= 工位界面控制器 =================
+        
+        // 当前用户信息
+        let currentUser = null;
+        let workstationService = null;
+        let careerService = null;
+        
+        // 颜色映射
+        const colorGradients = {
+            cyan: { from: 'from-blue-900', to: 'to-cyan-900', text: 'text-cyan-400', bg: 'bg-cyan-500', border: 'border-cyan-500/30' },
+            orange: { from: 'from-orange-900', to: 'to-red-900', text: 'text-orange-400', bg: 'bg-orange-500', border: 'border-orange-500/30' },
+            emerald: { from: 'from-green-900', to: 'to-emerald-900', text: 'text-emerald-400', bg: 'bg-emerald-500', border: 'border-emerald-500/30' },
+            purple: { from: 'from-purple-900', to: 'to-indigo-900', text: 'text-purple-400', bg: 'bg-purple-500', border: 'border-purple-500/30' },
+            pink: { from: 'from-pink-900', to: 'to-rose-900', text: 'text-pink-400', bg: 'bg-pink-500', border: 'border-pink-500/30' },
+            red: { from: 'from-red-900', to: 'to-amber-900', text: 'text-red-400', bg: 'bg-red-500', border: 'border-red-500/30' }
+        };
+        
+        // 工位图标映射
+        const workstationIcons = {
+            'env-monitoring': '🧪',
+            'hazwaste-lab': '☣️',
+            'sampling-center': '📍',
+            'data-center': '📈',
+            'instrument-room': '🔬',
+            'emergency-center': '🚨'
+        };
+        
+        // 页面初始化
+        document.addEventListener('DOMContentLoaded', async function() {
+            await initializePage();
+        });
+        
+        /**
+         * 初始化页面
+         */
+        async function initializePage() {
+            // 初始化虚拟工位平台
+            await VirtualStation.init();
+            
+            currentUser = VirtualStation.currentUser || { id: 'guest', name: '访客' };
+            workstationService = VirtualStation.workstationService;
+            careerService = VirtualStation.careerService;
+            
+            // 渲染工位列表
+            await renderWorkstationList();
+            
+            // 更新用户信息显示
+            await updateUserInfo();
+            
+            // 更新国标知识库统计
+            updateStandardsCount();
+            
+            console.log('✅ 虚拟工位页面初始化完成');
+        }
+        
+        /**
+         * 更新国标知识库统计显示
+         */
+        function updateStandardsCount() {
+            const countEl = document.getElementById('standards-total-count');
+            if (countEl && typeof KnowledgeBase !== 'undefined') {
+                const stats = KnowledgeBase.getCategoryStats();
+                const total = Object.values(stats).reduce((sum, s) => sum + s.count, 0);
+                countEl.textContent = `${total} 项标准`;
+            }
+        }
+        
+        /**
+         * 渲染工位列表
+         */
+        async function renderWorkstationList() {
+            const container = document.getElementById('workstation-grid');
+            if (!container) return;
+            
+            // 获取工位列表（含进度）
+            const workstations = await workstationService.getWorkstationListWithProgress(currentUser.id);
+            
+            container.innerHTML = workstations.map(ws => createWorkstationCard(ws)).join('');
+        }
+        
+        /**
+         * 创建工位卡片HTML
+         * @param {WorkstationInfo} workstation - 工位信息
+         * @returns {string} HTML字符串
+         */
+        function createWorkstationCard(workstation) {
+            const colors = colorGradients[workstation.color] || colorGradients.purple;
+            const icon = workstationIcons[workstation.id] || '📋';
+            const progress = workstation.progress || { progress: 0, completedTasks: 0, totalTasks: workstation.totalTasks, status: 'not_started' };
+            
+            // 状态标签
+            let statusBadge = '';
+            let statusText = '';
+            if (!workstation.isActive) {
+                statusBadge = `<div class="absolute top-4 right-4 px-3 py-1 bg-gray-500/20 rounded-full text-gray-400 text-xs border border-gray-500/30">即将开放</div>`;
+                statusText = '敬请期待';
+            } else if (workstation.mode) {
+                const modeColors = {
+                    '剧本杀模式': 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+                    '沙盒模式': 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                };
+                const modeColor = modeColors[workstation.mode] || 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+                statusBadge = `<div class="absolute top-4 right-4 px-3 py-1 ${modeColor} rounded-full text-xs border">${workstation.mode}</div>`;
+            } else if (progress.status === 'in_progress') {
+                statusBadge = `<div class="absolute top-4 right-4 px-3 py-1 bg-green-500/20 rounded-full text-green-400 text-xs border border-green-500/30">进行中</div>`;
+            } else if (progress.status === 'completed') {
+                statusBadge = `<div class="absolute top-4 right-4 px-3 py-1 bg-amber-500/20 rounded-full text-amber-400 text-xs border border-amber-500/30">已完成</div>`;
+            }
+            
+            // 进度显示
+            let progressDisplay = '';
+            if (!workstation.isActive) {
+                progressDisplay = `
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-gray-500">${statusText}</span>
+                        <i class="ri-lock-line text-gray-500"></i>
+                    </div>`;
+            } else {
+                const taskText = progress.status === 'not_started' ? '未开始' : `${progress.completedTasks}/${progress.totalTasks} 任务`;
+                progressDisplay = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-24 h-2 bg-gray-700 rounded-full overflow-hidden">
+                                <div class="h-full ${colors.bg} rounded-full" style="width: ${progress.progress}%"></div>
+                            </div>
+                            <span class="text-xs text-gray-400">${progress.progress}%</span>
+                        </div>
+                        <span class="text-xs ${colors.text}">${taskText}</span>
+                    </div>`;
+            }
+            
+            // 难度标签
+            const difficultyNames = { beginner: '入门', intermediate: '进阶', advanced: '高级' };
+            const difficultyName = difficultyNames[workstation.difficulty] || '进阶';
+            
+            // 点击处理
+            const clickHandler = workstation.isActive 
+                ? `onclick="enterWorkstation('${workstation.id}')"` 
+                : `onclick="showComingSoon()"`;
+            const opacityClass = workstation.isActive ? '' : 'opacity-60';
+            
+            return `
+                <div class="glass-card rounded-2xl overflow-hidden group cursor-pointer ${opacityClass}" ${clickHandler}>
+                    <div class="h-40 bg-gradient-to-br ${colors.from} ${colors.to} relative">
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <i class="${workstation.icon} text-6xl ${colors.text}/30 group-hover:${colors.text}/50 transition"></i>
+                        </div>
+                        ${statusBadge}
+                        <div class="absolute bottom-4 left-4 flex items-center gap-2">
+                            <span class="px-2 py-1 bg-black/30 rounded text-xs text-gray-300">${difficultyName}</span>
+                            <span class="px-2 py-1 bg-black/30 rounded text-xs text-gray-300">${workstation.estimatedTime}分钟</span>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h4 class="text-lg font-bold mb-2">${icon} ${workstation.name}</h4>
+                        <p class="text-gray-400 text-sm mb-4">${workstation.description}</p>
+                        ${progressDisplay}
+                    </div>
+                </div>
+            `;
+        }
+        
+        /**
+         * 更新用户信息显示
+         */
+        async function updateUserInfo() {
+            if (!currentUser || currentUser.id === 'guest') return;
+            
+            const profile = await careerService.getCareerProfile(currentUser.id);
+            if (!profile) return;
+            
+            // 更新等级显示
+            const levelBadge = document.querySelector('.flex.items-center.gap-2.bg-gradient-to-r');
+            if (levelBadge) {
+                levelBadge.innerHTML = `
+                    <i class="${profile.levelIcon || 'ri-medal-line'} text-amber-400"></i>
+                    <span class="text-amber-300 font-medium">${profile.levelTitleCN || '实习生'}</span>
+                    <span class="text-xs text-gray-400">Lv.${profile.level}</span>
+                `;
+            }
+            
+            // 更新经验值进度条
+            const xpProgress = profile.xpToNextLevel > 0 
+                ? Math.round((profile.currentXP / (profile.currentXP + profile.xpToNextLevel)) * 100) 
+                : 100;
+            const xpBar = document.querySelector('.w-32.h-2.bg-gray-700');
+            if (xpBar) {
+                xpBar.innerHTML = `<div class="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full" style="width: ${xpProgress}%"></div>`;
+            }
+            
+            // 更新欢迎信息
+            const welcomeTitle = document.querySelector('.text-3xl.font-bold');
+            if (welcomeTitle) {
+                welcomeTitle.innerHTML = `欢迎回到工位，<span class="text-purple-400">${profile.levelTitleCN || '实习生'}</span>`;
+            }
+            
+            // 更新总体进度统计
+            await updateOverallProgress();
+            
+            // 更新职业成长路径显示
+            await renderCareerGrowthSection(profile);
+        }
+        
+        /**
+         * 渲染职业成长路径区域
+         * Requirements: 7.3 - 显示当前等级、XP进度、距下一等级所需XP、统计数据
+         * @param {Object} profile - 职业档案
+         */
+        async function renderCareerGrowthSection(profile) {
+            if (!profile) return;
+            
+            // 获取详细展示数据
+            const displayData = await careerService.getProfileDisplayData(currentUser.id);
+            
+            // 更新XP进度条
+            const xpBar = document.getElementById('career-xp-bar');
+            const xpText = document.getElementById('career-xp-text');
+            const currentLevelText = document.getElementById('career-current-level');
+            const nextLevelText = document.getElementById('career-next-level');
+            
+            if (xpBar) {
+                xpBar.style.width = `${displayData.progressPercent}%`;
+            }
+            if (xpText) {
+                xpText.textContent = `${displayData.currentLevelXP} / ${displayData.xpNeededForLevel} XP`;
+            }
+            if (currentLevelText) {
+                currentLevelText.textContent = `Lv.${displayData.level} ${displayData.levelTitleCN}`;
+            }
+            if (nextLevelText) {
+                if (displayData.isMaxLevel) {
+                    nextLevelText.textContent = '已达最高等级！';
+                } else {
+                    nextLevelText.textContent = `下一级: Lv.${displayData.level + 1} (还需 ${displayData.xpToNextLevel} XP)`;
+                }
+            }
+            
+            // 更新统计数据
+            const statWorkstations = document.getElementById('career-stat-workstations');
+            const statTasks = document.getElementById('career-stat-tasks');
+            const statTime = document.getElementById('career-stat-time');
+            const statAchievements = document.getElementById('career-stat-achievements');
+            
+            if (statWorkstations) {
+                statWorkstations.textContent = displayData.stats.completedWorkstations;
+            }
+            if (statTasks) {
+                statTasks.textContent = displayData.stats.completedTasks;
+            }
+            if (statTime) {
+                const hours = Math.floor(displayData.stats.totalStudyTime / 60);
+                statTime.textContent = hours > 0 ? `${hours}h` : `${displayData.stats.totalStudyTime}m`;
+            }
+            if (statAchievements) {
+                statAchievements.textContent = displayData.stats.achievementCount;
+            }
+            
+            // 渲染勋章（如果有AchievementService）
+            if (VirtualStation.achievementService) {
+                await renderCareerBadges();
+            }
+        }
+        
+        /**
+         * 渲染已获得的勋章
+         */
+        async function renderCareerBadges() {
+            const container = document.getElementById('career-badges');
+            if (!container || !VirtualStation.achievementService) return;
+            
+            const achievements = await VirtualStation.achievementService.getAchievements(currentUser.id);
+            const unlocked = achievements.filter(a => a.isUnlocked);
+            const locked = achievements.filter(a => !a.isUnlocked).slice(0, 3); // 显示最多3个未解锁
+            
+            // 稀有度颜色映射
+            const rarityColors = {
+                common: 'from-gray-500 to-gray-600',
+                rare: 'from-blue-500 to-indigo-600',
+                epic: 'from-purple-500 to-pink-600',
+                legendary: 'from-amber-500 to-orange-600'
+            };
+            
+            let html = '';
+            
+            // 已解锁勋章
+            unlocked.forEach(achievement => {
+                const colors = rarityColors[achievement.rarity] || rarityColors.common;
+                html += `
+                    <div class="text-center cursor-pointer" onclick="showAchievementDetail('${achievement.id}')" title="${achievement.description}">
+                        <div class="w-12 h-12 bg-gradient-to-br ${colors} rounded-lg flex items-center justify-center mb-1 badge hover:scale-110 transition">
+                            <i class="${achievement.icon} text-xl"></i>
+                        </div>
+                        <span class="text-xs text-gray-400">${achievement.name}</span>
+                    </div>
+                `;
+            });
+            
+            // 未解锁勋章（显示问号）
+            locked.forEach(achievement => {
+                html += `
+                    <div class="text-center opacity-30" title="未解锁: ${achievement.name}">
+                        <div class="w-12 h-12 bg-gray-700 rounded-lg flex items-center justify-center mb-1 border border-dashed border-gray-600">
+                            <i class="ri-question-line text-xl text-gray-500"></i>
+                        </div>
+                        <span class="text-xs text-gray-500">???</span>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        /**
+         * 显示成就详情
+         * @param {string} achievementId - 成就ID
+         */
+        function showAchievementDetail(achievementId) {
+            // TODO: 实现成就详情弹窗
+            console.log('Show achievement detail:', achievementId);
+        }
+        
+        /**
+         * 更新总体进度统计显示
+         */
+        async function updateOverallProgress() {
+            if (!currentUser || currentUser.id === 'guest') return;
+            
+            const stats = await workstationService.getUserOverallProgress(currentUser.id);
+            
+            // 更新统计数字
+            const statWorkstations = document.getElementById('stat-workstations');
+            const statTasks = document.getElementById('stat-tasks');
+            const statProgress = document.getElementById('stat-progress');
+            const statTime = document.getElementById('stat-time');
+            
+            if (statWorkstations) {
+                statWorkstations.textContent = `${stats.completedWorkstations}/${stats.totalWorkstations}`;
+            }
+            if (statTasks) {
+                statTasks.textContent = `${stats.completedTasks}/${stats.totalTasks}`;
+            }
+            if (statProgress) {
+                statProgress.textContent = `${stats.overallProgress}%`;
+            }
+            if (statTime) {
+                const hours = Math.floor(stats.totalStudyTime / 60);
+                const minutes = stats.totalStudyTime % 60;
+                statTime.textContent = hours > 0 ? `${hours}h${minutes > 0 ? minutes + 'm' : ''}` : `${minutes}m`;
+            }
+            
+            // 更新欢迎副标题
+            const subtitle = document.getElementById('welcome-subtitle');
+            if (subtitle) {
+                const recentWorkstations = await workstationService.getRecentWorkstations(currentUser.id, 1);
+                if (recentWorkstations.length > 0) {
+                    const recent = recentWorkstations[0];
+                    subtitle.textContent = `继续学习：${recent.name} | 进度：${recent.progress.progress}%`;
+                } else if (stats.inProgressWorkstations > 0) {
+                    subtitle.textContent = `${stats.inProgressWorkstations} 个工位进行中 | 总进度：${stats.overallProgress}%`;
+                } else {
+                    subtitle.textContent = '选择一个工位开始你的实训之旅吧！';
+                }
+            }
+            
+            // 更新继续按钮状态
+            const btnContinue = document.getElementById('btn-continue');
+            if (btnContinue) {
+                const recentWorkstations = await workstationService.getRecentWorkstations(currentUser.id, 1);
+                if (recentWorkstations.length === 0) {
+                    btnContinue.classList.add('opacity-50');
+                    btnContinue.disabled = true;
+                } else {
+                    btnContinue.classList.remove('opacity-50');
+                    btnContinue.disabled = false;
+                }
+            }
+        }
+        
+        /**
+         * 继续上次任务
+         */
+        async function continueLastTask() {
+            if (!currentUser || currentUser.id === 'guest') {
+                alert('请先登录');
+                return;
+            }
+            
+            const recentWorkstations = await workstationService.getRecentWorkstations(currentUser.id, 1);
+            if (recentWorkstations.length > 0) {
+                enterWorkstation(recentWorkstations[0].id);
+            } else {
+                alert('没有进行中的任务，请选择一个工位开始');
+                enterModule('workstation');
+            }
+        }
+        
         // 进入功能模块
         function enterModule(module) {
             switch(module) {
                 case 'workstation':
-                    // 滚动到工位选择区域
                     document.querySelector('section:nth-of-type(3)').scrollIntoView({ behavior: 'smooth' });
                     break;
                 case 'analytics':
@@ -479,20 +1106,80 @@
                     openAITutor();
                     break;
                 case 'achievements':
-                    // 滚动到成就区域
                     document.querySelector('section:nth-of-type(4)').scrollIntoView({ behavior: 'smooth' });
                     break;
             }
         }
         
-        // 进入工位
-        function enterWorkstation(station) {
-            switch(station) {
-                case 'env-monitoring':
-                    alert('环境监测站工位正在开发中，敬请期待！');
-                    break;
-                default:
-                    alert('该工位正在开发中');
+        /**
+         * 进入工位
+         * @param {string} workstationId - 工位ID
+         */
+        async function enterWorkstation(workstationId) {
+            const workstation = PRESET_WORKSTATIONS.find(w => w.id === workstationId);
+            if (!workstation) {
+                alert('工位不存在');
+                return;
+            }
+            
+            // 检查等级要求
+            if (currentUser && currentUser.id !== 'guest') {
+                const profile = await careerService.getCareerProfile(currentUser.id);
+                if (profile && profile.level < workstation.requiredLevel) {
+                    alert(`需要达到 Lv.${workstation.requiredLevel} 才能进入此工位！\n当前等级：Lv.${profile.level}`);
+                    return;
+                }
+            }
+            
+            // 如果有独立页面链接，跳转
+            if (workstation.linkUrl) {
+                location.href = workstation.linkUrl;
+                return;
+            }
+            
+            // 否则显示工位详情/任务列表
+            showWorkstationDetail(workstation);
+        }
+        
+        /**
+         * 显示工位详情
+         * @param {Workstation} workstation - 工位数据
+         */
+        async function showWorkstationDetail(workstation) {
+            // 创建会话
+            if (currentUser && currentUser.id !== 'guest') {
+                await workstationService.enterWorkstation(currentUser.id, workstation.id);
+            }
+            
+            // 获取进度
+            const progress = currentUser 
+                ? await workstationService.getWorkstationProgress(currentUser.id, workstation.id)
+                : { progress: 0, completedTasks: 0, totalTasks: workstation.totalTasks };
+            
+            // 显示工位详情模态框
+            const modal = document.getElementById('workstation-detail-modal');
+            if (modal) {
+                document.getElementById('ws-detail-name').textContent = workstation.name;
+                document.getElementById('ws-detail-desc').textContent = workstation.description;
+                document.getElementById('ws-detail-progress').textContent = `${progress.completedTasks || 0}/${progress.totalTasks || workstation.totalTasks} 任务完成`;
+                document.getElementById('ws-detail-xp').textContent = `+${workstation.xpReward} XP`;
+                
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            } else {
+                // 如果没有模态框，显示简单提示
+                alert(`进入工位：${workstation.name}\n\n${workstation.description}\n\n任务进度：${progress.completedTasks || 0}/${progress.totalTasks || workstation.totalTasks}\n完成奖励：${workstation.xpReward} XP\n\n（工位任务系统开发中）`);
+            }
+        }
+        
+        /**
+         * 关闭工位详情
+         */
+        function closeWorkstationDetail() {
+            const modal = document.getElementById('workstation-detail-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
             }
         }
         
@@ -524,7 +1211,6 @@
             
             const messagesContainer = document.getElementById('chat-messages');
             
-            // 添加用户消息
             messagesContainer.innerHTML += `
                 <div class="flex gap-3 justify-end">
                     <div class="bg-purple-600 rounded-2xl rounded-tr-none p-4 max-w-md">
@@ -538,7 +1224,6 @@
             
             input.value = '';
             
-            // 模拟AI回复
             setTimeout(() => {
                 let response = '';
                 if (question.includes('腐蚀性')) {
@@ -572,6 +1257,975 @@
                 sendToAI();
             }
         });
+        
+        // ================= 国标浏览器 (Requirements: 6.2) =================
+        
+        /**
+         * 打开国标浏览器
+         */
+        function openStandardsBrowser() {
+            const modal = document.getElementById('standards-browser-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            // 加载标准数据
+            renderStandardsBrowser();
+        }
+        
+        /**
+         * 关闭国标浏览器
+         */
+        function closeStandardsBrowser() {
+            const modal = document.getElementById('standards-browser-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+        
+        /**
+         * 渲染国标浏览器内容
+         */
+        function renderStandardsBrowser() {
+            const searchKeyword = document.getElementById('standards-search')?.value || '';
+            const category = document.getElementById('standards-category-filter')?.value || '';
+            const sortBy = document.getElementById('standards-sort')?.value || 'category';
+            
+            // 获取浏览数据
+            const browseData = KnowledgeBase.getStandardsBrowseData({
+                searchKeyword,
+                category,
+                sortBy,
+                sortOrder: 'asc'
+            });
+            
+            // 更新统计
+            document.getElementById('standards-count').textContent = `共 ${browseData.totalCount} 项标准`;
+            
+            // 渲染分类统计
+            renderCategoryStats(browseData.categoryStats);
+            
+            // 渲染标准列表
+            renderStandardsList(browseData.categories);
+        }
+        
+        /**
+         * 渲染分类统计
+         */
+        function renderCategoryStats(stats) {
+            const container = document.getElementById('category-stats');
+            if (!container) return;
+            
+            const categoryColors = {
+                hazwaste: { bg: 'bg-orange-500/20', text: 'text-orange-400', border: 'border-orange-500/30' },
+                water: { bg: 'bg-cyan-500/20', text: 'text-cyan-400', border: 'border-cyan-500/30' },
+                soil: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/30' },
+                air: { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30' },
+                general: { bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border-purple-500/30' },
+                custom: { bg: 'bg-gray-500/20', text: 'text-gray-400', border: 'border-gray-500/30' }
+            };
+            
+            container.innerHTML = Object.entries(stats).map(([key, stat]) => {
+                const colors = categoryColors[key] || categoryColors.custom;
+                return `
+                    <button onclick="filterByCategory('${key}')" 
+                            class="px-3 py-1 ${colors.bg} ${colors.text} border ${colors.border} rounded-full text-xs hover:opacity-80 transition flex items-center gap-1">
+                        <span>${stat.name}</span>
+                        <span class="font-bold">${stat.count}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+        
+        /**
+         * 按分类筛选
+         */
+        function filterByCategory(category) {
+            const select = document.getElementById('standards-category-filter');
+            if (select) {
+                select.value = category;
+                filterStandards();
+            }
+        }
+        
+        /**
+         * 筛选标准
+         */
+        function filterStandards() {
+            renderStandardsBrowser();
+        }
+        
+        /**
+         * 渲染标准列表
+         */
+        function renderStandardsList(categories) {
+            const container = document.getElementById('standards-list');
+            if (!container) return;
+            
+            if (categories.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-400">
+                        <i class="ri-file-search-line text-4xl"></i>
+                        <p class="mt-4">未找到匹配的标准</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const categoryIcons = {
+                hazwaste: 'ri-skull-line',
+                water: 'ri-drop-line',
+                soil: 'ri-plant-line',
+                air: 'ri-cloud-line',
+                general: 'ri-file-list-3-line',
+                custom: 'ri-file-add-line'
+            };
+            
+            const categoryColors = {
+                hazwaste: 'text-orange-400',
+                water: 'text-cyan-400',
+                soil: 'text-emerald-400',
+                air: 'text-blue-400',
+                general: 'text-purple-400',
+                custom: 'text-gray-400'
+            };
+            
+            container.innerHTML = categories.map(cat => `
+                <div class="mb-6">
+                    <h4 class="text-sm font-medium ${categoryColors[cat.category] || 'text-gray-400'} mb-3 flex items-center gap-2">
+                        <i class="${categoryIcons[cat.category] || 'ri-file-list-3-line'}"></i>
+                        ${cat.categoryName}
+                        <span class="text-gray-500">(${cat.standards.length})</span>
+                    </h4>
+                    <div class="space-y-2">
+                        ${cat.standards.map(std => `
+                            <div onclick="showStandardDetail('${std.id}')" 
+                                 class="bg-white/5 hover:bg-white/10 rounded-xl p-4 cursor-pointer transition group">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span class="font-mono text-sm font-medium text-white">${std.id}</span>
+                                            <span class="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded">${std.statusName}</span>
+                                        </div>
+                                        <p class="text-sm text-gray-300 mb-2">${std.name}</p>
+                                        <div class="flex items-center gap-4 text-xs text-gray-500">
+                                            <span><i class="ri-calendar-line mr-1"></i>发布：${std.publishDate}</span>
+                                            <span><i class="ri-file-text-line mr-1"></i>${std.clauseCount} 条款</span>
+                                            <span class="truncate max-w-[200px]"><i class="ri-focus-3-line mr-1"></i>${std.scope}</span>
+                                        </div>
+                                    </div>
+                                    <i class="ri-arrow-right-s-line text-gray-500 group-hover:text-white transition"></i>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        /**
+         * 显示标准详情
+         */
+        function showStandardDetail(standardId) {
+            const detail = KnowledgeBase.getStandardDetail(standardId);
+            if (!detail) {
+                alert('未找到该标准的详细信息');
+                return;
+            }
+            
+            const modal = document.getElementById('standard-detail-modal');
+            document.getElementById('standard-detail-id').textContent = detail.id;
+            document.getElementById('standard-detail-name').textContent = detail.name;
+            
+            const categoryColors = {
+                hazwaste: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+                water: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+                soil: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+                air: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+                general: 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+            };
+            const catColor = categoryColors[detail.category] || 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+            
+            const content = document.getElementById('standard-detail-content');
+            content.innerHTML = `
+                <!-- 基本信息 -->
+                <div class="mb-6">
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        <span class="px-3 py-1 ${catColor} border rounded-full text-xs">${detail.categoryName}</span>
+                        <span class="px-3 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded-full text-xs">${detail.statusName}</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div class="bg-white/5 rounded-xl p-3">
+                            <div class="text-gray-500 text-xs mb-1">发布日期</div>
+                            <div class="text-white">${detail.publishDate}</div>
+                        </div>
+                        <div class="bg-white/5 rounded-xl p-3">
+                            <div class="text-gray-500 text-xs mb-1">实施日期</div>
+                            <div class="text-white">${detail.implementationDate}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 适用范围 -->
+                <div class="mb-6">
+                    <h4 class="text-sm font-medium text-blue-400 mb-2 flex items-center gap-2">
+                        <i class="ri-focus-3-line"></i>
+                        适用范围
+                    </h4>
+                    <div class="bg-white/5 rounded-xl p-4 text-sm text-gray-300">
+                        ${detail.scope || '未指定'}
+                    </div>
+                </div>
+                
+                ${detail.abstract ? `
+                <!-- 摘要 -->
+                <div class="mb-6">
+                    <h4 class="text-sm font-medium text-purple-400 mb-2 flex items-center gap-2">
+                        <i class="ri-file-text-line"></i>
+                        摘要
+                    </h4>
+                    <div class="bg-white/5 rounded-xl p-4 text-sm text-gray-300">
+                        ${detail.abstract}
+                    </div>
+                </div>
+                ` : ''}
+                
+                <!-- 条款内容 -->
+                <div class="mb-6">
+                    <h4 class="text-sm font-medium text-emerald-400 mb-2 flex items-center gap-2">
+                        <i class="ri-list-ordered"></i>
+                        条款内容
+                        <span class="text-gray-500">(${detail.clauses.length})</span>
+                    </h4>
+                    <div class="space-y-2">
+                        ${detail.clauses.length > 0 ? detail.clauses.map(clause => `
+                            <div class="bg-white/5 rounded-xl p-3">
+                                <div class="flex items-start gap-3">
+                                    <span class="px-2 py-0.5 bg-gray-700 rounded text-xs font-mono text-gray-300 flex-shrink-0">
+                                        ${clause.id}
+                                    </span>
+                                    <p class="text-sm text-gray-300">${clause.content}</p>
+                                </div>
+                            </div>
+                        `).join('') : '<p class="text-gray-500 text-sm">暂无条款内容</p>'}
+                    </div>
+                </div>
+                
+                ${detail.relatedStandards && detail.relatedStandards.length > 0 ? `
+                <!-- 相关标准 -->
+                <div class="mb-6">
+                    <h4 class="text-sm font-medium text-amber-400 mb-2 flex items-center gap-2">
+                        <i class="ri-links-line"></i>
+                        相关标准
+                    </h4>
+                    <div class="flex flex-wrap gap-2">
+                        ${detail.relatedStandards.map(std => `
+                            <button onclick="showStandardDetail('${std}')" 
+                                    class="px-3 py-1 bg-white/5 hover:bg-white/10 rounded-full text-xs text-gray-300 transition">
+                                ${std}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+                
+                ${detail.sourceUrl ? `
+                <!-- 来源链接 -->
+                <div class="mt-6 pt-4 border-t border-gray-700">
+                    <a href="${detail.sourceUrl}" target="_blank" 
+                       class="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1">
+                        <i class="ri-external-link-line"></i>
+                        查看原文
+                    </a>
+                </div>
+                ` : ''}
+            `;
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+        
+        /**
+         * 关闭标准详情
+         */
+        function closeStandardDetail() {
+            const modal = document.getElementById('standard-detail-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+        
+        // ================= 任务流管理 =================
+        
+        // 当前选中的工位和任务
+        let currentWorkstationId = null;
+        let currentTaskId = null;
+        let currentExecution = null;
+        let taskTimer = null;
+        let taskStartTime = null;
+        
+        /**
+         * 显示工位详情（增强版，包含任务列表）
+         */
+        async function showWorkstationDetail(workstation) {
+            currentWorkstationId = workstation.id;
+            
+            // 创建会话
+            if (currentUser && currentUser.id !== 'guest') {
+                await workstationService.enterWorkstation(currentUser.id, workstation.id);
+            }
+            
+            // 获取进度
+            const progress = currentUser 
+                ? await workstationService.getWorkstationProgress(currentUser.id, workstation.id)
+                : { progress: 0, completedTasks: 0, totalTasks: workstation.totalTasks };
+            
+            // 获取任务列表
+            const tasks = await VirtualStation.taskFlowService.getTaskList(workstation.id);
+            
+            // 渲染任务列表
+            const taskListContainer = document.getElementById('ws-task-list');
+            if (taskListContainer && tasks.length > 0) {
+                taskListContainer.innerHTML = tasks.map((task, index) => `
+                    <div class="bg-white/5 rounded-xl p-4 hover:bg-white/10 transition cursor-pointer" onclick="showTaskBrief('${task.id}')">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center text-purple-400 font-bold text-sm">
+                                    ${index + 1}
+                                </div>
+                                <div>
+                                    <h5 class="font-medium text-sm">${task.name}</h5>
+                                    <p class="text-xs text-gray-500">${task.stages ? task.stages.length : 0} 个阶段 · +${task.xpReward} XP</p>
+                                </div>
+                            </div>
+                            <i class="ri-arrow-right-s-line text-gray-500"></i>
+                        </div>
+                    </div>
+                `).join('');
+            } else if (taskListContainer) {
+                taskListContainer.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">暂无任务</p>';
+            }
+            
+            // 显示工位详情模态框
+            const modal = document.getElementById('workstation-detail-modal');
+            if (modal) {
+                document.getElementById('ws-detail-name').textContent = workstation.name;
+                document.getElementById('ws-detail-desc').textContent = workstation.description;
+                document.getElementById('ws-detail-progress').textContent = `${progress.completedTasks || 0}/${progress.totalTasks || workstation.totalTasks} 任务完成`;
+                document.getElementById('ws-detail-xp').textContent = `+${workstation.xpReward} XP`;
+                
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        }
+        
+        /**
+         * 显示任务简报
+         * @param {string} taskId 任务ID
+         */
+        async function showTaskBrief(taskId) {
+            currentTaskId = taskId;
+            const task = await VirtualStation.taskFlowService.getTask(taskId);
+            
+            if (!task) {
+                alert('任务不存在');
+                return;
+            }
+            
+            const brief = task.taskBrief;
+            
+            // 填充任务简报内容
+            document.getElementById('task-brief-title').textContent = task.name;
+            document.getElementById('task-brief-subtitle').textContent = task.description;
+            document.getElementById('task-brief-background').textContent = brief.background;
+            document.getElementById('task-brief-xp').textContent = `+${task.xpReward} XP`;
+            
+            // 渲染目标列表
+            const objectivesContainer = document.getElementById('task-brief-objectives');
+            objectivesContainer.innerHTML = brief.objectives.map(obj => `
+                <li class="flex items-start gap-2 bg-white/5 rounded-lg p-3">
+                    <i class="ri-checkbox-blank-circle-line text-cyan-400 mt-0.5"></i>
+                    <span class="text-gray-300 text-sm">${obj}</span>
+                </li>
+            `).join('');
+            
+            // 渲染要求列表
+            const requirementsContainer = document.getElementById('task-brief-requirements');
+            requirementsContainer.innerHTML = brief.requirements.map(req => `
+                <li class="flex items-start gap-2 bg-white/5 rounded-lg p-3">
+                    <i class="ri-alert-line text-emerald-400 mt-0.5"></i>
+                    <span class="text-gray-300 text-sm">${req}</span>
+                </li>
+            `).join('');
+            
+            // 处理截止时间
+            const deadlineSection = document.getElementById('task-brief-deadline-section');
+            if (brief.deadline) {
+                deadlineSection.classList.remove('hidden');
+                document.getElementById('task-brief-deadline').textContent = new Date(brief.deadline).toLocaleString('zh-CN');
+            } else {
+                deadlineSection.classList.add('hidden');
+            }
+            
+            // 关闭工位详情，显示任务简报
+            closeWorkstationDetail();
+            
+            const modal = document.getElementById('task-brief-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+        
+        /**
+         * 关闭任务简报
+         */
+        function closeTaskBrief() {
+            const modal = document.getElementById('task-brief-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+        
+        /**
+         * 接受当前任务
+         */
+        async function acceptCurrentTask() {
+            if (!currentTaskId) return;
+            
+            const userId = currentUser?.id || 'guest';
+            
+            // 创建会话
+            const session = await workstationService.enterWorkstation(userId, currentWorkstationId);
+            
+            // 开始任务
+            currentExecution = await VirtualStation.taskFlowService.startTask(session.id, currentTaskId);
+            
+            // 接受任务（完成第一阶段）
+            await VirtualStation.taskFlowService.acceptTask(currentExecution.id);
+            
+            // 关闭任务简报
+            closeTaskBrief();
+            
+            // 打开任务执行界面
+            openTaskExecution();
+        }
+        
+        /**
+         * 打开任务执行界面
+         */
+        async function openTaskExecution() {
+            if (!currentExecution) return;
+            
+            const task = await VirtualStation.taskFlowService.getTask(currentExecution.taskId);
+            if (!task) return;
+            
+            // 设置任务名称
+            document.getElementById('exec-task-name').textContent = task.name;
+            
+            // 渲染阶段进度指示器
+            renderStageProgress(task.stages, currentExecution.currentStageIndex);
+            
+            // 渲染当前阶段内容
+            await renderCurrentStage();
+            
+            // 启动计时器
+            startTaskTimer();
+            
+            // 显示执行界面
+            const modal = document.getElementById('task-execution-modal');
+            modal.classList.remove('hidden');
+        }
+        
+        /**
+         * 渲染阶段进度指示器
+         */
+        function renderStageProgress(stages, currentIndex) {
+            const container = document.getElementById('exec-stage-progress');
+            container.innerHTML = stages.map((stage, index) => {
+                let statusClass = '';
+                let iconClass = '';
+                
+                if (index < currentIndex) {
+                    statusClass = 'bg-emerald-500';
+                    iconClass = 'ri-check-line';
+                } else if (index === currentIndex) {
+                    statusClass = 'bg-purple-500 ring-4 ring-purple-500/30';
+                    iconClass = 'ri-loader-4-line animate-spin';
+                } else {
+                    statusClass = 'bg-gray-700';
+                    iconClass = 'ri-lock-line';
+                }
+                
+                return `
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 ${statusClass} rounded-full flex items-center justify-center text-white text-xs">
+                            <i class="${iconClass}"></i>
+                        </div>
+                        ${index < stages.length - 1 ? `<div class="w-8 h-1 ${index < currentIndex ? 'bg-emerald-500' : 'bg-gray-700'}"></div>` : ''}
+                    </div>
+                `;
+            }).join('');
+            
+            // 更新阶段指示器文本
+            document.getElementById('exec-stage-indicator').textContent = `阶段 ${currentIndex + 1}/${stages.length}`;
+        }
+        
+        /**
+         * 渲染当前阶段内容
+         */
+        async function renderCurrentStage() {
+            if (!currentExecution) return;
+            
+            const task = await VirtualStation.taskFlowService.getTask(currentExecution.taskId);
+            const stage = task.stages[currentExecution.currentStageIndex];
+            
+            if (!stage) {
+                // 所有阶段完成
+                renderTaskComplete(task);
+                return;
+            }
+            
+            const container = document.getElementById('exec-stage-content');
+            const stageTypeName = StageTypeNames[stage.type] || stage.type;
+            
+            let contentHtml = `
+                <div class="mb-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                            <i class="${getStageIcon(stage.type)} text-purple-400 text-xl"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold">${stage.name}</h4>
+                            <p class="text-xs text-gray-400">${stageTypeName}</p>
+                        </div>
+                    </div>
+                    <p class="text-gray-300 text-sm mb-6">${stage.instructions}</p>
+                </div>
+            `;
+            
+            // 根据阶段类型渲染不同的表单
+            if (stage.template && stage.template.fields) {
+                // 获取预填充数据和字段提示
+                let prefilled = {};
+                let fieldHints = {};
+                
+                // 获取前置阶段数据（用于记录填写和报告生成阶段）
+                const planStage = task.stages.find(s => s.type === StageType.PLAN_DESIGN);
+                const planData = planStage && currentExecution.stageData[planStage.id]?.data;
+                
+                if (stage.type === StageType.RECORD_FILLING) {
+                    // 记录填写阶段：使用generateRecordTemplate生成预填充数据
+                    const recordTemplate = await VirtualStation.taskFlowService.generateRecordTemplate(
+                        task.id, 
+                        planData || {},
+                        { userId: localStorage.getItem('my_id') }
+                    );
+                    if (recordTemplate) {
+                        prefilled = recordTemplate.prefilled || {};
+                        fieldHints = recordTemplate.fieldHints || {};
+                    }
+                } else if (stage.type === StageType.REPORT_GENERATION) {
+                    // 报告生成阶段：使用generateReportTemplate生成预填充数据
+                    const reportTemplate = await VirtualStation.taskFlowService.generateReportTemplate(
+                        task.id,
+                        currentExecution.stageData || {}
+                    );
+                    if (reportTemplate) {
+                        prefilled = reportTemplate.prefilled || {};
+                    }
+                }
+                
+                contentHtml += renderStageForm(stage, prefilled, fieldHints);
+            } else if (stage.type === StageType.OPERATION && stage.simulation) {
+                contentHtml += renderSimulationPlaceholder(stage);
+            }
+            
+            container.innerHTML = contentHtml;
+            
+            // 更新按钮状态
+            updateNavigationButtons(task.stages, currentExecution.currentStageIndex);
+        }
+        
+        /**
+         * 获取阶段图标
+         */
+        function getStageIcon(stageType) {
+            const icons = {
+                [StageType.TASK_RECEIPT]: 'ri-file-list-3-line',
+                [StageType.PLAN_DESIGN]: 'ri-draft-line',
+                [StageType.OPERATION]: 'ri-tools-line',
+                [StageType.RECORD_FILLING]: 'ri-edit-line',
+                [StageType.REPORT_GENERATION]: 'ri-file-chart-line',
+                [StageType.SIMULATION]: 'ri-gamepad-line'
+            };
+            return icons[stageType] || 'ri-checkbox-circle-line';
+        }
+        
+        /**
+         * 渲染阶段表单
+         * @param {Object} stage - 阶段对象
+         * @param {Object} [prefilled] - 预填充数据
+         * @param {Object} [fieldHints] - 字段提示信息
+         */
+        function renderStageForm(stage, prefilled = {}, fieldHints = {}) {
+            const fields = stage.template.fields;
+            
+            let formHtml = '<form id="stage-form" class="space-y-4">';
+            
+            for (const field of fields) {
+                const isRequired = stage.requiredFields?.includes(field.name);
+                const requiredMark = isRequired ? '<span class="text-red-400">*</span>' : '';
+                const prefilledValue = prefilled[field.name] || '';
+                const hint = fieldHints[field.name] || '';
+                
+                formHtml += `<div class="space-y-2">`;
+                formHtml += `<label class="text-sm font-medium text-gray-300">${field.label} ${requiredMark}</label>`;
+                
+                // 显示字段提示（如果有）
+                if (hint) {
+                    formHtml += `<p class="text-xs text-gray-500 flex items-center gap-1"><i class="ri-information-line"></i>${hint}</p>`;
+                }
+                
+                switch (field.type) {
+                    case 'textarea':
+                        formHtml += `<textarea name="${field.name}" class="w-full bg-white/5 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 min-h-[100px]" placeholder="请输入${field.label}">${escapeHtml(prefilledValue)}</textarea>`;
+                        break;
+                    case 'select':
+                        formHtml += `<select name="${field.name}" class="w-full bg-white/5 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">`;
+                        formHtml += `<option value="">请选择${field.label}</option>`;
+                        for (const opt of (field.options || [])) {
+                            const selected = prefilledValue === opt ? 'selected' : '';
+                            formHtml += `<option value="${opt}" ${selected}>${opt}</option>`;
+                        }
+                        formHtml += `</select>`;
+                        break;
+                    case 'number':
+                        formHtml += `<input type="number" name="${field.name}" value="${escapeHtml(prefilledValue)}" class="w-full bg-white/5 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" placeholder="请输入${field.label}">`;
+                        break;
+                    case 'date':
+                        formHtml += `<input type="date" name="${field.name}" value="${escapeHtml(prefilledValue)}" class="w-full bg-white/5 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">`;
+                        break;
+                    case 'time':
+                        formHtml += `<input type="time" name="${field.name}" value="${escapeHtml(prefilledValue)}" class="w-full bg-white/5 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">`;
+                        break;
+                    default:
+                        formHtml += `<input type="text" name="${field.name}" value="${escapeHtml(prefilledValue)}" class="w-full bg-white/5 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" placeholder="请输入${field.label}">`;
+                }
+                
+                formHtml += `</div>`;
+            }
+            
+            formHtml += '</form>';
+            return formHtml;
+        }
+        
+        /**
+         * HTML转义函数
+         */
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        /**
+         * 渲染仿真占位符
+         */
+        function renderSimulationPlaceholder(stage) {
+            return `
+                <div class="bg-white/5 rounded-xl p-8 text-center">
+                    <i class="ri-gamepad-line text-6xl text-purple-400/50 mb-4"></i>
+                    <h5 class="font-medium mb-2">虚拟仿真模块</h5>
+                    <p class="text-gray-400 text-sm mb-4">此阶段需要进行虚拟仿真操作</p>
+                    <button onclick="completeSimulation()" class="px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl font-medium hover:from-purple-600 hover:to-indigo-700 transition">
+                        模拟完成操作
+                    </button>
+                </div>
+            `;
+        }
+        
+        /**
+         * 更新导航按钮状态
+         */
+        function updateNavigationButtons(stages, currentIndex) {
+            const prevBtn = document.getElementById('exec-prev-btn');
+            const nextBtn = document.getElementById('exec-next-btn');
+            
+            // 上一步按钮（第一阶段隐藏）
+            if (currentIndex > 0) {
+                prevBtn.classList.remove('hidden');
+            } else {
+                prevBtn.classList.add('hidden');
+            }
+            
+            // 下一步按钮文本
+            if (currentIndex >= stages.length - 1) {
+                nextBtn.innerHTML = '<i class="ri-check-line"></i> 完成任务';
+            } else {
+                nextBtn.innerHTML = '下一步 <i class="ri-arrow-right-line"></i>';
+            }
+        }
+        
+        /**
+         * 提交当前阶段
+         */
+        async function submitCurrentStage() {
+            if (!currentExecution) return;
+            
+            const task = await VirtualStation.taskFlowService.getTask(currentExecution.taskId);
+            const stage = task.stages[currentExecution.currentStageIndex];
+            
+            if (!stage) {
+                // 完成任务
+                await completeCurrentTask();
+                return;
+            }
+            
+            // 收集表单数据
+            const form = document.getElementById('stage-form');
+            let formData = {};
+            
+            if (form) {
+                const formElements = form.elements;
+                for (let i = 0; i < formElements.length; i++) {
+                    const element = formElements[i];
+                    if (element.name) {
+                        formData[element.name] = element.value;
+                    }
+                }
+            } else {
+                // 仿真阶段或无表单阶段
+                formData = { operationCompleted: true };
+            }
+            
+            // 对报告生成阶段使用增强验证
+            let result;
+            if (stage.type === StageType.REPORT_GENERATION) {
+                // 获取前置阶段数据用于一致性检查
+                const planStage = task.stages.find(s => s.type === StageType.PLAN_DESIGN);
+                const recordStage = task.stages.find(s => s.type === StageType.RECORD_FILLING);
+                const previousStageData = {
+                    planData: planStage && currentExecution.stageData[planStage.id]?.data,
+                    recordData: recordStage && currentExecution.stageData[recordStage.id]?.data
+                };
+                
+                // 使用增强的报告格式验证
+                result = await VirtualStation.taskFlowService.validateReportFormat(
+                    formData, 
+                    task.id, 
+                    previousStageData
+                );
+                
+                // 显示警告信息（如果有）
+                if (result.warnings && result.warnings.length > 0) {
+                    const warningMsg = '提示：\n' + result.warnings.join('\n');
+                    console.log(warningMsg);
+                    // 警告不阻止提交，只是提示
+                }
+                
+                // 如果验证通过，继续提交
+                if (result.valid) {
+                    result = await VirtualStation.taskFlowService.submitStage(
+                        currentExecution.id,
+                        stage.id,
+                        formData
+                    );
+                }
+            } else {
+                // 其他阶段使用标准提交
+                result = await VirtualStation.taskFlowService.submitStage(
+                    currentExecution.id,
+                    stage.id,
+                    formData
+                );
+            }
+            
+            if (!result.valid) {
+                // 显示错误
+                showValidationErrors(result.errors, result.warnings);
+                return;
+            }
+            
+            // 更新执行记录
+            currentExecution = VirtualStation.taskFlowService.getCurrentExecution();
+            
+            // 检查是否完成所有阶段
+            if (currentExecution.currentStageIndex >= task.stages.length) {
+                await completeCurrentTask();
+            } else {
+                // 渲染下一阶段
+                renderStageProgress(task.stages, currentExecution.currentStageIndex);
+                await renderCurrentStage();
+            }
+        }
+        
+        /**
+         * 显示验证错误和警告
+         */
+        function showValidationErrors(errors, warnings) {
+            let message = '';
+            
+            if (errors && errors.length > 0) {
+                message += '❌ 错误：\n' + errors.join('\n');
+            }
+            
+            if (warnings && warnings.length > 0) {
+                if (message) message += '\n\n';
+                message += '⚠️ 警告：\n' + warnings.join('\n');
+            }
+            
+            alert(message || '提交失败，请检查填写内容');
+        }
+        
+        /**
+         * 完成仿真操作
+         */
+        async function completeSimulation() {
+            await submitCurrentStage();
+        }
+        
+        /**
+         * 完成当前任务
+         */
+        async function completeCurrentTask() {
+            if (!currentExecution) return;
+            
+            const result = await VirtualStation.taskFlowService.completeTask(currentExecution.id);
+            
+            // 停止计时器
+            stopTaskTimer();
+            
+            // 显示完成界面
+            const task = await VirtualStation.taskFlowService.getTask(currentExecution.taskId);
+            renderTaskComplete(task, result);
+        }
+        
+        /**
+         * 渲染任务完成界面
+         */
+        function renderTaskComplete(task, result) {
+            const container = document.getElementById('exec-stage-content');
+            const duration = result ? formatDuration(result.duration) : '00:00';
+            const score = result ? result.score : 0;
+            const passed = result ? result.passed : false;
+            
+            container.innerHTML = `
+                <div class="text-center py-8">
+                    <div class="w-20 h-20 mx-auto mb-6 bg-gradient-to-br ${passed ? 'from-emerald-500 to-teal-600' : 'from-amber-500 to-orange-600'} rounded-full flex items-center justify-center">
+                        <i class="${passed ? 'ri-check-line' : 'ri-close-line'} text-4xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-2">${passed ? '任务完成！' : '任务未通过'}</h3>
+                    <p class="text-gray-400 mb-8">${passed ? '恭喜你完成了本次实训任务' : '请继续努力，再接再厉'}</p>
+                    
+                    <div class="grid grid-cols-3 gap-4 mb-8">
+                        <div class="bg-white/5 rounded-xl p-4">
+                            <div class="text-2xl font-bold text-purple-400">${score}</div>
+                            <div class="text-xs text-gray-400">得分</div>
+                        </div>
+                        <div class="bg-white/5 rounded-xl p-4">
+                            <div class="text-2xl font-bold text-cyan-400">${duration}</div>
+                            <div class="text-xs text-gray-400">用时</div>
+                        </div>
+                        <div class="bg-white/5 rounded-xl p-4">
+                            <div class="text-2xl font-bold text-amber-400">+${task.xpReward}</div>
+                            <div class="text-xs text-gray-400">经验值</div>
+                        </div>
+                    </div>
+                    
+                    <button onclick="exitTaskExecution()" class="px-8 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl font-medium hover:from-purple-600 hover:to-indigo-700 transition">
+                        返回工位
+                    </button>
+                </div>
+            `;
+            
+            // 隐藏导航按钮
+            document.getElementById('exec-prev-btn').classList.add('hidden');
+            document.getElementById('exec-next-btn').classList.add('hidden');
+            document.getElementById('exec-hint-btn').classList.add('hidden');
+        }
+        
+        /**
+         * 退出任务执行
+         */
+        function exitTaskExecution() {
+            stopTaskTimer();
+            currentExecution = null;
+            
+            const modal = document.getElementById('task-execution-modal');
+            modal.classList.add('hidden');
+            
+            // 刷新工位列表
+            renderWorkstationList();
+        }
+        
+        /**
+         * 启动任务计时器
+         */
+        function startTaskTimer() {
+            taskStartTime = Date.now();
+            taskTimer = setInterval(() => {
+                const elapsed = Date.now() - taskStartTime;
+                document.getElementById('exec-timer').textContent = formatDuration(elapsed);
+            }, 1000);
+        }
+        
+        /**
+         * 停止任务计时器
+         */
+        function stopTaskTimer() {
+            if (taskTimer) {
+                clearInterval(taskTimer);
+                taskTimer = null;
+            }
+        }
+        
+        /**
+         * 格式化时长
+         */
+        function formatDuration(ms) {
+            const seconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            
+            if (hours > 0) {
+                return `${hours}:${String(minutes % 60).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+            }
+            return `${String(minutes).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+        }
+        
+        /**
+         * 显示阶段提示
+         */
+        async function showStageHint() {
+            if (!currentExecution) return;
+            
+            const task = await VirtualStation.taskFlowService.getTask(currentExecution.taskId);
+            const stage = task.stages[currentExecution.currentStageIndex];
+            
+            if (!stage || !stage.hints || stage.hints.length === 0) {
+                alert('当前阶段没有可用提示');
+                return;
+            }
+            
+            const hints = stage.hints.map(h => `• ${h.content}`).join('\n');
+            alert(`💡 提示：\n\n${hints}`);
+            
+            // 记录提示查看
+            if (VirtualStation.processTracker) {
+                await VirtualStation.processTracker.logHintView(currentExecution.sessionId, stage.hints[0].id);
+            }
+        }
+        
+        /**
+         * 开始第一个任务
+         */
+        async function startFirstTask() {
+            if (!currentWorkstationId) return;
+            
+            const tasks = await VirtualStation.taskFlowService.getTaskList(currentWorkstationId);
+            if (tasks.length > 0) {
+                showTaskBrief(tasks[0].id);
+            } else {
+                alert('该工位暂无可用任务');
+            }
+        }
     </script>
 </body>
 </html>
