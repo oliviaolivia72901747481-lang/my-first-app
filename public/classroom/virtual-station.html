@@ -3053,8 +3053,34 @@
             // 停止计时器
             stopTaskTimer();
             
-            // 显示完成界面
+            // 获取任务信息
             const task = await VirtualStation.taskFlowService.getTask(currentExecution.taskId);
+            
+            // 增加经验值
+            if (result.completed && result.xpReward && careerService) {
+                try {
+                    const userId = currentUser?.id || localStorage.getItem('my_id') || 'guest';
+                    const xpResult = await careerService.addExperience(
+                        userId, 
+                        result.xpReward, 
+                        `完成任务: ${task?.name || '未知任务'}`
+                    );
+                    
+                    console.log('经验值增加:', xpResult);
+                    
+                    // 如果升级了，显示升级通知
+                    if (xpResult.levelUp) {
+                        showLevelUpNotification(xpResult.levelUp);
+                    }
+                    
+                    // 更新页面上的经验值显示
+                    await updateUserInfo();
+                } catch (e) {
+                    console.error('增加经验值失败:', e);
+                }
+            }
+            
+            // 显示完成界面
             renderTaskComplete(task, result);
         }
         
