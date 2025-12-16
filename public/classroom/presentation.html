@@ -537,8 +537,6 @@
                 <button class="ctrl-btn" style="background:#10b981; color:white;" onclick="openQuestionBankManager()">📝 题库</button>
                 <button class="ctrl-btn" style="background:#3b82f6; color:white;" onclick="openAnalytics()">📊 数据</button>
                 <button class="ctrl-btn" style="background:#8b5cf6; color:white;" onclick="openHistoryPanel()">📚 历史</button>
-                <button class="ctrl-btn" style="background:#06b6d4; color:white;" onclick="openSamplingSandbox()">🎯 采样沙盘</button>
-                <button class="ctrl-btn" style="background:#f97316; color:white;" onclick="openHazwasteDetective()">🔍 危废鉴别</button>
                 <button class="ctrl-btn" style="background:linear-gradient(135deg, #7c3aed, #8b5cf6); color:white;" onclick="openVirtualStationCompetition()">🏭 工位竞赛</button>
                 <button class="ctrl-btn" style="background:#f59e0b; color:white;" onclick="toggleFullscreen()">⛶ 全屏</button>
             </div>
@@ -547,7 +545,6 @@
         <!-- 底部控制栏 -->
         <div class="bottom-bar">
             <button class="ctrl-btn btn-nav" onclick="prevSlide()">⬅️ 上一页</button>
-            <button class="ctrl-btn" style="background:#10b981;" onclick="toggleQuestionPanel()">📚 题库</button>
             <button class="ctrl-btn btn-danmu" onclick="toggleDanmu()">💬 弹幕</button>
             <button class="ctrl-btn" style="background:linear-gradient(135deg, #8b5cf6, #6366f1);" onclick="showLeaderboard()">🏆 排行</button>
             <button class="ctrl-btn" style="background:linear-gradient(135deg, #06b6d4, #0891b2);" onclick="toggleSidebar()" id="sidebar-toggle-btn">📋 侧栏</button>
@@ -2190,16 +2187,6 @@
         // ================== 数据分析 ==================
         function openAnalytics() {
             window.open('/classroom/analytics.html', '_blank', 'width=1000,height=800');
-        }
-        
-        // ================== 采样布点沙盘 ==================
-        function openSamplingSandbox() {
-            window.open('/classroom/sampling-sandbox.html?mode=demo', '_blank');
-        }
-        
-        // ================== 危废鉴别剧本杀 ==================
-        function openHazwasteDetective() {
-            window.open('/classroom/hazwaste-detective.html', '_blank');
         }
         
         // ================== 虚拟工位竞赛 ==================
