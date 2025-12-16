@@ -2647,7 +2647,85 @@
             `;
             
             // 根据阶段类型渲染不同的表单
-            if (stage.template && stage.template.fields) {
+            if (stage.type === StageType.TASK_RECEIPT) {
+                // 接受任务单阶段：显示任务简报和确认按钮
+                const brief = task.taskBrief || {
+                    background: task.description || '暂无任务背景',
+                    objectives: ['完成任务要求'],
+                    requirements: ['按照规范操作']
+                };
+                
+                contentHtml += `
+                    <div class="space-y-6">
+                        <!-- 任务背景 -->
+                        <div>
+                            <h5 class="text-sm font-medium text-purple-400 mb-2 flex items-center gap-2">
+                                <i class="ri-book-open-line"></i>
+                                任务背景
+                            </h5>
+                            <div class="bg-white/5 rounded-xl p-4 text-gray-300 text-sm leading-relaxed">
+                                ${escapeHtml(brief.background)}
+                            </div>
+                        </div>
+                        
+                        <!-- 任务目标 -->
+                        <div>
+                            <h5 class="text-sm font-medium text-cyan-400 mb-2 flex items-center gap-2">
+                                <i class="ri-target-line"></i>
+                                任务目标
+                            </h5>
+                            <ul class="space-y-2">
+                                ${(brief.objectives || []).map(obj => `
+                                    <li class="flex items-start gap-2 bg-white/5 rounded-lg p-3">
+                                        <i class="ri-checkbox-blank-circle-line text-cyan-400 mt-0.5"></i>
+                                        <span class="text-gray-300 text-sm">${escapeHtml(obj)}</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                        
+                        <!-- 任务要求 -->
+                        <div>
+                            <h5 class="text-sm font-medium text-emerald-400 mb-2 flex items-center gap-2">
+                                <i class="ri-checkbox-circle-line"></i>
+                                任务要求
+                            </h5>
+                            <ul class="space-y-2">
+                                ${(brief.requirements || []).map(req => `
+                                    <li class="flex items-start gap-2 bg-white/5 rounded-lg p-3">
+                                        <i class="ri-alert-line text-emerald-400 mt-0.5"></i>
+                                        <span class="text-gray-300 text-sm">${escapeHtml(req)}</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                        
+                        <!-- 任务奖励 -->
+                        <div class="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-xl p-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <i class="ri-gift-line text-amber-400"></i>
+                                    <span class="text-amber-300 font-medium">完成奖励</span>
+                                </div>
+                                <span class="text-amber-400 font-bold">+${task.xpReward || 100} XP</span>
+                            </div>
+                        </div>
+                        
+                        <!-- 确认接受表单（隐藏字段） -->
+                        <form id="stage-form" class="hidden">
+                            <input type="hidden" name="confirmed" id="task-confirmed" value="">
+                        </form>
+                        
+                        <!-- 确认接受按钮 -->
+                        <div class="flex justify-center pt-4">
+                            <button type="button" onclick="confirmTaskReceipt()" class="px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl font-medium hover:from-emerald-600 hover:to-teal-700 transition flex items-center gap-3 text-white text-lg">
+                                <i class="ri-check-double-line text-xl"></i>
+                                我已阅读并理解任务要求，开始任务
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else if (stage.template && stage.template.fields) {
                 // 获取预填充数据和字段提示
                 let prefilled = {};
                 let fieldHints = {};
@@ -2808,6 +2886,20 @@
             } else {
                 nextBtn.innerHTML = '下一步 <i class="ri-arrow-right-line"></i>';
             }
+        }
+        
+        /**
+         * 确认接受任务单
+         */
+        async function confirmTaskReceipt() {
+            // 设置确认字段的值
+            const confirmedInput = document.getElementById('task-confirmed');
+            if (confirmedInput) {
+                confirmedInput.value = 'true';
+            }
+            
+            // 提交当前阶段
+            await submitCurrentStage();
         }
         
         /**
