@@ -1341,12 +1341,16 @@ class WorkstationService {
             id: sessionId,
             user_id: userId,
             workstation_id: workstationId,
-            started_at: Date.now(),
+            started_at: new Date().toISOString(),
             status: 'active'
         };
 
-        if (this.supabase) {
-            await this.supabase.from('vs_sessions').insert(session);
+        if (this.supabase && this.dbTablesAvailable) {
+            try {
+                await this.supabase.from('vs_sessions').insert(session);
+            } catch (e) {
+                // 静默失败，本地存储已保存
+            }
         }
 
         // 保存到本地
@@ -1360,11 +1364,15 @@ class WorkstationService {
      * @param {string} sessionId 会话ID
      */
     async exitWorkstation(sessionId) {
-        if (this.supabase) {
-            await this.supabase
-                .from('vs_sessions')
-                .update({ status: 'ended', ended_at: Date.now() })
-                .eq('id', sessionId);
+        if (this.supabase && this.dbTablesAvailable) {
+            try {
+                await this.supabase
+                    .from('vs_sessions')
+                    .update({ status: 'ended', ended_at: new Date().toISOString() })
+                    .eq('id', sessionId);
+            } catch (e) {
+                // 静默失败
+            }
         }
 
         localStorage.removeItem('vs_current_session');
@@ -1789,18 +1797,20 @@ class TaskFlowService {
         this.currentExecution = execution;
 
         // 保存到数据库
-        if (this.supabase) {
-            await this.supabase.from('vs_task_executions').insert({
-                id: executionId,
-                session_id: sessionId,
-                task_id: taskId,
-                user_id: userId,
-                started_at: execution.startedAt,
-                current_stage_index: 0,
-                status: execution.status,
-                stage_data: {},
-                score: 0
-            });
+        if (this.supabase && this.dbTablesAvailable) {
+            try {
+                await this.supabase.from('vs_task_executions').insert({
+                    id: executionId,
+                    session_id: sessionId,
+                    task_id: taskId,
+                    started_at: new Date().toISOString(),
+                    current_stage: 0,
+                    status: execution.status,
+                    score: 0
+                });
+            } catch (e) {
+                // 静默失败，本地存储已保存
+            }
         }
 
         return execution;
@@ -1868,23 +1878,26 @@ class TaskFlowService {
         localStorage.setItem('vs_current_execution', JSON.stringify(execution));
 
         // 保存到数据库
-        if (this.supabase) {
-            await this.supabase.from('vs_stage_submissions').insert({
-                execution_id: executionId,
-                stage_id: stageId,
-                data: data,
-                validation_result: result,
-                submitted_at: Date.now()
-            });
+        if (this.supabase && this.dbTablesAvailable) {
+            try {
+                await this.supabase.from('vs_stage_submissions').insert({
+                    execution_id: executionId,
+                    stage_id: stageId,
+                    data: data,
+                    validation_result: result,
+                    submitted_at: new Date().toISOString()
+                });
 
-            await this.supabase
-                .from('vs_task_executions')
-                .update({
-                    current_stage_index: execution.currentStageIndex,
-                    stage_data: execution.stageData,
-                    score: execution.score
-                })
-                .eq('id', executionId);
+                await this.supabase
+                    .from('vs_task_executions')
+                    .update({
+                        current_stage: execution.currentStageIndex,
+                        score: execution.score
+                    })
+                    .eq('id', executionId);
+            } catch (e) {
+                // 静默失败，本地存储已保存
+            }
         }
 
         return result;
@@ -2029,15 +2042,20 @@ class TaskFlowService {
         localStorage.setItem('vs_current_execution', JSON.stringify(execution));
 
         // 保存到数据库
-        if (this.supabase) {
-            await this.supabase
-                .from('vs_task_executions')
-                .update({
-                    status: TaskExecutionStatus.COMPLETED,
-                    completed_at: endTime,
-                    score: finalScore
-                })
-                .eq('id', executionId);
+        if (this.supabase && this.dbTablesAvailable) {
+            try {
+                await this.supabase
+                    .from('vs_task_executions')
+                    .update({
+                        status: TaskExecutionStatus.COMPLETED,
+                        completed_at: new Date().toISOString(),
+                        score: finalScore,
+                        time_spent: Math.round(duration / 1000)
+                    })
+                    .eq('id', executionId);
+            } catch (e) {
+                // 静默失败
+            }
         }
 
         // 保存到历史
@@ -4184,28 +4202,34 @@ class ProcessTrackerService {
      * 同步日志到服务器
      */
     async _syncLogs() {
-        if (!this.supabase || this.localLogs.length === 0) return;
+        if (!this.supabase || !this.dbTablesAvailable || this.localLogs.length === 0) return;
 
         const logsToSync = [...this.localLogs];
         this.localLogs = [];
 
-        // 转换字段名为数据库格式
-        const dbLogs = logsToSync.map(log => ({
-            id: log.id,
-            session_id: log.sessionId,
-            user_id: log.userId,
-            timestamp: log.timestamp,
-            action_type: log.actionType,
-            details: log.details
-        }));
+        try {
+            // 转换字段名为数据库格式
+            const dbLogs = logsToSync.map(log => ({
+                id: log.id,
+                session_id: log.sessionId || null,
+                user_id: log.userId,
+                workstation_id: log.workstationId || null,
+                class_id: log.classId || null,
+                timestamp: log.timestamp,
+                action_type: log.actionType,
+                details: log.details || {}
+            }));
 
-        const { error } = await this.supabase
-            .from('vs_behavior_logs')
-            .insert(dbLogs);
+            const { error } = await this.supabase
+                .from('vs_behavior_logs')
+                .insert(dbLogs);
 
-        if (error) {
-            console.error('同步日志失败:', error);
-            // 失败时放回本地队列
+            if (error) {
+                // 失败时放回本地队列（但不重复添加）
+                this.localLogs = [...logsToSync, ...this.localLogs];
+            }
+        } catch (e) {
+            // 静默失败，放回本地队列
             this.localLogs = [...logsToSync, ...this.localLogs];
         }
     }
