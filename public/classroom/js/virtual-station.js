@@ -989,8 +989,8 @@ class VirtualStationPlatform {
      * 初始化Supabase连接
      */
     _initSupabase() {
-        // 标记数据库表是否可用（默认禁用，避免406错误）
-        this.dbTablesAvailable = false;
+        // 标记数据库表是否可用（已在Supabase中创建表）
+        this.dbTablesAvailable = true;
         
         if (window.ClassroomCommon && window.ClassroomCommon.createSupabaseClient) {
             return window.ClassroomCommon.createSupabaseClient();
