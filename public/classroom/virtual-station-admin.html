@@ -1,0 +1,1528 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>虚拟工位管理后台 - 教师端</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #0d0d1f 100%);
+            min-height: 100vh;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .admin-card {
+            background: linear-gradient(145deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.05));
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .admin-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(139, 92, 246, 0.6);
+            box-shadow: 0 20px 40px rgba(139, 92, 246, 0.2);
+        }
+        
+        .sidebar-item {
+            transition: all 0.2s ease;
+        }
+        
+        .sidebar-item:hover, .sidebar-item.active {
+            background: rgba(139, 92, 246, 0.2);
+            border-left: 3px solid #8b5cf6;
+        }
+        
+        .stat-card {
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .data-table th, .data-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .data-table th {
+            background: rgba(0, 0, 0, 0.2);
+            color: #94a3b8;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        
+        .data-table tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        /* 响应式适配 */
+        @media (max-width: 1024px) {
+            .flex.max-w-7xl {
+                flex-direction: column;
+            }
+            
+            aside.w-64 {
+                width: 100%;
+                min-height: auto;
+                margin-bottom: 0;
+            }
+            
+            aside nav {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            
+            .sidebar-item {
+                flex: 1 1 auto;
+                min-width: 120px;
+                text-align: center;
+                justify-content: center;
+                padding: 0.5rem 0.75rem;
+            }
+            
+            .sidebar-item span {
+                font-size: 0.75rem;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            nav {
+                padding: 0.75rem 1rem;
+            }
+            
+            .data-table {
+                font-size: 0.85rem;
+            }
+            
+            .data-table th, .data-table td {
+                padding: 8px 10px;
+            }
+            
+            .stat-card {
+                padding: 1rem;
+            }
+            
+            .stat-card .text-3xl {
+                font-size: 1.5rem;
+            }
+            
+            .admin-card {
+                padding: 1rem;
+            }
+            
+            .admin-card h4 {
+                font-size: 1rem;
+            }
+        }
+        
+        @media (max-width: 640px) {
+            main {
+                padding: 0.5rem;
+            }
+            
+            aside {
+                margin: 0.5rem;
+                padding: 0.5rem;
+            }
+            
+            .sidebar-item i {
+                display: none;
+            }
+            
+            h2.text-2xl {
+                font-size: 1.25rem;
+            }
+        }
+    </style>
+</head>
+<body class="text-white">
+
+    <!-- 顶部导航 -->
+    <nav class="glass-card sticky top-0 z-50 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <a href="virtual-station.html" class="text-gray-400 hover:text-white transition">
+                    <i class="ri-arrow-left-line text-xl"></i>
+                </a>
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+                        <i class="ri-settings-3-line text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold">虚拟工位管理后台</h1>
+                        <p class="text-xs text-gray-400">教师管理端 v1.0</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 用户信息 -->
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 px-4 py-2 rounded-full border border-emerald-500/30">
+                    <i class="ri-shield-user-line text-emerald-400"></i>
+                    <span class="text-emerald-300 font-medium">教师</span>
+                </div>
+                <div class="w-10 h-10 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center font-bold">
+                    师
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="flex max-w-7xl mx-auto">
+        <!-- 左侧边栏 -->
+        <aside class="w-64 min-h-screen glass-card m-4 rounded-2xl p-4">
+            <nav class="space-y-2">
+                <div class="sidebar-item active px-4 py-3 rounded-xl cursor-pointer flex items-center gap-3" onclick="switchSection('overview')">
+                    <i class="ri-dashboard-line text-purple-400"></i>
+                    <span>数据概览</span>
+                </div>
+                <div class="sidebar-item px-4 py-3 rounded-xl cursor-pointer flex items-center gap-3" onclick="switchSection('workstations')">
+                    <i class="ri-building-4-line text-cyan-400"></i>
+                    <span>工位管理</span>
+                </div>
+                <div class="sidebar-item px-4 py-3 rounded-xl cursor-pointer flex items-center gap-3" onclick="switchSection('tasks')">
+                    <i class="ri-task-line text-emerald-400"></i>
+                    <span>任务管理</span>
+                </div>
+                <div class="sidebar-item px-4 py-3 rounded-xl cursor-pointer flex items-center gap-3" onclick="switchSection('students')">
+                    <i class="ri-user-3-line text-amber-400"></i>
+                    <span>学生管理</span>
+                </div>
+                <div class="sidebar-item px-4 py-3 rounded-xl cursor-pointer flex items-center gap-3" onclick="switchSection('analytics')">
+                    <i class="ri-line-chart-line text-pink-400"></i>
+                    <span>数据分析</span>
+                </div>
+                <div class="sidebar-item px-4 py-3 rounded-xl cursor-pointer flex items-center gap-3" onclick="switchSection('export')">
+                    <i class="ri-download-2-line text-blue-400"></i>
+                    <span>数据导出</span>
+                </div>
+                <div class="sidebar-item px-4 py-3 rounded-xl cursor-pointer flex items-center gap-3" onclick="switchSection('reminders')">
+                    <i class="ri-notification-3-line text-red-400"></i>
+                    <span>截止提醒</span>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="flex-1 p-4">
+            <!-- 数据概览 Section -->
+            <section id="section-overview" class="section-content">
+                <h2 class="text-2xl font-bold mb-6 flex items-center gap-3">
+                    <i class="ri-dashboard-line text-purple-400"></i>
+                    数据概览
+                </h2>
+                
+                <!-- 统计卡片 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    <div class="stat-card rounded-2xl p-6 border border-white/10">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                                <i class="ri-building-4-line text-2xl text-purple-400"></i>
+                            </div>
+                            <span class="text-xs text-gray-400">工位</span>
+                        </div>
+                        <div class="text-3xl font-bold text-purple-400" id="stat-total-workstations">0</div>
+                        <div class="text-sm text-gray-400">总工位数</div>
+                    </div>
+                    
+                    <div class="stat-card rounded-2xl p-6 border border-white/10">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 bg-cyan-500/20 rounded-xl flex items-center justify-center">
+                                <i class="ri-user-3-line text-2xl text-cyan-400"></i>
+                            </div>
+                            <span class="text-xs text-gray-400">学生</span>
+                        </div>
+                        <div class="text-3xl font-bold text-cyan-400" id="stat-total-students">0</div>
+                        <div class="text-sm text-gray-400">活跃学生数</div>
+                    </div>
+                    
+                    <div class="stat-card rounded-2xl p-6 border border-white/10">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 bg-emerald-500/20 rounded-xl flex items-center justify-center">
+                                <i class="ri-check-double-line text-2xl text-emerald-400"></i>
+                            </div>
+                            <span class="text-xs text-gray-400">完成</span>
+                        </div>
+                        <div class="text-3xl font-bold text-emerald-400" id="stat-completed-tasks">0</div>
+                        <div class="text-sm text-gray-400">已完成任务</div>
+                    </div>
+                    
+                    <div class="stat-card rounded-2xl p-6 border border-white/10">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center">
+                                <i class="ri-time-line text-2xl text-amber-400"></i>
+                            </div>
+                            <span class="text-xs text-gray-400">时长</span>
+                        </div>
+                        <div class="text-3xl font-bold text-amber-400" id="stat-total-hours">0</div>
+                        <div class="text-sm text-gray-400">总学习时长(h)</div>
+                    </div>
+                </div>
+                
+                <!-- 快捷入口 -->
+                <h3 class="text-lg font-bold mb-4">快捷入口</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="admin-card rounded-2xl p-6 cursor-pointer" onclick="switchSection('workstations')">
+                        <div class="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center mb-4">
+                            <i class="ri-building-4-line text-2xl"></i>
+                        </div>
+                        <h4 class="text-lg font-bold mb-2">工位管理</h4>
+                        <p class="text-gray-400 text-sm">创建、编辑工位信息和任务流</p>
+                    </div>
+                    
+                    <div class="admin-card rounded-2xl p-6 cursor-pointer" onclick="switchSection('students')">
+                        <div class="w-14 h-14 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center mb-4">
+                            <i class="ri-user-3-line text-2xl"></i>
+                        </div>
+                        <h4 class="text-lg font-bold mb-2">学生管理</h4>
+                        <p class="text-gray-400 text-sm">查看学生进度和成绩分布</p>
+                    </div>
+                    
+                    <div class="admin-card rounded-2xl p-6 cursor-pointer" onclick="switchSection('analytics')">
+                        <div class="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center mb-4">
+                            <i class="ri-line-chart-line text-2xl"></i>
+                        </div>
+                        <h4 class="text-lg font-bold mb-2">数据分析</h4>
+                        <p class="text-gray-400 text-sm">行为分析和错误模式识别</p>
+                    </div>
+                    
+                    <div class="admin-card rounded-2xl p-6 cursor-pointer" onclick="switchSection('export')">
+                        <div class="w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center mb-4">
+                            <i class="ri-download-2-line text-2xl"></i>
+                        </div>
+                        <h4 class="text-lg font-bold mb-2">数据导出</h4>
+                        <p class="text-gray-400 text-sm">导出成绩和行为日志报告</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 工位管理 Section -->
+            <section id="section-workstations" class="section-content hidden">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold flex items-center gap-3">
+                        <i class="ri-building-4-line text-cyan-400"></i>
+                        工位管理
+                    </h2>
+                    <button onclick="openWorkstationEditor()" class="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl font-medium hover:from-purple-600 hover:to-indigo-700 transition flex items-center gap-2">
+                        <i class="ri-add-line"></i>
+                        新建工位
+                    </button>
+                </div>
+                
+                <div class="glass-card rounded-2xl overflow-hidden">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>工位名称</th>
+                                <th>类别</th>
+                                <th>难度</th>
+                                <th>任务数</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="workstation-table-body">
+                            <!-- 动态渲染 -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 任务管理 Section -->
+            <section id="section-tasks" class="section-content hidden">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold flex items-center gap-3">
+                        <i class="ri-task-line text-emerald-400"></i>
+                        任务管理
+                    </h2>
+                    <button onclick="openTaskEditor()" class="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl font-medium hover:from-emerald-600 hover:to-teal-700 transition flex items-center gap-2">
+                        <i class="ri-add-line"></i>
+                        新建任务
+                    </button>
+                </div>
+                
+                <div class="glass-card rounded-2xl overflow-hidden">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>任务名称</th>
+                                <th>所属工位</th>
+                                <th>阶段数</th>
+                                <th>XP奖励</th>
+                                <th>截止时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="task-table-body">
+                            <!-- 动态渲染 -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 学生管理 Section -->
+            <section id="section-students" class="section-content hidden">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold flex items-center gap-3">
+                        <i class="ri-user-3-line text-amber-400"></i>
+                        学生管理
+                    </h2>
+                    <div class="flex gap-2">
+                        <input type="text" id="student-search" placeholder="搜索学生..." class="px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-purple-500">
+                        <select id="class-filter" class="px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                            <option value="">全部班级</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- 班级统计 -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="stat-card rounded-2xl p-4 border border-white/10">
+                        <div class="text-sm text-gray-400 mb-1">平均进度</div>
+                        <div class="text-2xl font-bold text-cyan-400" id="avg-progress">0%</div>
+                    </div>
+                    <div class="stat-card rounded-2xl p-4 border border-white/10">
+                        <div class="text-sm text-gray-400 mb-1">平均成绩</div>
+                        <div class="text-2xl font-bold text-emerald-400" id="avg-score">0</div>
+                    </div>
+                    <div class="stat-card rounded-2xl p-4 border border-white/10">
+                        <div class="text-sm text-gray-400 mb-1">完成率</div>
+                        <div class="text-2xl font-bold text-amber-400" id="completion-rate">0%</div>
+                    </div>
+                </div>
+                
+                <div class="glass-card rounded-2xl overflow-hidden">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>学号</th>
+                                <th>姓名</th>
+                                <th>职业等级</th>
+                                <th>完成任务</th>
+                                <th>学习时长</th>
+                                <th>平均分</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="student-table-body">
+                            <!-- 动态渲染 -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 数据分析 Section -->
+            <section id="section-analytics" class="section-content hidden">
+                <h2 class="text-2xl font-bold mb-6 flex items-center gap-3">
+                    <i class="ri-line-chart-line text-pink-400"></i>
+                    数据分析
+                </h2>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <!-- 难点分析 -->
+                    <div class="glass-card rounded-2xl p-6">
+                        <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                            <i class="ri-error-warning-line text-red-400"></i>
+                            难点步骤分析
+                        </h3>
+                        <div id="difficult-steps-list" class="space-y-3">
+                            <!-- 动态渲染 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 错误模式 -->
+                    <div class="glass-card rounded-2xl p-6">
+                        <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                            <i class="ri-bug-line text-orange-400"></i>
+                            共性错误分析
+                        </h3>
+                        <div id="error-patterns-list" class="space-y-3">
+                            <!-- 动态渲染 -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 行为统计 -->
+                <div class="glass-card rounded-2xl p-6">
+                    <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                        <i class="ri-bar-chart-line text-blue-400"></i>
+                        行为统计
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="bg-white/5 rounded-xl p-4 text-center">
+                            <div class="text-2xl font-bold text-purple-400" id="avg-pause-time">0s</div>
+                            <div class="text-sm text-gray-400">平均停顿时间</div>
+                        </div>
+                        <div class="bg-white/5 rounded-xl p-4 text-center">
+                            <div class="text-2xl font-bold text-cyan-400" id="hint-view-rate">0%</div>
+                            <div class="text-sm text-gray-400">提示查看率</div>
+                        </div>
+                        <div class="bg-white/5 rounded-xl p-4 text-center">
+                            <div class="text-2xl font-bold text-red-400" id="error-rate">0%</div>
+                            <div class="text-sm text-gray-400">错误率</div>
+                        </div>
+                        <div class="bg-white/5 rounded-xl p-4 text-center">
+                            <div class="text-2xl font-bold text-emerald-400" id="retry-rate">0%</div>
+                            <div class="text-sm text-gray-400">重试率</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 数据导出 Section -->
+            <section id="section-export" class="section-content hidden">
+                <h2 class="text-2xl font-bold mb-6 flex items-center gap-3">
+                    <i class="ri-download-2-line text-blue-400"></i>
+                    数据导出
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="glass-card rounded-2xl p-6">
+                        <div class="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center mb-4">
+                            <i class="ri-file-excel-2-line text-2xl"></i>
+                        </div>
+                        <h4 class="text-lg font-bold mb-2">学生成绩报告</h4>
+                        <p class="text-gray-400 text-sm mb-4">导出所有学生的任务完成情况和成绩</p>
+                        <button onclick="exportStudentScores()" class="w-full px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-xl hover:bg-emerald-500/30 transition">
+                            导出 Excel
+                        </button>
+                    </div>
+                    
+                    <div class="glass-card rounded-2xl p-6">
+                        <div class="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center mb-4">
+                            <i class="ri-file-list-3-line text-2xl"></i>
+                        </div>
+                        <h4 class="text-lg font-bold mb-2">行为日志报告</h4>
+                        <p class="text-gray-400 text-sm mb-4">导出学生操作行为和停顿分析数据</p>
+                        <button onclick="exportBehaviorLogs()" class="w-full px-4 py-2 bg-blue-500/20 text-blue-400 rounded-xl hover:bg-blue-500/30 transition">
+                            导出 Excel
+                        </button>
+                    </div>
+                    
+                    <div class="glass-card rounded-2xl p-6">
+                        <div class="w-14 h-14 bg-gradient-to-br from-red-500 to-pink-600 rounded-xl flex items-center justify-center mb-4">
+                            <i class="ri-bug-line text-2xl"></i>
+                        </div>
+                        <h4 class="text-lg font-bold mb-2">错误分析报告</h4>
+                        <p class="text-gray-400 text-sm mb-4">导出错误类型统计和共性问题分析</p>
+                        <button onclick="exportErrorAnalysis()" class="w-full px-4 py-2 bg-red-500/20 text-red-400 rounded-xl hover:bg-red-500/30 transition">
+                            导出 Excel
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 截止提醒 Section -->
+            <section id="section-reminders" class="section-content hidden">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold flex items-center gap-3">
+                        <i class="ri-notification-3-line text-red-400"></i>
+                        截止提醒
+                    </h2>
+                    <button onclick="openReminderEditor()" class="px-4 py-2 bg-gradient-to-r from-red-500 to-pink-600 rounded-xl font-medium hover:from-red-600 hover:to-pink-700 transition flex items-center gap-2">
+                        <i class="ri-add-line"></i>
+                        设置提醒
+                    </button>
+                </div>
+                
+                <!-- 即将截止的任务 -->
+                <div class="glass-card rounded-2xl p-6 mb-6">
+                    <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                        <i class="ri-alarm-warning-line text-amber-400"></i>
+                        即将截止的任务
+                    </h3>
+                    <div id="upcoming-deadlines" class="space-y-3">
+                        <!-- 动态渲染 -->
+                    </div>
+                </div>
+                
+                <!-- 提醒设置列表 -->
+                <div class="glass-card rounded-2xl overflow-hidden">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>任务名称</th>
+                                <th>截止时间</th>
+                                <th>提醒时间</th>
+                                <th>未完成人数</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reminder-table-body">
+                            <!-- 动态渲染 -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 工位编辑器模态框 -->
+    <div id="workstation-editor-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
+        <div class="glass-card rounded-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+            <div class="p-6 border-b border-gray-700">
+                <div class="flex items-center justify-between">
+                    <h3 id="workstation-editor-title" class="text-xl font-bold">新建工位</h3>
+                    <button onclick="closeWorkstationEditor()" class="text-gray-400 hover:text-white">
+                        <i class="ri-close-line text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6">
+                <form id="workstation-form" class="space-y-4">
+                    <input type="hidden" id="ws-edit-id">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">工位名称 *</label>
+                        <input type="text" id="ws-name" required class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">工位描述 *</label>
+                        <textarea id="ws-description" required rows="3" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"></textarea>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-2">类别 *</label>
+                            <select id="ws-category" required class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                                <option value="env_monitoring">环境监测</option>
+                                <option value="hazwaste">危废鉴别</option>
+                                <option value="sampling">采样规划</option>
+                                <option value="data_analysis">数据处理</option>
+                                <option value="instrument">仪器操作</option>
+                                <option value="emergency">应急响应</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-2">难度 *</label>
+                            <select id="ws-difficulty" required class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                                <option value="beginner">入门</option>
+                                <option value="intermediate">进阶</option>
+                                <option value="advanced">高级</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-2">预计时长(分钟)</label>
+                            <input type="number" id="ws-estimated-time" value="60" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-2">解锁等级</label>
+                            <input type="number" id="ws-required-level" value="1" min="1" max="15" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-2">XP奖励</label>
+                            <input type="number" id="ws-xp-reward" value="100" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-2">图标</label>
+                            <input type="text" id="ws-icon" value="ri-flask-line" placeholder="ri-flask-line" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-purple-500">
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="ws-is-active" checked class="w-5 h-5 rounded bg-white/10 border-white/20 text-purple-500 focus:ring-purple-500">
+                            <span class="text-sm text-gray-300">启用工位</span>
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="p-6 border-t border-gray-700">
+                <div class="flex gap-4">
+                    <button onclick="closeWorkstationEditor()" class="flex-1 px-6 py-3 bg-white/10 rounded-xl font-medium hover:bg-white/20 transition">
+                        取消
+                    </button>
+                    <button onclick="saveWorkstation()" class="flex-1 px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl font-medium hover:from-purple-600 hover:to-indigo-700 transition">
+                        保存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 任务编辑器模态框 -->
+    <div id="task-editor-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
+        <div class="glass-card rounded-2xl w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col">
+            <div class="p-6 border-b border-gray-700">
+                <div class="flex items-center justify-between">
+                    <h3 id="task-editor-title" class="text-xl font-bold">新建任务</h3>
+                    <button onclick="closeTaskEditor()" class="text-gray-400 hover:text-white">
+                        <i class="ri-close-line text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6">
+                <form id="task-form" class="space-y-4">
+                    <input type="hidden" id="task-edit-id">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">任务名称 *</label>
+                        <input type="text" id="task-name" required class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">所属工位 *</label>
+                        <select id="task-workstation" required class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                            <!-- 动态填充 -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">任务描述 *</label>
+                        <textarea id="task-description" required rows="2" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">任务背景</label>
+                        <textarea id="task-background" rows="3" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"></textarea>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-2">XP奖励</label>
+                            <input type="number" id="task-xp-reward" value="50" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-2">最高分</label>
+                            <input type="number" id="task-max-score" value="100" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-2">及格分</label>
+                            <input type="number" id="task-passing-score" value="60" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">截止时间</label>
+                        <input type="datetime-local" id="task-deadline" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                    </div>
+                </form>
+            </div>
+            <div class="p-6 border-t border-gray-700">
+                <div class="flex gap-4">
+                    <button onclick="closeTaskEditor()" class="flex-1 px-6 py-3 bg-white/10 rounded-xl font-medium hover:bg-white/20 transition">
+                        取消
+                    </button>
+                    <button onclick="saveTask()" class="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl font-medium hover:from-emerald-600 hover:to-teal-700 transition">
+                        保存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 提醒设置模态框 -->
+    <div id="reminder-editor-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
+        <div class="glass-card rounded-2xl w-full max-w-lg mx-4">
+            <div class="p-6 border-b border-gray-700">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xl font-bold">设置截止提醒</h3>
+                    <button onclick="closeReminderEditor()" class="text-gray-400 hover:text-white">
+                        <i class="ri-close-line text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <form id="reminder-form" class="space-y-4">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">选择任务 *</label>
+                        <select id="reminder-task" required class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                            <!-- 动态填充 -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">截止时间 *</label>
+                        <input type="datetime-local" id="reminder-deadline" required class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">提前提醒时间</label>
+                        <select id="reminder-advance" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                            <option value="3600000">1小时前</option>
+                            <option value="86400000" selected>1天前</option>
+                            <option value="259200000">3天前</option>
+                            <option value="604800000">1周前</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="p-6 border-t border-gray-700">
+                <div class="flex gap-4">
+                    <button onclick="closeReminderEditor()" class="flex-1 px-6 py-3 bg-white/10 rounded-xl font-medium hover:bg-white/20 transition">
+                        取消
+                    </button>
+                    <button onclick="saveReminder()" class="flex-1 px-6 py-3 bg-gradient-to-r from-red-500 to-pink-600 rounded-xl font-medium hover:from-red-600 hover:to-pink-700 transition">
+                        保存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 学生详情模态框 -->
+    <div id="student-detail-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
+        <div class="glass-card rounded-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+            <div class="p-6 border-b border-gray-700">
+                <div class="flex items-center justify-between">
+                    <h3 id="student-detail-title" class="text-xl font-bold">学生详情</h3>
+                    <button onclick="closeStudentDetail()" class="text-gray-400 hover:text-white">
+                        <i class="ri-close-line text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6">
+                <div id="student-detail-content">
+                    <!-- 动态渲染 -->
+                </div>
+            </div>
+            <div class="p-6 border-t border-gray-700">
+                <button onclick="closeStudentDetail()" class="w-full px-6 py-3 bg-white/10 rounded-xl font-medium hover:bg-white/20 transition">
+                    关闭
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/virtual-station.js"></script>
+    <script>
+        // ================= 全局状态 =================
+        let currentSection = 'overview';
+        let workstationsData = [];
+        let tasksData = [];
+        let studentsData = [];
+        let remindersData = [];
+
+        // ================= 初始化 =================
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadOverviewStats();
+            await loadWorkstations();
+            await loadTasks();
+            await loadStudents();
+            await loadReminders();
+            await loadAnalytics();
+        });
+
+        // ================= 导航切换 =================
+        function switchSection(sectionId) {
+            // 隐藏所有section
+            document.querySelectorAll('.section-content').forEach(el => {
+                el.classList.add('hidden');
+            });
+            
+            // 显示目标section
+            const targetSection = document.getElementById(`section-${sectionId}`);
+            if (targetSection) {
+                targetSection.classList.remove('hidden');
+            }
+            
+            // 更新侧边栏状态
+            document.querySelectorAll('.sidebar-item').forEach(el => {
+                el.classList.remove('active');
+            });
+            event.currentTarget?.classList.add('active');
+            
+            currentSection = sectionId;
+        }
+
+        // ================= 数据加载 =================
+        async function loadOverviewStats() {
+            try {
+                // 加载工位数
+                const workstations = await VirtualStationAdmin.getWorkstations();
+                document.getElementById('stat-total-workstations').textContent = workstations.length;
+                
+                // 加载学生数
+                const students = await VirtualStationAdmin.getStudents();
+                document.getElementById('stat-total-students').textContent = students.length;
+                
+                // 加载完成任务数
+                const completedTasks = await VirtualStationAdmin.getCompletedTasksCount();
+                document.getElementById('stat-completed-tasks').textContent = completedTasks;
+                
+                // 加载总学习时长
+                const totalHours = await VirtualStationAdmin.getTotalStudyHours();
+                document.getElementById('stat-total-hours').textContent = totalHours.toFixed(1);
+            } catch (e) {
+                console.error('加载概览统计失败:', e);
+            }
+        }
+
+        async function loadWorkstations() {
+            try {
+                workstationsData = await VirtualStationAdmin.getWorkstations();
+                renderWorkstationTable();
+            } catch (e) {
+                console.error('加载工位列表失败:', e);
+            }
+        }
+
+        async function loadTasks() {
+            try {
+                tasksData = await VirtualStationAdmin.getTasks();
+                renderTaskTable();
+            } catch (e) {
+                console.error('加载任务列表失败:', e);
+            }
+        }
+
+        async function loadStudents() {
+            try {
+                studentsData = await VirtualStationAdmin.getStudents();
+                renderStudentTable();
+                updateStudentStats();
+            } catch (e) {
+                console.error('加载学生列表失败:', e);
+            }
+        }
+
+        async function loadReminders() {
+            try {
+                remindersData = await VirtualStationAdmin.getReminders();
+                renderReminderTable();
+                renderUpcomingDeadlines();
+            } catch (e) {
+                console.error('加载提醒列表失败:', e);
+            }
+        }
+
+        async function loadAnalytics() {
+            try {
+                const analytics = await VirtualStationAdmin.getAnalytics();
+                renderDifficultSteps(analytics.difficultSteps || []);
+                renderErrorPatterns(analytics.errorPatterns || []);
+                
+                document.getElementById('avg-pause-time').textContent = `${analytics.avgPauseTime || 0}s`;
+                document.getElementById('hint-view-rate').textContent = `${analytics.hintViewRate || 0}%`;
+                document.getElementById('error-rate').textContent = `${analytics.errorRate || 0}%`;
+                document.getElementById('retry-rate').textContent = `${analytics.retryRate || 0}%`;
+            } catch (e) {
+                console.error('加载分析数据失败:', e);
+            }
+        }
+
+        // ================= 渲染函数 =================
+        function renderWorkstationTable() {
+            const tbody = document.getElementById('workstation-table-body');
+            if (!tbody) return;
+            
+            const categoryNames = {
+                'env_monitoring': '环境监测',
+                'hazwaste': '危废鉴别',
+                'sampling': '采样规划',
+                'data_analysis': '数据处理',
+                'instrument': '仪器操作',
+                'emergency': '应急响应'
+            };
+            
+            const difficultyNames = {
+                'beginner': '入门',
+                'intermediate': '进阶',
+                'advanced': '高级'
+            };
+            
+            tbody.innerHTML = workstationsData.map(ws => `
+                <tr>
+                    <td>
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                                <i class="${ws.icon || 'ri-building-4-line'} text-purple-400"></i>
+                            </div>
+                            <span class="font-medium">${ws.name}</span>
+                        </div>
+                    </td>
+                    <td><span class="px-2 py-1 bg-cyan-500/20 text-cyan-400 rounded text-xs">${categoryNames[ws.category] || ws.category}</span></td>
+                    <td><span class="px-2 py-1 bg-amber-500/20 text-amber-400 rounded text-xs">${difficultyNames[ws.difficulty] || ws.difficulty}</span></td>
+                    <td>${ws.totalTasks || 0}</td>
+                    <td>
+                        <span class="px-2 py-1 ${ws.isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-500/20 text-gray-400'} rounded text-xs">
+                            ${ws.isActive ? '已启用' : '已禁用'}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="flex gap-2">
+                            <button onclick="editWorkstation('${ws.id}')" class="p-2 hover:bg-white/10 rounded-lg transition" title="编辑">
+                                <i class="ri-edit-line text-blue-400"></i>
+                            </button>
+                            <button onclick="deleteWorkstation('${ws.id}')" class="p-2 hover:bg-white/10 rounded-lg transition" title="删除">
+                                <i class="ri-delete-bin-line text-red-400"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderTaskTable() {
+            const tbody = document.getElementById('task-table-body');
+            if (!tbody) return;
+            
+            tbody.innerHTML = tasksData.map(task => {
+                const ws = workstationsData.find(w => w.id === task.workstationId);
+                const deadline = task.taskBrief?.deadline ? new Date(task.taskBrief.deadline).toLocaleString('zh-CN') : '-';
+                
+                return `
+                    <tr>
+                        <td class="font-medium">${task.name}</td>
+                        <td>${ws?.name || task.workstationId}</td>
+                        <td>${task.stages?.length || 0}</td>
+                        <td><span class="text-amber-400">+${task.xpReward || 0} XP</span></td>
+                        <td>${deadline}</td>
+                        <td>
+                            <div class="flex gap-2">
+                                <button onclick="editTask('${task.id}')" class="p-2 hover:bg-white/10 rounded-lg transition" title="编辑">
+                                    <i class="ri-edit-line text-blue-400"></i>
+                                </button>
+                                <button onclick="deleteTask('${task.id}')" class="p-2 hover:bg-white/10 rounded-lg transition" title="删除">
+                                    <i class="ri-delete-bin-line text-red-400"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderStudentTable() {
+            const tbody = document.getElementById('student-table-body');
+            if (!tbody) return;
+            
+            const levelTitles = {
+                'intern': '实习生',
+                'trainee_engineer': '见习工程师',
+                'assistant_engineer': '助理工程师',
+                'engineer': '工程师',
+                'senior_engineer': '高级工程师',
+                'project_manager': '项目经理'
+            };
+            
+            tbody.innerHTML = studentsData.map(student => `
+                <tr>
+                    <td>${student.studentId || '-'}</td>
+                    <td class="font-medium">${student.name || '未知'}</td>
+                    <td>
+                        <span class="px-2 py-1 bg-amber-500/20 text-amber-400 rounded text-xs">
+                            ${levelTitles[student.levelTitle] || '实习生'} Lv.${student.level || 1}
+                        </span>
+                    </td>
+                    <td>${student.completedTasks || 0}</td>
+                    <td>${((student.totalStudyTime || 0) / 60).toFixed(1)}h</td>
+                    <td>${student.avgScore?.toFixed(1) || '-'}</td>
+                    <td>
+                        <button onclick="viewStudentDetail('${student.userId}')" class="p-2 hover:bg-white/10 rounded-lg transition" title="查看详情">
+                            <i class="ri-eye-line text-cyan-400"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateStudentStats() {
+            if (studentsData.length === 0) return;
+            
+            const avgProgress = studentsData.reduce((sum, s) => sum + (s.progress || 0), 0) / studentsData.length;
+            const avgScore = studentsData.reduce((sum, s) => sum + (s.avgScore || 0), 0) / studentsData.length;
+            const completedCount = studentsData.filter(s => s.progress >= 100).length;
+            const completionRate = (completedCount / studentsData.length) * 100;
+            
+            document.getElementById('avg-progress').textContent = `${avgProgress.toFixed(1)}%`;
+            document.getElementById('avg-score').textContent = avgScore.toFixed(1);
+            document.getElementById('completion-rate').textContent = `${completionRate.toFixed(1)}%`;
+        }
+
+        function renderReminderTable() {
+            const tbody = document.getElementById('reminder-table-body');
+            if (!tbody) return;
+            
+            tbody.innerHTML = remindersData.map(reminder => {
+                const deadline = new Date(reminder.deadline).toLocaleString('zh-CN');
+                const reminderTime = new Date(reminder.reminderTime).toLocaleString('zh-CN');
+                const isOverdue = new Date(reminder.deadline) < new Date();
+                
+                return `
+                    <tr>
+                        <td class="font-medium">${reminder.taskName}</td>
+                        <td>${deadline}</td>
+                        <td>${reminderTime}</td>
+                        <td>${reminder.incompleteCount || 0}人</td>
+                        <td>
+                            <span class="px-2 py-1 ${isOverdue ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'} rounded text-xs">
+                                ${isOverdue ? '已过期' : '进行中'}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="flex gap-2">
+                                <button onclick="sendReminder('${reminder.id}')" class="p-2 hover:bg-white/10 rounded-lg transition" title="发送提醒">
+                                    <i class="ri-notification-3-line text-amber-400"></i>
+                                </button>
+                                <button onclick="deleteReminder('${reminder.id}')" class="p-2 hover:bg-white/10 rounded-lg transition" title="删除">
+                                    <i class="ri-delete-bin-line text-red-400"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderUpcomingDeadlines() {
+            const container = document.getElementById('upcoming-deadlines');
+            if (!container) return;
+            
+            const upcoming = remindersData
+                .filter(r => new Date(r.deadline) > new Date())
+                .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
+                .slice(0, 5);
+            
+            if (upcoming.length === 0) {
+                container.innerHTML = '<p class="text-gray-400 text-center py-4">暂无即将截止的任务</p>';
+                return;
+            }
+            
+            container.innerHTML = upcoming.map(r => {
+                const deadline = new Date(r.deadline);
+                const now = new Date();
+                const diffHours = Math.floor((deadline - now) / (1000 * 60 * 60));
+                const diffDays = Math.floor(diffHours / 24);
+                const timeLeft = diffDays > 0 ? `${diffDays}天${diffHours % 24}小时` : `${diffHours}小时`;
+                
+                return `
+                    <div class="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+                        <div>
+                            <div class="font-medium">${r.taskName}</div>
+                            <div class="text-sm text-gray-400">${deadline.toLocaleString('zh-CN')}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-amber-400 font-medium">${timeLeft}</div>
+                            <div class="text-xs text-gray-400">${r.incompleteCount || 0}人未完成</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderDifficultSteps(steps) {
+            const container = document.getElementById('difficult-steps-list');
+            if (!container) return;
+            
+            if (steps.length === 0) {
+                container.innerHTML = '<p class="text-gray-400 text-center py-4">暂无难点数据</p>';
+                return;
+            }
+            
+            container.innerHTML = steps.slice(0, 5).map(step => `
+                <div class="p-3 bg-white/5 rounded-xl">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="font-medium">${step.stepName}</span>
+                        <span class="text-red-400 text-sm">${step.errorRate}% 错误率</span>
+                    </div>
+                    <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                        <div class="h-full bg-gradient-to-r from-red-500 to-orange-500 rounded-full" style="width: ${step.errorRate}%"></div>
+                    </div>
+                    <div class="text-xs text-gray-400 mt-1">平均停顿 ${step.averageDuration}s | 提示查看率 ${step.hintViewRate}%</div>
+                </div>
+            `).join('');
+        }
+
+        function renderErrorPatterns(patterns) {
+            const container = document.getElementById('error-patterns-list');
+            if (!container) return;
+            
+            if (patterns.length === 0) {
+                container.innerHTML = '<p class="text-gray-400 text-center py-4">暂无错误模式数据</p>';
+                return;
+            }
+            
+            container.innerHTML = patterns.slice(0, 5).map(pattern => `
+                <div class="p-3 bg-white/5 rounded-xl">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-medium">${pattern.description}</span>
+                        <span class="px-2 py-1 bg-orange-500/20 text-orange-400 rounded text-xs">${pattern.errorType}</span>
+                    </div>
+                    <div class="text-sm text-gray-400">
+                        影响 ${pattern.affectedStudents} 名学生 (${pattern.affectedPercentage}%)
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ================= 工位管理 =================
+        function openWorkstationEditor(workstationId = null) {
+            const modal = document.getElementById('workstation-editor-modal');
+            const title = document.getElementById('workstation-editor-title');
+            
+            if (workstationId) {
+                const ws = workstationsData.find(w => w.id === workstationId);
+                if (ws) {
+                    title.textContent = '编辑工位';
+                    document.getElementById('ws-edit-id').value = ws.id;
+                    document.getElementById('ws-name').value = ws.name;
+                    document.getElementById('ws-description').value = ws.description;
+                    document.getElementById('ws-category').value = ws.category;
+                    document.getElementById('ws-difficulty').value = ws.difficulty;
+                    document.getElementById('ws-estimated-time').value = ws.estimatedTime || 60;
+                    document.getElementById('ws-required-level').value = ws.requiredLevel || 1;
+                    document.getElementById('ws-xp-reward').value = ws.xpReward || 100;
+                    document.getElementById('ws-icon').value = ws.icon || 'ri-flask-line';
+                    document.getElementById('ws-is-active').checked = ws.isActive !== false;
+                }
+            } else {
+                title.textContent = '新建工位';
+                document.getElementById('workstation-form').reset();
+                document.getElementById('ws-edit-id').value = '';
+                document.getElementById('ws-is-active').checked = true;
+            }
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeWorkstationEditor() {
+            const modal = document.getElementById('workstation-editor-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function editWorkstation(workstationId) {
+            openWorkstationEditor(workstationId);
+        }
+
+        async function saveWorkstation() {
+            const id = document.getElementById('ws-edit-id').value;
+            const data = {
+                name: document.getElementById('ws-name').value,
+                description: document.getElementById('ws-description').value,
+                category: document.getElementById('ws-category').value,
+                difficulty: document.getElementById('ws-difficulty').value,
+                estimatedTime: parseInt(document.getElementById('ws-estimated-time').value) || 60,
+                requiredLevel: parseInt(document.getElementById('ws-required-level').value) || 1,
+                xpReward: parseInt(document.getElementById('ws-xp-reward').value) || 100,
+                icon: document.getElementById('ws-icon').value || 'ri-flask-line',
+                isActive: document.getElementById('ws-is-active').checked
+            };
+            
+            try {
+                if (id) {
+                    await VirtualStationAdmin.updateWorkstation(id, data);
+                } else {
+                    await VirtualStationAdmin.createWorkstation(data);
+                }
+                closeWorkstationEditor();
+                await loadWorkstations();
+                await loadOverviewStats();
+                alert('保存成功！');
+            } catch (e) {
+                console.error('保存工位失败:', e);
+                alert('保存失败: ' + e.message);
+            }
+        }
+
+        async function deleteWorkstation(workstationId) {
+            if (!confirm('确定要删除这个工位吗？相关任务也会被删除。')) return;
+            
+            try {
+                await VirtualStationAdmin.deleteWorkstation(workstationId);
+                await loadWorkstations();
+                await loadOverviewStats();
+                alert('删除成功！');
+            } catch (e) {
+                console.error('删除工位失败:', e);
+                alert('删除失败: ' + e.message);
+            }
+        }
+
+        // ================= 任务管理 =================
+        function openTaskEditor(taskId = null) {
+            const modal = document.getElementById('task-editor-modal');
+            const title = document.getElementById('task-editor-title');
+            const wsSelect = document.getElementById('task-workstation');
+            
+            // 填充工位选项
+            wsSelect.innerHTML = workstationsData.map(ws => 
+                `<option value="${ws.id}">${ws.name}</option>`
+            ).join('');
+            
+            if (taskId) {
+                const task = tasksData.find(t => t.id === taskId);
+                if (task) {
+                    title.textContent = '编辑任务';
+                    document.getElementById('task-edit-id').value = task.id;
+                    document.getElementById('task-name').value = task.name;
+                    document.getElementById('task-workstation').value = task.workstationId;
+                    document.getElementById('task-description').value = task.description;
+                    document.getElementById('task-background').value = task.taskBrief?.background || '';
+                    document.getElementById('task-xp-reward').value = task.xpReward || 50;
+                    document.getElementById('task-max-score').value = task.maxScore || 100;
+                    document.getElementById('task-passing-score').value = task.passingScore || 60;
+                    if (task.taskBrief?.deadline) {
+                        document.getElementById('task-deadline').value = new Date(task.taskBrief.deadline).toISOString().slice(0, 16);
+                    }
+                }
+            } else {
+                title.textContent = '新建任务';
+                document.getElementById('task-form').reset();
+                document.getElementById('task-edit-id').value = '';
+            }
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeTaskEditor() {
+            const modal = document.getElementById('task-editor-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function editTask(taskId) {
+            openTaskEditor(taskId);
+        }
+
+        async function saveTask() {
+            const id = document.getElementById('task-edit-id').value;
+            const deadlineValue = document.getElementById('task-deadline').value;
+            
+            const data = {
+                name: document.getElementById('task-name').value,
+                workstationId: document.getElementById('task-workstation').value,
+                description: document.getElementById('task-description').value,
+                taskBrief: {
+                    background: document.getElementById('task-background').value,
+                    objectives: [],
+                    requirements: [],
+                    deadline: deadlineValue ? new Date(deadlineValue).getTime() : null
+                },
+                xpReward: parseInt(document.getElementById('task-xp-reward').value) || 50,
+                maxScore: parseInt(document.getElementById('task-max-score').value) || 100,
+                passingScore: parseInt(document.getElementById('task-passing-score').value) || 60
+            };
+            
+            try {
+                if (id) {
+                    await VirtualStationAdmin.updateTask(id, data);
+                } else {
+                    await VirtualStationAdmin.createTask(data);
+                }
+                closeTaskEditor();
+                await loadTasks();
+                alert('保存成功！');
+            } catch (e) {
+                console.error('保存任务失败:', e);
+                alert('保存失败: ' + e.message);
+            }
+        }
+
+        async function deleteTask(taskId) {
+            if (!confirm('确定要删除这个任务吗？')) return;
+            
+            try {
+                await VirtualStationAdmin.deleteTask(taskId);
+                await loadTasks();
+                alert('删除成功！');
+            } catch (e) {
+                console.error('删除任务失败:', e);
+                alert('删除失败: ' + e.message);
+            }
+        }
+
+        // ================= 学生管理 =================
+        async function viewStudentDetail(userId) {
+            const modal = document.getElementById('student-detail-modal');
+            const title = document.getElementById('student-detail-title');
+            const content = document.getElementById('student-detail-content');
+            
+            try {
+                const detail = await VirtualStationAdmin.getStudentDetail(userId);
+                title.textContent = `${detail.name || '学生'} 的学习详情`;
+                
+                const levelTitles = {
+                    'intern': '实习生',
+                    'trainee_engineer': '见习工程师',
+                    'assistant_engineer': '助理工程师',
+                    'engineer': '工程师',
+                    'senior_engineer': '高级工程师',
+                    'project_manager': '项目经理'
+                };
+                
+                content.innerHTML = `
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div class="bg-white/5 rounded-xl p-4">
+                            <div class="text-sm text-gray-400 mb-1">职业等级</div>
+                            <div class="text-xl font-bold text-amber-400">${levelTitles[detail.levelTitle] || '实习生'} Lv.${detail.level || 1}</div>
+                        </div>
+                        <div class="bg-white/5 rounded-xl p-4">
+                            <div class="text-sm text-gray-400 mb-1">总经验值</div>
+                            <div class="text-xl font-bold text-purple-400">${detail.totalXP || 0} XP</div>
+                        </div>
+                        <div class="bg-white/5 rounded-xl p-4">
+                            <div class="text-sm text-gray-400 mb-1">完成任务</div>
+                            <div class="text-xl font-bold text-cyan-400">${detail.completedTasks || 0}</div>
+                        </div>
+                        <div class="bg-white/5 rounded-xl p-4">
+                            <div class="text-sm text-gray-400 mb-1">学习时长</div>
+                            <div class="text-xl font-bold text-emerald-400">${((detail.totalStudyTime || 0) / 60).toFixed(1)}h</div>
+                        </div>
+                    </div>
+                    
+                    <h4 class="font-bold mb-3">任务完成记录</h4>
+                    <div class="space-y-2 max-h-60 overflow-y-auto">
+                        ${(detail.taskHistory || []).map(task => `
+                            <div class="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+                                <div>
+                                    <div class="font-medium">${task.taskName}</div>
+                                    <div class="text-xs text-gray-400">${new Date(task.completedAt).toLocaleString('zh-CN')}</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="font-bold ${task.score >= 60 ? 'text-emerald-400' : 'text-red-400'}">${task.score}分</div>
+                                    <div class="text-xs text-gray-400">用时 ${Math.floor(task.duration / 60)}分钟</div>
+                                </div>
+                            </div>
+                        `).join('') || '<p class="text-gray-400 text-center py-4">暂无完成记录</p>'}
+                    </div>
+                `;
+                
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            } catch (e) {
+                console.error('加载学生详情失败:', e);
+                alert('加载失败: ' + e.message);
+            }
+        }
+
+        function closeStudentDetail() {
+            const modal = document.getElementById('student-detail-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // ================= 提醒管理 =================
+        function openReminderEditor() {
+            const modal = document.getElementById('reminder-editor-modal');
+            const taskSelect = document.getElementById('reminder-task');
+            
+            // 填充任务选项
+            taskSelect.innerHTML = tasksData.map(task => 
+                `<option value="${task.id}">${task.name}</option>`
+            ).join('');
+            
+            document.getElementById('reminder-form').reset();
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeReminderEditor() {
+            const modal = document.getElementById('reminder-editor-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        async function saveReminder() {
+            const taskId = document.getElementById('reminder-task').value;
+            const deadline = document.getElementById('reminder-deadline').value;
+            const advance = parseInt(document.getElementById('reminder-advance').value);
+            
+            if (!taskId || !deadline) {
+                alert('请填写完整信息');
+                return;
+            }
+            
+            const task = tasksData.find(t => t.id === taskId);
+            const deadlineTime = new Date(deadline).getTime();
+            
+            const data = {
+                taskId,
+                taskName: task?.name || taskId,
+                deadline: deadlineTime,
+                reminderTime: deadlineTime - advance,
+                advance
+            };
+            
+            try {
+                await VirtualStationAdmin.createReminder(data);
+                closeReminderEditor();
+                await loadReminders();
+                alert('提醒设置成功！');
+            } catch (e) {
+                console.error('设置提醒失败:', e);
+                alert('设置失败: ' + e.message);
+            }
+        }
+
+        async function sendReminder(reminderId) {
+            try {
+                await VirtualStationAdmin.sendReminder(reminderId);
+                alert('提醒已发送！');
+            } catch (e) {
+                console.error('发送提醒失败:', e);
+                alert('发送失败: ' + e.message);
+            }
+        }
+
+        async function deleteReminder(reminderId) {
+            if (!confirm('确定要删除这个提醒吗？')) return;
+            
+            try {
+                await VirtualStationAdmin.deleteReminder(reminderId);
+                await loadReminders();
+                alert('删除成功！');
+            } catch (e) {
+                console.error('删除提醒失败:', e);
+                alert('删除失败: ' + e.message);
+            }
+        }
+
+        // ================= 数据导出 =================
+        async function exportStudentScores() {
+            try {
+                const data = await VirtualStationAdmin.exportStudentScores();
+                downloadExcel(data, '学生成绩报告');
+            } catch (e) {
+                console.error('导出失败:', e);
+                alert('导出失败: ' + e.message);
+            }
+        }
+
+        async function exportBehaviorLogs() {
+            try {
+                const data = await VirtualStationAdmin.exportBehaviorLogs();
+                downloadExcel(data, '行为日志报告');
+            } catch (e) {
+                console.error('导出失败:', e);
+                alert('导出失败: ' + e.message);
+            }
+        }
+
+        async function exportErrorAnalysis() {
+            try {
+                const data = await VirtualStationAdmin.exportErrorAnalysis();
+                downloadExcel(data, '错误分析报告');
+            } catch (e) {
+                console.error('导出失败:', e);
+                alert('导出失败: ' + e.message);
+            }
+        }
+
+        function downloadExcel(data, filename) {
+            if (!data || data.length === 0) {
+                alert('没有可导出的数据');
+                return;
+            }
+            
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+            XLSX.writeFile(wb, `${filename}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        }
+    </script>
+</body>
+</html>

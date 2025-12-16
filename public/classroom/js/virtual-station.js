@@ -10,6 +10,103 @@
  * - 成就系统 (AchievementService)
  */
 
+// ================= 性能优化工具函数 =================
+
+/**
+ * 防抖函数 - 减少频繁调用
+ * @param {Function} func 要防抖的函数
+ * @param {number} wait 等待时间（毫秒）
+ * @returns {Function} 防抖后的函数
+ */
+function debounce(func, wait = 300) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func.apply(this, args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+/**
+ * 节流函数 - 限制调用频率
+ * @param {Function} func 要节流的函数
+ * @param {number} limit 时间限制（毫秒）
+ * @returns {Function} 节流后的函数
+ */
+function throttle(func, limit = 1000) {
+    let inThrottle;
+    return function executedFunction(...args) {
+        if (!inThrottle) {
+            func.apply(this, args);
+            inThrottle = true;
+            setTimeout(() => inThrottle = false, limit);
+        }
+    };
+}
+
+/**
+ * 批量请求管理器 - 合并多个请求减少API调用
+ */
+class BatchRequestManager {
+    constructor(batchDelay = 50) {
+        this._pendingRequests = new Map();
+        this._batchDelay = batchDelay;
+        this._timers = new Map();
+    }
+
+    /**
+     * 添加请求到批次
+     * @param {string} key 请求类型标识
+     * @param {string} id 请求ID
+     * @param {Function} executor 执行函数
+     * @returns {Promise} 请求结果
+     */
+    add(key, id, executor) {
+        return new Promise((resolve, reject) => {
+            if (!this._pendingRequests.has(key)) {
+                this._pendingRequests.set(key, new Map());
+            }
+            
+            const batch = this._pendingRequests.get(key);
+            batch.set(id, { resolve, reject, executor });
+            
+            // 清除之前的定时器
+            if (this._timers.has(key)) {
+                clearTimeout(this._timers.get(key));
+            }
+            
+            // 设置新的定时器
+            this._timers.set(key, setTimeout(() => {
+                this._executeBatch(key);
+            }, this._batchDelay));
+        });
+    }
+
+    async _executeBatch(key) {
+        const batch = this._pendingRequests.get(key);
+        if (!batch || batch.size === 0) return;
+        
+        this._pendingRequests.delete(key);
+        this._timers.delete(key);
+        
+        // 执行批量请求
+        for (const [id, { resolve, reject, executor }] of batch) {
+            try {
+                const result = await executor();
+                resolve(result);
+            } catch (error) {
+                reject(error);
+            }
+        }
+    }
+}
+
+// 全局批量请求管理器实例
+const batchRequestManager = new BatchRequestManager();
+
 // ================= 数据模型定义 =================
 
 /**
@@ -853,6 +950,7 @@ class VirtualStationPlatform {
         this.processTracker = null;
         this.careerService = null;
         this.achievementService = null;
+        this.progressAutoSave = null;
     }
 
     /**
@@ -873,9 +971,15 @@ class VirtualStationPlatform {
         this.processTracker = new ProcessTrackerService(this.supabase);
         this.careerService = new CareerService(this.supabase);
         this.achievementService = new AchievementService(this.supabase);
+        this.progressAutoSave = new ProgressAutoSaveService(this.supabase);
 
         // 从本地存储恢复进度
         await this._restoreProgress();
+
+        // 如果有用户，启动自动保存服务
+        if (this.currentUser) {
+            this.progressAutoSave.start(this.currentUser.id);
+        }
 
         this.initialized = true;
         console.log('✅ 虚拟工位平台初始化完成');
@@ -942,6 +1046,11 @@ class VirtualStationPlatform {
             ...data
         };
         localStorage.setItem('vs_progress', JSON.stringify(progress));
+        
+        // 标记有待保存的更改
+        if (this.progressAutoSave) {
+            this.progressAutoSave.markPendingChanges();
+        }
     }
 
     /**
@@ -950,6 +1059,119 @@ class VirtualStationPlatform {
     async getCareerProfile() {
         if (!this.currentUser) return null;
         return this.careerService.getCareerProfile(this.currentUser.id);
+    }
+
+    /**
+     * 进入工位（集成自动保存）
+     * @param {string} workstationId - 工位ID
+     * @returns {Promise<Object>} 会话信息
+     */
+    async enterWorkstation(workstationId) {
+        if (!this.currentUser) {
+            throw new Error('用户未登录');
+        }
+
+        // 创建会话
+        const session = await this.workstationService.enterWorkstation(
+            this.currentUser.id,
+            workstationId
+        );
+        this.currentSession = session;
+
+        // 设置自动保存的当前工位
+        if (this.progressAutoSave) {
+            this.progressAutoSave.setCurrentWorkstation(workstationId);
+            
+            // 尝试恢复之前的进度
+            const savedProgress = await this.progressAutoSave.restoreProgress(
+                this.currentUser.id,
+                workstationId
+            );
+            
+            if (savedProgress) {
+                console.log('📂 已恢复工位进度:', savedProgress);
+            }
+        }
+
+        return session;
+    }
+
+    /**
+     * 退出工位（集成自动保存）
+     */
+    async exitWorkstation() {
+        if (!this.currentSession) return;
+
+        // 立即保存进度
+        if (this.progressAutoSave) {
+            await this.progressAutoSave.saveNow();
+            await this.progressAutoSave.syncNow();
+            this.progressAutoSave.setCurrentWorkstation(null);
+        }
+
+        // 退出会话
+        await this.workstationService.exitWorkstation(this.currentSession.id);
+        this.currentSession = null;
+    }
+
+    /**
+     * 立即保存当前进度
+     * @returns {Promise<Object>} 保存结果
+     */
+    async saveProgressNow() {
+        if (!this.progressAutoSave) {
+            return { success: false, reason: 'service_not_initialized' };
+        }
+        return this.progressAutoSave.saveNow();
+    }
+
+    /**
+     * 立即同步进度到云端
+     * @returns {Promise<Object>} 同步结果
+     */
+    async syncProgressToCloud() {
+        if (!this.progressAutoSave) {
+            return { success: false, reason: 'service_not_initialized' };
+        }
+        return this.progressAutoSave.syncNow();
+    }
+
+    /**
+     * 获取进度备份列表
+     * @param {string} workstationId - 工位ID
+     * @returns {Array} 备份列表
+     */
+    getProgressBackups(workstationId) {
+        if (!this.currentUser || !this.progressAutoSave) {
+            return [];
+        }
+        return this.progressAutoSave.getBackups(this.currentUser.id, workstationId);
+    }
+
+    /**
+     * 从备份恢复进度
+     * @param {string} workstationId - 工位ID
+     * @param {string} backupId - 备份ID
+     * @returns {Object|null} 恢复的进度数据
+     */
+    restoreProgressFromBackup(workstationId, backupId) {
+        if (!this.currentUser || !this.progressAutoSave) {
+            return null;
+        }
+        return this.progressAutoSave.restoreFromBackup(
+            this.currentUser.id,
+            workstationId,
+            backupId
+        );
+    }
+
+    /**
+     * 获取上次同步时间
+     * @returns {number|null} 时间戳
+     */
+    getLastSyncTime() {
+        if (!this.progressAutoSave) return null;
+        return this.progressAutoSave.getLastSyncTime();
     }
 }
 
@@ -962,15 +1184,49 @@ class VirtualStationPlatform {
 class WorkstationService {
     constructor(supabase) {
         this.supabase = supabase;
+        // 缓存配置
+        this._cache = {
+            workstations: null,
+            workstationDetails: new Map(),
+            progress: new Map(),
+            lastFetch: 0
+        };
+        this._cacheExpiry = 5 * 60 * 1000; // 5分钟缓存过期
     }
 
     /**
-     * 获取工位列表
+     * 检查缓存是否有效
+     */
+    _isCacheValid() {
+        return this._cache.lastFetch > 0 && 
+               (Date.now() - this._cache.lastFetch) < this._cacheExpiry;
+    }
+
+    /**
+     * 清除缓存
+     */
+    clearCache() {
+        this._cache.workstations = null;
+        this._cache.workstationDetails.clear();
+        this._cache.progress.clear();
+        this._cache.lastFetch = 0;
+    }
+
+    /**
+     * 获取工位列表（带缓存）
+     * @param {boolean} forceRefresh 是否强制刷新
      * @returns {Promise<Array>} 工位信息列表
      */
-    async getWorkstationList() {
+    async getWorkstationList(forceRefresh = false) {
+        // 检查缓存
+        if (!forceRefresh && this._cache.workstations && this._isCacheValid()) {
+            return this._cache.workstations;
+        }
+
         if (!this.supabase) {
-            return this._getPresetWorkstations();
+            this._cache.workstations = this._getPresetWorkstations();
+            this._cache.lastFetch = Date.now();
+            return this._cache.workstations;
         }
 
         const { data, error } = await this.supabase
@@ -981,19 +1237,32 @@ class WorkstationService {
 
         if (error) {
             console.warn('获取工位列表失败，使用预设数据:', error);
-            return this._getPresetWorkstations();
+            this._cache.workstations = this._getPresetWorkstations();
+        } else {
+            this._cache.workstations = data || this._getPresetWorkstations();
         }
-
-        return data || this._getPresetWorkstations();
+        
+        this._cache.lastFetch = Date.now();
+        return this._cache.workstations;
     }
 
     /**
-     * 获取单个工位详情
+     * 获取单个工位详情（带缓存）
      * @param {string} workstationId 工位ID
+     * @param {boolean} forceRefresh 是否强制刷新
      */
-    async getWorkstation(workstationId) {
+    async getWorkstation(workstationId, forceRefresh = false) {
+        // 检查缓存
+        if (!forceRefresh && this._cache.workstationDetails.has(workstationId) && this._isCacheValid()) {
+            return this._cache.workstationDetails.get(workstationId);
+        }
+
         if (!this.supabase) {
-            return this._getPresetWorkstations().find(w => w.id === workstationId);
+            const preset = this._getPresetWorkstations().find(w => w.id === workstationId);
+            if (preset) {
+                this._cache.workstationDetails.set(workstationId, preset);
+            }
+            return preset;
         }
 
         const { data, error } = await this.supabase
@@ -1007,17 +1276,34 @@ class WorkstationService {
             return null;
         }
 
+        // 缓存结果
+        if (data) {
+            this._cache.workstationDetails.set(workstationId, data);
+        }
         return data;
     }
 
     /**
-     * 获取用户在工位的进度
+     * 获取用户在工位的进度（带缓存）
      * @param {string} userId 用户ID
      * @param {string} workstationId 工位ID
+     * @param {boolean} forceRefresh 是否强制刷新
      */
-    async getWorkstationProgress(userId, workstationId) {
+    async getWorkstationProgress(userId, workstationId, forceRefresh = false) {
+        const cacheKey = `${userId}_${workstationId}`;
+        
+        // 检查缓存（进度缓存时间较短，1分钟）
+        if (!forceRefresh && this._cache.progress.has(cacheKey)) {
+            const cached = this._cache.progress.get(cacheKey);
+            if (Date.now() - cached.timestamp < 60000) {
+                return cached.data;
+            }
+        }
+
         if (!this.supabase) {
-            return this._getLocalProgress(userId, workstationId);
+            const localProgress = this._getLocalProgress(userId, workstationId);
+            this._cache.progress.set(cacheKey, { data: localProgress, timestamp: Date.now() });
+            return localProgress;
         }
 
         const { data, error } = await this.supabase
@@ -1031,7 +1317,9 @@ class WorkstationService {
             console.error('获取进度失败:', error);
         }
 
-        return data || { progress: 0, completed_tasks: 0, total_tasks: 0 };
+        const result = data || { progress: 0, completed_tasks: 0, total_tasks: 0 };
+        this._cache.progress.set(cacheKey, { data: result, timestamp: Date.now() });
+        return result;
     }
 
     /**
@@ -2472,6 +2760,7 @@ class TaskFlowService {
 
     /**
      * 保存任务执行到历史
+     * Requirements: 11.3 - 保存完成任务的完整记录（任务ID、得分、用时、操作路径）
      * @param {TaskExecution} execution 执行记录
      */
     async saveToHistory(execution) {
@@ -2479,15 +2768,252 @@ class TaskFlowService {
         const saved = localStorage.getItem(key);
         const history = saved ? JSON.parse(saved) : [];
 
+        // 确保历史记录包含所有必需字段
+        const historyRecord = {
+            id: execution.id,
+            userId: execution.userId,
+            taskId: execution.taskId,
+            sessionId: execution.sessionId,
+            score: execution.score || 0,
+            startedAt: execution.startedAt,
+            completedAt: execution.completedAt,
+            status: execution.status,
+            stageData: execution.stageData || {},
+            currentStageIndex: execution.currentStageIndex
+        };
+
         // 添加到历史（避免重复）
         const existingIndex = history.findIndex(h => h.id === execution.id);
         if (existingIndex >= 0) {
-            history[existingIndex] = execution;
+            history[existingIndex] = historyRecord;
         } else {
-            history.push(execution);
+            history.push(historyRecord);
         }
 
         localStorage.setItem(key, JSON.stringify(history));
+
+        // 同步到数据库（如果可用）
+        if (this.supabase && execution.status === TaskExecutionStatus.COMPLETED) {
+            try {
+                const task = PRESET_TASKS.find(t => t.id === execution.taskId);
+                const workstationId = task ? task.workstationId : null;
+                const timeSpent = execution.completedAt && execution.startedAt 
+                    ? Math.round((execution.completedAt - execution.startedAt) / 1000) 
+                    : 0;
+
+                // 检查是否是最高分
+                const existingRecords = history.filter(h => 
+                    h.taskId === execution.taskId && 
+                    h.status === TaskExecutionStatus.COMPLETED
+                );
+                const isBestScore = existingRecords.every(r => (r.score || 0) <= (execution.score || 0));
+
+                await this.supabase
+                    .from('vs_history_records')
+                    .upsert({
+                        id: execution.id,
+                        user_id: execution.userId,
+                        workstation_id: workstationId,
+                        task_id: execution.taskId,
+                        execution_id: execution.id,
+                        score: execution.score || 0,
+                        time_spent: timeSpent,
+                        completed_at: execution.completedAt,
+                        is_best_score: isBestScore,
+                        operation_path: execution.stageData
+                    }, { onConflict: 'id' });
+            } catch (error) {
+                console.error('保存历史记录到数据库失败:', error);
+            }
+        }
+    }
+
+    /**
+     * 获取用户的任务执行历史（带详细信息）
+     * Requirements: 11.4 - 显示已完成任务列表和各项得分
+     * @param {string} userId 用户ID
+     * @param {Object} [options] 选项
+     * @param {string} [options.workstationId] 工位ID筛选
+     * @param {string} [options.sortBy] 排序方式 ('time-desc'|'time-asc'|'score-desc'|'score-asc')
+     * @param {number} [options.limit] 限制数量
+     * @returns {Promise<Array>} 历史记录列表（含任务和工位信息）
+     */
+    async getTaskHistoryWithDetails(userId, options = {}) {
+        let history = await this.getTaskHistory(userId, options.workstationId);
+
+        // 添加任务和工位详细信息
+        history = history.map(record => {
+            const task = PRESET_TASKS.find(t => t.id === record.taskId);
+            const workstation = task ? PRESET_WORKSTATIONS.find(w => w.id === task.workstationId) : null;
+
+            return {
+                ...record,
+                taskName: task ? task.name : '未知任务',
+                taskDescription: task ? task.description : '',
+                workstationId: task ? task.workstationId : null,
+                workstationName: workstation ? workstation.name : '未知工位',
+                workstationIcon: workstation ? workstation.icon : 'ri-question-line',
+                workstationColor: workstation ? workstation.color : 'gray',
+                xpReward: task ? task.xpReward : 0,
+                passingScore: task ? task.passingScore : 60,
+                maxScore: task ? task.maxScore : 100,
+                timeSpent: record.completedAt && record.startedAt 
+                    ? record.completedAt - record.startedAt 
+                    : 0
+            };
+        });
+
+        // 排序
+        if (options.sortBy) {
+            switch (options.sortBy) {
+                case 'time-desc':
+                    history.sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+                    break;
+                case 'time-asc':
+                    history.sort((a, b) => (a.completedAt || 0) - (b.completedAt || 0));
+                    break;
+                case 'score-desc':
+                    history.sort((a, b) => (b.score || 0) - (a.score || 0));
+                    break;
+                case 'score-asc':
+                    history.sort((a, b) => (a.score || 0) - (b.score || 0));
+                    break;
+            }
+        } else {
+            // 默认按完成时间降序
+            history.sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+        }
+
+        // 限制数量
+        if (options.limit && options.limit > 0) {
+            history = history.slice(0, options.limit);
+        }
+
+        return history;
+    }
+
+    /**
+     * 获取历史记录统计
+     * Requirements: 11.3, 11.4 - 统计完成任务数、平均得分、最高得分、总用时
+     * @param {string} userId 用户ID
+     * @returns {Promise<Object>} 统计数据
+     */
+    async getHistoryStats(userId) {
+        const history = await this.getTaskHistory(userId);
+        const completedRecords = history.filter(r => r.status === TaskExecutionStatus.COMPLETED);
+
+        if (completedRecords.length === 0) {
+            return {
+                totalCompleted: 0,
+                averageScore: 0,
+                bestScore: 0,
+                totalTimeMs: 0,
+                totalTimeFormatted: '0h'
+            };
+        }
+
+        const scores = completedRecords.map(r => r.score || 0);
+        const totalTimeMs = completedRecords.reduce((sum, r) => {
+            if (r.completedAt && r.startedAt) {
+                return sum + (r.completedAt - r.startedAt);
+            }
+            return sum;
+        }, 0);
+
+        const totalHours = Math.round(totalTimeMs / 3600000 * 10) / 10;
+
+        return {
+            totalCompleted: completedRecords.length,
+            averageScore: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length),
+            bestScore: Math.max(...scores),
+            totalTimeMs: totalTimeMs,
+            totalTimeFormatted: totalHours > 0 ? `${totalHours}h` : '0h'
+        };
+    }
+
+    /**
+     * 获取指定任务的最高分
+     * Requirements: 11.5 - 保留最高分记录
+     * @param {string} userId 用户ID
+     * @param {string} taskId 任务ID
+     * @returns {Promise<number>} 最高分，如果没有记录则返回0
+     */
+    async getTaskHighScore(userId, taskId) {
+        const history = await this.getTaskHistory(userId);
+        const taskRecords = history.filter(r => 
+            r.taskId === taskId && 
+            r.status === TaskExecutionStatus.COMPLETED
+        );
+        
+        if (taskRecords.length === 0) return 0;
+        return Math.max(...taskRecords.map(r => r.score || 0));
+    }
+
+    /**
+     * 获取指定任务的所有历史记录
+     * Requirements: 11.5 - 支持查看历史任务详情
+     * @param {string} userId 用户ID
+     * @param {string} taskId 任务ID
+     * @returns {Promise<Array>} 该任务的所有历史记录
+     */
+    async getTaskAttempts(userId, taskId) {
+        const history = await this.getTaskHistory(userId);
+        return history
+            .filter(r => r.taskId === taskId)
+            .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+    }
+
+    /**
+     * 开始重新挑战任务
+     * Requirements: 11.5 - 支持重玩历史任务，保留最高分记录
+     * @param {string} sessionId 会话ID
+     * @param {string} taskId 任务ID
+     * @param {string} userId 用户ID
+     * @returns {Promise<{execution: TaskExecution, previousHighScore: number, attemptCount: number}>} 执行记录和历史信息
+     */
+    async startRetryChallenge(sessionId, taskId, userId) {
+        // 获取之前的最高分和尝试次数
+        const previousHighScore = await this.getTaskHighScore(userId, taskId);
+        const attempts = await this.getTaskAttempts(userId, taskId);
+        const attemptCount = attempts.filter(a => a.status === TaskExecutionStatus.COMPLETED).length;
+
+        // 开始新的任务执行
+        const execution = await this.startTask(sessionId, taskId);
+
+        // 标记为重新挑战
+        execution.isRetry = true;
+        execution.previousHighScore = previousHighScore;
+        execution.attemptNumber = attemptCount + 1;
+
+        // 更新本地存储
+        localStorage.setItem('vs_current_execution', JSON.stringify(execution));
+        this.currentExecution = execution;
+
+        return {
+            execution,
+            previousHighScore,
+            attemptCount
+        };
+    }
+
+    /**
+     * 检查是否刷新了最高分
+     * Requirements: 11.5 - 保留最高分记录
+     * @param {string} userId 用户ID
+     * @param {string} taskId 任务ID
+     * @param {number} newScore 新得分
+     * @returns {Promise<{isNewHighScore: boolean, previousHighScore: number, improvement: number}>}
+     */
+    async checkHighScoreImprovement(userId, taskId, newScore) {
+        const previousHighScore = await this.getTaskHighScore(userId, taskId);
+        const isNewHighScore = newScore > previousHighScore;
+        const improvement = isNewHighScore ? newScore - previousHighScore : 0;
+
+        return {
+            isNewHighScore,
+            previousHighScore,
+            improvement
+        };
     }
 }
 
@@ -6007,6 +6533,1092 @@ class AchievementService {
 }
 
 
+// ================= 学习进度与记录服务 =================
+
+/**
+ * 进度状态枚举
+ * @typedef {'not_started'|'in_progress'|'completed'|'paused'} ProgressStatus
+ */
+const ProgressStatus = {
+    NOT_STARTED: 'not_started',
+    IN_PROGRESS: 'in_progress',
+    COMPLETED: 'completed',
+    PAUSED: 'paused'
+}
+
+/**
+ * 竞赛状态枚举
+ * @typedef {'pending'|'active'|'ended'} CompetitionStatus
+ */
+const CompetitionStatus = {
+    PENDING: 'pending',
+    ACTIVE: 'active',
+    ENDED: 'ended'
+};
+
+/**
+ * 竞赛排行榜条目接口
+ * @typedef {Object} LeaderboardEntry
+ * @property {string} id - 条目ID
+ * @property {string} competitionId - 竞赛ID
+ * @property {string} userId - 用户ID
+ * @property {string} userName - 用户名称
+ * @property {number} score - 得分
+ * @property {number} timeSpent - 用时（秒）
+ * @property {number} rank - 排名
+ * @property {number} completedAt - 完成时间戳
+ * @property {Object} [operationPath] - 操作路径记录
+ */
+
+/**
+ * 竞赛数据接口
+ * @typedef {Object} Competition
+ * @property {string} id - 竞赛ID
+ * @property {string} name - 竞赛名称
+ * @property {string} description - 竞赛描述
+ * @property {string} workstationId - 工位ID
+ * @property {string} taskId - 任务ID
+ * @property {string} createdBy - 创建者ID
+ * @property {CompetitionStatus} status - 竞赛状态
+ * @property {number} startedAt - 开始时间戳
+ * @property {number} endedAt - 结束时间戳
+ * @property {number} createdAt - 创建时间戳
+ * @property {LeaderboardEntry[]} leaderboard - 排行榜
+ */
+
+/**
+ * 竞赛排行服务类
+ * 提供实时排行榜功能
+ * Requirements: 10.2, 10.3 - 实时排行榜，按得分和用时排序
+ */
+class CompetitionService {
+    constructor(supabase) {
+        this.supabase = supabase;
+        /** @type {Map<string, Competition>} */
+        this.competitions = new Map();
+        /** @type {Function[]} */
+        this.leaderboardUpdateCallbacks = [];
+        /** @type {number|null} */
+        this.refreshInterval = null;
+        /** @type {number} */
+        this.refreshIntervalMs = 5000; // 5秒刷新一次
+    }
+
+    /**
+     * 注册排行榜更新回调
+     * @param {Function} callback - 回调函数，接收 { competitionId, leaderboard } 参数
+     */
+    onLeaderboardUpdate(callback) {
+        if (typeof callback === 'function') {
+            this.leaderboardUpdateCallbacks.push(callback);
+        }
+    }
+
+    /**
+     * 触发排行榜更新事件
+     * @param {string} competitionId - 竞赛ID
+     * @param {LeaderboardEntry[]} leaderboard - 排行榜数据
+     * @private
+     */
+    _triggerLeaderboardUpdate(competitionId, leaderboard) {
+        this.leaderboardUpdateCallbacks.forEach(callback => {
+            try {
+                callback({ competitionId, leaderboard });
+            } catch (e) {
+                console.error('Leaderboard update callback error:', e);
+            }
+        });
+    }
+
+    /**
+     * 获取竞赛信息
+     * @param {string} competitionId - 竞赛ID
+     * @returns {Promise<Competition|null>}
+     */
+    async getCompetition(competitionId) {
+        // 先从缓存获取
+        if (this.competitions.has(competitionId)) {
+            return this.competitions.get(competitionId);
+        }
+
+        // 从数据库获取
+        if (this.supabase) {
+            try {
+                const { data, error } = await this.supabase
+                    .from('vs_competitions')
+                    .select('*')
+                    .eq('id', competitionId)
+                    .single();
+
+                if (error && error.code !== 'PGRST116') throw error;
+
+                if (data) {
+                    const competition = this._mapCompetitionFromDB(data);
+                    // 加载排行榜
+                    competition.leaderboard = await this.getLeaderboard(competitionId);
+                    this.competitions.set(competitionId, competition);
+                    return competition;
+                }
+            } catch (error) {
+                console.error('获取竞赛信息失败:', error);
+            }
+        }
+
+        // 从本地存储获取
+        const localKey = `vs_competition_${competitionId}`;
+        const saved = localStorage.getItem(localKey);
+        if (saved) {
+            const competition = JSON.parse(saved);
+            this.competitions.set(competitionId, competition);
+            return competition;
+        }
+
+        return null;
+    }
+
+    /**
+     * 获取活跃的竞赛列表
+     * @returns {Promise<Competition[]>}
+     */
+    async getActiveCompetitions() {
+        if (this.supabase) {
+            try {
+                const { data, error } = await this.supabase
+                    .from('vs_competitions')
+                    .select('*')
+                    .eq('status', 'active')
+                    .order('started_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (data) {
+                    const competitions = await Promise.all(
+                        data.map(async (row) => {
+                            const competition = this._mapCompetitionFromDB(row);
+                            competition.leaderboard = await this.getLeaderboard(competition.id);
+                            this.competitions.set(competition.id, competition);
+                            return competition;
+                        })
+                    );
+                    return competitions;
+                }
+            } catch (error) {
+                console.error('获取活跃竞赛列表失败:', error);
+            }
+        }
+
+        // 从本地存储获取
+        const activeCompetitions = [];
+        for (const [id, competition] of this.competitions) {
+            if (competition.status === CompetitionStatus.ACTIVE) {
+                activeCompetitions.push(competition);
+            }
+        }
+        return activeCompetitions;
+    }
+
+    /**
+     * 获取排行榜数据
+     * Requirements: 10.2, 10.3 - 实时排行榜，按得分降序、用时升序排列
+     * @param {string} competitionId - 竞赛ID
+     * @returns {Promise<LeaderboardEntry[]>}
+     */
+    async getLeaderboard(competitionId) {
+        let entries = [];
+
+        // 从数据库获取
+        if (this.supabase) {
+            try {
+                const { data, error } = await this.supabase
+                    .from('vs_competition_participants')
+                    .select('*')
+                    .eq('competition_id', competitionId)
+                    .not('completed_at', 'is', null);
+
+                if (error) throw error;
+
+                if (data) {
+                    entries = data.map(row => this._mapLeaderboardEntryFromDB(row));
+                }
+            } catch (error) {
+                console.error('获取排行榜数据失败:', error);
+            }
+        }
+
+        // 如果数据库没有数据，从本地缓存获取
+        if (entries.length === 0) {
+            const competition = this.competitions.get(competitionId);
+            if (competition && competition.leaderboard) {
+                entries = [...competition.leaderboard];
+            }
+        }
+
+        // 排序排行榜
+        const sortedEntries = this.sortLeaderboard(entries);
+
+        // 更新排名
+        sortedEntries.forEach((entry, index) => {
+            entry.rank = index + 1;
+        });
+
+        return sortedEntries;
+    }
+
+    /**
+     * 排序排行榜
+     * Requirements: 10.2, 10.3 - 按得分降序排列，得分相同时按用时升序排列
+     * 
+     * **Feature: virtual-station, Property 19: 竞赛排行榜排序正确性**
+     * *For any* 竞赛排行榜，条目必须按得分降序排列，得分相同时按用时升序排列
+     * **Validates: Requirements 10.2, 10.3**
+     * 
+     * @param {LeaderboardEntry[]} entries - 排行榜条目列表
+     * @returns {LeaderboardEntry[]} 排序后的排行榜
+     */
+    sortLeaderboard(entries) {
+        if (!entries || !Array.isArray(entries)) {
+            return [];
+        }
+
+        return [...entries].sort((a, b) => {
+            // 首先按得分降序排列
+            if (b.score !== a.score) {
+                return b.score - a.score;
+            }
+            // 得分相同时按用时升序排列（用时少的排前面）
+            return a.timeSpent - b.timeSpent;
+        });
+    }
+
+    /**
+     * 提交竞赛成绩
+     * Requirements: 10.3 - 学生完成竞赛任务后计算综合得分并更新排名
+     * @param {string} competitionId - 竞赛ID
+     * @param {string} userId - 用户ID
+     * @param {string} userName - 用户名称
+     * @param {number} score - 得分
+     * @param {number} timeSpent - 用时（秒）
+     * @param {Object} [operationPath] - 操作路径记录
+     * @returns {Promise<LeaderboardEntry|null>}
+     */
+    async submitScore(competitionId, userId, userName, score, timeSpent, operationPath = null) {
+        const competition = await this.getCompetition(competitionId);
+        if (!competition) {
+            console.warn('竞赛不存在:', competitionId);
+            return null;
+        }
+
+        if (competition.status !== CompetitionStatus.ACTIVE) {
+            console.warn('竞赛未进行中，无法提交成绩');
+            return null;
+        }
+
+        // 检查是否已提交过
+        const existingEntry = competition.leaderboard.find(e => e.userId === userId);
+        if (existingEntry) {
+            console.warn('该用户已提交过成绩');
+            return existingEntry;
+        }
+
+        const now = Date.now();
+        const entryId = `entry_${now}_${Math.random().toString(36).substr(2, 9)}`;
+
+        /** @type {LeaderboardEntry} */
+        const entry = {
+            id: entryId,
+            competitionId,
+            userId,
+            userName,
+            score,
+            timeSpent,
+            rank: 0, // 将在排序后更新
+            completedAt: now,
+            operationPath
+        };
+
+        // 添加到排行榜
+        competition.leaderboard.push(entry);
+
+        // 重新排序并更新排名
+        competition.leaderboard = this.sortLeaderboard(competition.leaderboard);
+        competition.leaderboard.forEach((e, index) => {
+            e.rank = index + 1;
+        });
+
+        // 保存到数据库
+        if (this.supabase) {
+            try {
+                const { error } = await this.supabase
+                    .from('vs_competition_participants')
+                    .upsert({
+                        id: entryId,
+                        competition_id: competitionId,
+                        user_id: userId,
+                        score,
+                        time_spent: timeSpent,
+                        rank: entry.rank,
+                        completed_at: new Date(now).toISOString(),
+                        operation_path: operationPath
+                    });
+
+                if (error) throw error;
+            } catch (error) {
+                console.error('保存竞赛成绩失败:', error);
+            }
+        }
+
+        // 保存到本地存储
+        this._saveCompetitionToLocal(competition);
+
+        // 触发排行榜更新事件
+        this._triggerLeaderboardUpdate(competitionId, competition.leaderboard);
+
+        console.log('📊 竞赛成绩已提交:', entry);
+        return entry;
+    }
+
+    /**
+     * 刷新排行榜数据
+     * @param {string} competitionId - 竞赛ID
+     * @returns {Promise<LeaderboardEntry[]>}
+     */
+    async refreshLeaderboard(competitionId) {
+        const leaderboard = await this.getLeaderboard(competitionId);
+        
+        // 更新缓存
+        const competition = this.competitions.get(competitionId);
+        if (competition) {
+            competition.leaderboard = leaderboard;
+        }
+
+        // 触发更新事件
+        this._triggerLeaderboardUpdate(competitionId, leaderboard);
+
+        return leaderboard;
+    }
+
+    /**
+     * 开始自动刷新排行榜
+     * @param {string} competitionId - 竞赛ID
+     * @param {number} [intervalMs] - 刷新间隔（毫秒）
+     */
+    startAutoRefresh(competitionId, intervalMs = 5000) {
+        this.stopAutoRefresh();
+        
+        this.refreshIntervalMs = intervalMs;
+        this.refreshInterval = setInterval(async () => {
+            await this.refreshLeaderboard(competitionId);
+        }, intervalMs);
+
+        console.log(`🔄 排行榜自动刷新已启动，间隔: ${intervalMs}ms`);
+    }
+
+    /**
+     * 停止自动刷新排行榜
+     */
+    stopAutoRefresh() {
+        if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+            this.refreshInterval = null;
+            console.log('🔄 排行榜自动刷新已停止');
+        }
+    }
+
+    /**
+     * 获取用户在排行榜中的排名
+     * @param {string} competitionId - 竞赛ID
+     * @param {string} userId - 用户ID
+     * @returns {Promise<{rank: number, entry: LeaderboardEntry}|null>}
+     */
+    async getUserRank(competitionId, userId) {
+        const leaderboard = await this.getLeaderboard(competitionId);
+        const entry = leaderboard.find(e => e.userId === userId);
+        
+        if (entry) {
+            return {
+                rank: entry.rank,
+                entry
+            };
+        }
+        
+        return null;
+    }
+
+    /**
+     * 获取排行榜前N名
+     * @param {string} competitionId - 竞赛ID
+     * @param {number} topN - 前N名
+     * @returns {Promise<LeaderboardEntry[]>}
+     */
+    async getTopN(competitionId, topN = 10) {
+        const leaderboard = await this.getLeaderboard(competitionId);
+        return leaderboard.slice(0, topN);
+    }
+
+    /**
+     * 从数据库记录映射到Competition对象
+     * @param {Object} row - 数据库记录
+     * @returns {Competition}
+     * @private
+     */
+    _mapCompetitionFromDB(row) {
+        return {
+            id: row.id,
+            name: row.name,
+            description: row.description,
+            workstationId: row.workstation_id,
+            taskId: row.task_id,
+            createdBy: row.created_by,
+            status: row.status,
+            startedAt: row.started_at ? new Date(row.started_at).getTime() : null,
+            endedAt: row.ended_at ? new Date(row.ended_at).getTime() : null,
+            createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+            leaderboard: []
+        };
+    }
+
+    /**
+     * 从数据库记录映射到LeaderboardEntry对象
+     * @param {Object} row - 数据库记录
+     * @returns {LeaderboardEntry}
+     * @private
+     */
+    _mapLeaderboardEntryFromDB(row) {
+        return {
+            id: row.id,
+            competitionId: row.competition_id,
+            userId: row.user_id,
+            userName: row.user_name || row.user_id, // 如果没有用户名，使用用户ID
+            score: row.score || 0,
+            timeSpent: row.time_spent || 0,
+            rank: row.rank || 0,
+            completedAt: row.completed_at ? new Date(row.completed_at).getTime() : null,
+            operationPath: row.operation_path
+        };
+    }
+
+    /**
+     * 保存竞赛到本地存储
+     * @param {Competition} competition - 竞赛对象
+     * @private
+     */
+    _saveCompetitionToLocal(competition) {
+        try {
+            const localKey = `vs_competition_${competition.id}`;
+            localStorage.setItem(localKey, JSON.stringify(competition));
+        } catch (e) {
+            console.error('保存竞赛到本地存储失败:', e);
+        }
+    }
+
+    /**
+     * 渲染排行榜HTML
+     * @param {LeaderboardEntry[]} leaderboard - 排行榜数据
+     * @param {string} [currentUserId] - 当前用户ID（用于高亮显示）
+     * @returns {string} HTML字符串
+     */
+    renderLeaderboardHTML(leaderboard, currentUserId = null) {
+        if (!leaderboard || leaderboard.length === 0) {
+            return `
+                <div class="text-center text-gray-400 py-8">
+                    <i class="ri-trophy-line text-4xl mb-2"></i>
+                    <p>暂无排名数据</p>
+                </div>
+            `;
+        }
+
+        const rows = leaderboard.map((entry, index) => {
+            const isCurrentUser = entry.userId === currentUserId;
+            const rankClass = index === 0 ? 'text-amber-400' : 
+                             index === 1 ? 'text-gray-300' : 
+                             index === 2 ? 'text-amber-600' : 'text-gray-400';
+            const rankIcon = index === 0 ? '🥇' : 
+                            index === 1 ? '🥈' : 
+                            index === 2 ? '🥉' : `${entry.rank}`;
+            const rowClass = isCurrentUser ? 'bg-purple-500/20 border-purple-500/50' : 'bg-white/5';
+            
+            const minutes = Math.floor(entry.timeSpent / 60);
+            const seconds = entry.timeSpent % 60;
+            const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+            return `
+                <div class="${rowClass} rounded-lg p-3 flex items-center justify-between border border-transparent hover:border-white/10 transition">
+                    <div class="flex items-center gap-3">
+                        <span class="w-8 text-center font-bold ${rankClass}">${rankIcon}</span>
+                        <span class="font-medium ${isCurrentUser ? 'text-purple-300' : 'text-white'}">${entry.userName}</span>
+                        ${isCurrentUser ? '<span class="text-xs bg-purple-500/30 px-2 py-0.5 rounded text-purple-300">你</span>' : ''}
+                    </div>
+                    <div class="flex items-center gap-6">
+                        <div class="text-right">
+                            <div class="font-bold text-cyan-400">${entry.score}</div>
+                            <div class="text-xs text-gray-500">得分</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-medium text-gray-300">${timeStr}</div>
+                            <div class="text-xs text-gray-500">用时</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="space-y-2">
+                ${rows}
+            </div>
+        `;
+    }
+
+    /**
+     * 格式化时间显示
+     * @param {number} seconds - 秒数
+     * @returns {string} 格式化的时间字符串
+     */
+    formatTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${minutes}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    // ================= 竞赛结果展示和导出 =================
+    // Requirements: 10.4, 10.5 - 显示最终排名和路径对比，导出Excel报告
+
+    /**
+     * 获取竞赛最终结果
+     * Requirements: 10.4 - 竞赛结束后显示最终排名和各学生的完成路径对比
+     * @param {string} competitionId - 竞赛ID
+     * @returns {Promise<Object>} 竞赛结果数据
+     */
+    async getCompetitionResults(competitionId) {
+        const competition = await this.getCompetition(competitionId);
+        if (!competition) {
+            return null;
+        }
+
+        // 获取排序后的排行榜
+        const leaderboard = await this.getLeaderboard(competitionId);
+
+        // 计算统计数据
+        const stats = this._calculateCompetitionStats(leaderboard);
+
+        return {
+            competition: {
+                id: competition.id,
+                name: competition.name,
+                description: competition.description,
+                workstationId: competition.workstationId,
+                taskId: competition.taskId,
+                status: competition.status,
+                startedAt: competition.startedAt,
+                endedAt: competition.endedAt
+            },
+            leaderboard: leaderboard,
+            stats: stats,
+            generatedAt: Date.now()
+        };
+    }
+
+    /**
+     * 计算竞赛统计数据
+     * @param {LeaderboardEntry[]} leaderboard - 排行榜数据
+     * @returns {Object} 统计数据
+     * @private
+     */
+    _calculateCompetitionStats(leaderboard) {
+        if (!leaderboard || leaderboard.length === 0) {
+            return {
+                totalParticipants: 0,
+                averageScore: 0,
+                highestScore: 0,
+                lowestScore: 0,
+                averageTime: 0,
+                fastestTime: 0,
+                slowestTime: 0,
+                scoreDistribution: []
+            };
+        }
+
+        const scores = leaderboard.map(e => e.score);
+        const times = leaderboard.map(e => e.timeSpent);
+
+        const totalParticipants = leaderboard.length;
+        const averageScore = Math.round(scores.reduce((a, b) => a + b, 0) / totalParticipants);
+        const highestScore = Math.max(...scores);
+        const lowestScore = Math.min(...scores);
+        const averageTime = Math.round(times.reduce((a, b) => a + b, 0) / totalParticipants);
+        const fastestTime = Math.min(...times);
+        const slowestTime = Math.max(...times);
+
+        // 计算分数分布（按10分区间）
+        const scoreDistribution = this._calculateScoreDistribution(scores);
+
+        return {
+            totalParticipants,
+            averageScore,
+            highestScore,
+            lowestScore,
+            averageTime,
+            fastestTime,
+            slowestTime,
+            scoreDistribution
+        };
+    }
+
+    /**
+     * 计算分数分布
+     * @param {number[]} scores - 分数数组
+     * @returns {Array<{range: string, count: number, percentage: number}>} 分布数据
+     * @private
+     */
+    _calculateScoreDistribution(scores) {
+        const distribution = [];
+        const ranges = [
+            { min: 0, max: 59, label: '0-59' },
+            { min: 60, max: 69, label: '60-69' },
+            { min: 70, max: 79, label: '70-79' },
+            { min: 80, max: 89, label: '80-89' },
+            { min: 90, max: 100, label: '90-100' }
+        ];
+
+        const total = scores.length;
+        for (const range of ranges) {
+            const count = scores.filter(s => s >= range.min && s <= range.max).length;
+            distribution.push({
+                range: range.label,
+                count: count,
+                percentage: total > 0 ? Math.round((count / total) * 100) : 0
+            });
+        }
+
+        return distribution;
+    }
+
+    /**
+     * 获取操作路径对比数据
+     * Requirements: 10.4 - 显示各学生的完成路径对比
+     * @param {string} competitionId - 竞赛ID
+     * @param {string[]} [userIds] - 要对比的用户ID列表（可选，默认前5名）
+     * @returns {Promise<Object>} 路径对比数据
+     */
+    async getOperationPathComparison(competitionId, userIds = null) {
+        const leaderboard = await this.getLeaderboard(competitionId);
+        
+        // 如果没有指定用户，默认取前5名
+        let targetEntries = leaderboard;
+        if (userIds && userIds.length > 0) {
+            targetEntries = leaderboard.filter(e => userIds.includes(e.userId));
+        } else {
+            targetEntries = leaderboard.slice(0, 5);
+        }
+
+        const comparisons = targetEntries.map(entry => ({
+            userId: entry.userId,
+            userName: entry.userName,
+            rank: entry.rank,
+            score: entry.score,
+            timeSpent: entry.timeSpent,
+            timeFormatted: this.formatTime(entry.timeSpent),
+            operationPath: entry.operationPath || [],
+            completedAt: entry.completedAt
+        }));
+
+        return {
+            competitionId,
+            comparisons,
+            generatedAt: Date.now()
+        };
+    }
+
+    /**
+     * 渲染竞赛结果HTML
+     * Requirements: 10.4 - 显示最终排名和路径对比
+     * @param {Object} results - 竞赛结果数据（来自getCompetitionResults）
+     * @param {string} [currentUserId] - 当前用户ID（用于高亮显示）
+     * @returns {string} HTML字符串
+     */
+    renderCompetitionResultsHTML(results, currentUserId = null) {
+        if (!results || !results.competition) {
+            return `
+                <div class="text-center text-gray-400 py-8">
+                    <i class="ri-error-warning-line text-4xl mb-2"></i>
+                    <p>竞赛结果数据不可用</p>
+                </div>
+            `;
+        }
+
+        const { competition, leaderboard, stats } = results;
+        const statusText = competition.status === 'ended' ? '已结束' : 
+                          competition.status === 'active' ? '进行中' : '待开始';
+        const statusClass = competition.status === 'ended' ? 'bg-gray-500' : 
+                           competition.status === 'active' ? 'bg-green-500' : 'bg-yellow-500';
+
+        // 渲染统计卡片
+        const statsHTML = `
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white/5 rounded-lg p-4 text-center">
+                    <div class="text-2xl font-bold text-cyan-400">${stats.totalParticipants}</div>
+                    <div class="text-sm text-gray-400">参赛人数</div>
+                </div>
+                <div class="bg-white/5 rounded-lg p-4 text-center">
+                    <div class="text-2xl font-bold text-green-400">${stats.averageScore}</div>
+                    <div class="text-sm text-gray-400">平均分</div>
+                </div>
+                <div class="bg-white/5 rounded-lg p-4 text-center">
+                    <div class="text-2xl font-bold text-amber-400">${stats.highestScore}</div>
+                    <div class="text-sm text-gray-400">最高分</div>
+                </div>
+                <div class="bg-white/5 rounded-lg p-4 text-center">
+                    <div class="text-2xl font-bold text-purple-400">${this.formatTime(stats.fastestTime)}</div>
+                    <div class="text-sm text-gray-400">最快用时</div>
+                </div>
+            </div>
+        `;
+
+        // 渲染排行榜
+        const leaderboardHTML = this.renderLeaderboardHTML(leaderboard, currentUserId);
+
+        // 渲染分数分布
+        const distributionHTML = this._renderScoreDistributionHTML(stats.scoreDistribution);
+
+        return `
+            <div class="competition-results">
+                <!-- 竞赛信息头部 -->
+                <div class="bg-gradient-to-r from-purple-600/20 to-cyan-600/20 rounded-xl p-6 mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold text-white">${competition.name}</h2>
+                        <span class="${statusClass} px-3 py-1 rounded-full text-sm text-white">${statusText}</span>
+                    </div>
+                    <p class="text-gray-300 text-sm mb-4">${competition.description || ''}</p>
+                    <div class="flex items-center gap-4 text-sm text-gray-400">
+                        ${competition.startedAt ? `<span><i class="ri-time-line mr-1"></i>开始: ${new Date(competition.startedAt).toLocaleString()}</span>` : ''}
+                        ${competition.endedAt ? `<span><i class="ri-flag-line mr-1"></i>结束: ${new Date(competition.endedAt).toLocaleString()}</span>` : ''}
+                    </div>
+                </div>
+
+                <!-- 统计数据 -->
+                ${statsHTML}
+
+                <!-- 分数分布 -->
+                <div class="bg-white/5 rounded-xl p-4 mb-6">
+                    <h3 class="text-lg font-semibold text-white mb-4">分数分布</h3>
+                    ${distributionHTML}
+                </div>
+
+                <!-- 排行榜 -->
+                <div class="bg-white/5 rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-white">最终排名</h3>
+                        <button onclick="window.CompetitionService && window.CompetitionService.exportCompetitionResults && window.CompetitionService.exportCompetitionResults('${competition.id}')" 
+                                class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm text-white transition flex items-center gap-2">
+                            <i class="ri-file-excel-2-line"></i>
+                            导出Excel
+                        </button>
+                    </div>
+                    ${leaderboardHTML}
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * 渲染分数分布HTML
+     * @param {Array} distribution - 分数分布数据
+     * @returns {string} HTML字符串
+     * @private
+     */
+    _renderScoreDistributionHTML(distribution) {
+        if (!distribution || distribution.length === 0) {
+            return '<p class="text-gray-400 text-center">暂无分布数据</p>';
+        }
+
+        const bars = distribution.map(d => {
+            const barColor = d.range.startsWith('90') ? 'bg-green-500' :
+                            d.range.startsWith('80') ? 'bg-cyan-500' :
+                            d.range.startsWith('70') ? 'bg-blue-500' :
+                            d.range.startsWith('60') ? 'bg-yellow-500' : 'bg-red-500';
+            
+            return `
+                <div class="flex items-center gap-3">
+                    <span class="w-16 text-sm text-gray-400">${d.range}</span>
+                    <div class="flex-1 bg-white/10 rounded-full h-6 overflow-hidden">
+                        <div class="${barColor} h-full rounded-full transition-all duration-500" 
+                             style="width: ${d.percentage}%"></div>
+                    </div>
+                    <span class="w-20 text-sm text-gray-300 text-right">${d.count}人 (${d.percentage}%)</span>
+                </div>
+            `;
+        }).join('');
+
+        return `<div class="space-y-2">${bars}</div>`;
+    }
+
+    /**
+     * 渲染操作路径对比HTML
+     * Requirements: 10.4 - 显示各学生的完成路径对比
+     * @param {Object} comparisonData - 路径对比数据（来自getOperationPathComparison）
+     * @returns {string} HTML字符串
+     */
+    renderOperationPathComparisonHTML(comparisonData) {
+        if (!comparisonData || !comparisonData.comparisons || comparisonData.comparisons.length === 0) {
+            return `
+                <div class="text-center text-gray-400 py-8">
+                    <i class="ri-route-line text-4xl mb-2"></i>
+                    <p>暂无路径对比数据</p>
+                </div>
+            `;
+        }
+
+        const comparisons = comparisonData.comparisons;
+
+        const rows = comparisons.map((c, index) => {
+            const rankClass = index === 0 ? 'text-amber-400' : 
+                             index === 1 ? 'text-gray-300' : 
+                             index === 2 ? 'text-amber-600' : 'text-gray-400';
+            const rankIcon = index === 0 ? '🥇' : 
+                            index === 1 ? '🥈' : 
+                            index === 2 ? '🥉' : `${c.rank}`;
+
+            // 渲染操作路径
+            const pathSteps = c.operationPath && c.operationPath.length > 0 
+                ? c.operationPath.map((step, i) => `
+                    <span class="inline-flex items-center px-2 py-1 bg-white/10 rounded text-xs text-gray-300">
+                        ${i + 1}. ${step.action || step.name || step}
+                    </span>
+                `).join('<i class="ri-arrow-right-s-line text-gray-500 mx-1"></i>')
+                : '<span class="text-gray-500 text-sm">无路径记录</span>';
+
+            return `
+                <div class="bg-white/5 rounded-lg p-4 mb-3">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-3">
+                            <span class="w-8 text-center font-bold ${rankClass}">${rankIcon}</span>
+                            <span class="font-medium text-white">${c.userName}</span>
+                        </div>
+                        <div class="flex items-center gap-4 text-sm">
+                            <span class="text-cyan-400 font-bold">${c.score}分</span>
+                            <span class="text-gray-400">${c.timeFormatted}</span>
+                        </div>
+                    </div>
+                    <div class="pl-11">
+                        <div class="text-xs text-gray-500 mb-2">操作路径:</div>
+                        <div class="flex flex-wrap items-center gap-1">
+                            ${pathSteps}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="operation-path-comparison">
+                <h3 class="text-lg font-semibold text-white mb-4">操作路径对比</h3>
+                ${rows}
+            </div>
+        `;
+    }
+
+    /**
+     * 导出竞赛结果为Excel
+     * Requirements: 10.5 - 教师导出竞赛结果，生成包含详细数据的Excel报告
+     * @param {string} competitionId - 竞赛ID
+     * @returns {Promise<void>}
+     */
+    async exportCompetitionResults(competitionId) {
+        const results = await this.getCompetitionResults(competitionId);
+        if (!results) {
+            console.error('无法获取竞赛结果');
+            alert('导出失败：无法获取竞赛结果');
+            return;
+        }
+
+        // 检查XLSX库是否可用
+        if (typeof XLSX === 'undefined') {
+            console.error('SheetJS库未加载');
+            alert('导出失败：Excel导出库未加载，请确保已引入xlsx.js');
+            return;
+        }
+
+        try {
+            const workbook = this._generateCompetitionExcelWorkbook(results);
+            
+            // 生成文件名
+            const timestamp = new Date().toISOString().slice(0, 10);
+            const filename = `竞赛结果_${results.competition.name}_${timestamp}.xlsx`;
+
+            // 导出文件
+            XLSX.writeFile(workbook, filename);
+            
+            console.log('📊 竞赛结果已导出:', filename);
+        } catch (error) {
+            console.error('导出竞赛结果失败:', error);
+            alert('导出失败：' + error.message);
+        }
+    }
+
+    /**
+     * 生成竞赛Excel工作簿
+     * Requirements: 10.5 - 生成包含详细数据的Excel报告
+     * @param {Object} results - 竞赛结果数据
+     * @returns {Object} XLSX工作簿对象
+     * @private
+     */
+    _generateCompetitionExcelWorkbook(results) {
+        const { competition, leaderboard, stats } = results;
+        const workbook = XLSX.utils.book_new();
+
+        // 工作表1: 竞赛概况
+        const summaryData = [
+            ['竞赛结果报告'],
+            [],
+            ['竞赛名称', competition.name],
+            ['竞赛描述', competition.description || ''],
+            ['竞赛状态', competition.status === 'ended' ? '已结束' : competition.status === 'active' ? '进行中' : '待开始'],
+            ['开始时间', competition.startedAt ? new Date(competition.startedAt).toLocaleString() : ''],
+            ['结束时间', competition.endedAt ? new Date(competition.endedAt).toLocaleString() : ''],
+            [],
+            ['统计数据'],
+            ['参赛人数', stats.totalParticipants],
+            ['平均分', stats.averageScore],
+            ['最高分', stats.highestScore],
+            ['最低分', stats.lowestScore],
+            ['平均用时', this.formatTime(stats.averageTime)],
+            ['最快用时', this.formatTime(stats.fastestTime)],
+            ['最慢用时', this.formatTime(stats.slowestTime)],
+            [],
+            ['分数分布'],
+            ['分数区间', '人数', '占比']
+        ];
+
+        // 添加分数分布数据
+        for (const d of stats.scoreDistribution) {
+            summaryData.push([d.range, d.count, `${d.percentage}%`]);
+        }
+
+        const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+        
+        // 设置列宽
+        summarySheet['!cols'] = [
+            { wch: 15 },
+            { wch: 40 },
+            { wch: 15 }
+        ];
+
+        XLSX.utils.book_append_sheet(workbook, summarySheet, '竞赛概况');
+
+        // 工作表2: 排行榜详情
+        const rankingData = [
+            ['排名', '用户ID', '用户名', '得分', '用时(秒)', '用时(格式化)', '完成时间']
+        ];
+
+        for (const entry of leaderboard) {
+            rankingData.push([
+                entry.rank,
+                entry.userId,
+                entry.userName,
+                entry.score,
+                entry.timeSpent,
+                this.formatTime(entry.timeSpent),
+                entry.completedAt ? new Date(entry.completedAt).toLocaleString() : ''
+            ]);
+        }
+
+        const rankingSheet = XLSX.utils.aoa_to_sheet(rankingData);
+        
+        // 设置列宽
+        rankingSheet['!cols'] = [
+            { wch: 8 },
+            { wch: 20 },
+            { wch: 15 },
+            { wch: 10 },
+            { wch: 12 },
+            { wch: 15 },
+            { wch: 20 }
+        ];
+
+        XLSX.utils.book_append_sheet(workbook, rankingSheet, '排行榜详情');
+
+        // 工作表3: 操作路径（如果有数据）
+        const pathData = [
+            ['排名', '用户名', '得分', '用时', '操作路径']
+        ];
+
+        for (const entry of leaderboard) {
+            const pathStr = entry.operationPath && entry.operationPath.length > 0
+                ? entry.operationPath.map((step, i) => `${i + 1}.${step.action || step.name || step}`).join(' → ')
+                : '无记录';
+            
+            pathData.push([
+                entry.rank,
+                entry.userName,
+                entry.score,
+                this.formatTime(entry.timeSpent),
+                pathStr
+            ]);
+        }
+
+        const pathSheet = XLSX.utils.aoa_to_sheet(pathData);
+        
+        // 设置列宽
+        pathSheet['!cols'] = [
+            { wch: 8 },
+            { wch: 15 },
+            { wch: 10 },
+            { wch: 12 },
+            { wch: 80 }
+        ];
+
+        XLSX.utils.book_append_sheet(workbook, pathSheet, '操作路径');
+
+        return workbook;
+    }
+
+    /**
+     * 导出竞赛结果为JSON（用于数据备份或API）
+     * @param {string} competitionId - 竞赛ID
+     * @returns {Promise<string>} JSON字符串
+     */
+    async exportCompetitionResultsJSON(competitionId) {
+        const results = await this.getCompetitionResults(competitionId);
+        if (!results) {
+            throw new Error('无法获取竞赛结果');
+        }
+
+        return JSON.stringify(results, null, 2);
+    }
+
+    /**
+     * 下载竞赛结果JSON文件
+     * @param {string} competitionId - 竞赛ID
+     * @returns {Promise<void>}
+     */
+    async downloadCompetitionResultsJSON(competitionId) {
+        try {
+            const jsonStr = await this.exportCompetitionResultsJSON(competitionId);
+            const results = JSON.parse(jsonStr);
+            
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const timestamp = new Date().toISOString().slice(0, 10);
+            const filename = `竞赛结果_${results.competition.name}_${timestamp}.json`;
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            console.log('📊 竞赛结果JSON已导出:', filename);
+        } catch (error) {
+            console.error('导出竞赛结果JSON失败:', error);
+            alert('导出失败：' + error.message);
+        }
+    }
+}
+
+
 // ================= AI助教服务 =================
 
 /**
@@ -8229,12 +9841,981 @@ class KnowledgeBaseService {
     }
 }
 
+// ================= 进度自动保存服务 =================
+
+/**
+ * 进度自动保存服务
+ * 实现定时保存进度到云端和本地缓存备份
+ * Requirements: 11.1 - 自动保存当前进度到云端
+ */
+class ProgressAutoSaveService {
+    /**
+     * 本地存储键名前缀
+     */
+    static STORAGE_KEYS = {
+        PROGRESS_PREFIX: 'vs_progress_',
+        EXECUTION_KEY: 'vs_current_execution',
+        SESSION_KEY: 'vs_current_session',
+        BACKUP_PREFIX: 'vs_backup_',
+        LAST_SYNC: 'vs_last_sync_time'
+    };
+
+    /**
+     * 默认配置
+     */
+    static DEFAULT_CONFIG = {
+        autoSaveInterval: 30000,      // 自动保存间隔（毫秒），默认30秒
+        syncInterval: 60000,          // 云端同步间隔（毫秒），默认60秒
+        maxBackupCount: 5,            // 最大备份数量
+        enableAutoSave: true,         // 是否启用自动保存
+        enableCloudSync: true         // 是否启用云端同步
+    };
+
+    constructor(supabase, config = {}) {
+        this.supabase = supabase;
+        this.config = { ...ProgressAutoSaveService.DEFAULT_CONFIG, ...config };
+        
+        // 定时器ID
+        this._autoSaveTimer = null;
+        this._syncTimer = null;
+        
+        // 状态标记
+        this._isRunning = false;
+        this._pendingChanges = false;
+        this._lastSaveTime = null;
+        
+        // 当前用户信息
+        this._userId = null;
+        this._currentWorkstationId = null;
+        
+        // 进度数据缓存
+        this._progressCache = new Map();
+    }
+
+    /**
+     * 启动自动保存服务
+     * @param {string} userId - 用户ID
+     * @param {string} [workstationId] - 当前工位ID（可选）
+     */
+    start(userId, workstationId = null) {
+        if (this._isRunning) {
+            console.log('⚠️ 自动保存服务已在运行');
+            return;
+        }
+
+        this._userId = userId;
+        this._currentWorkstationId = workstationId;
+        this._isRunning = true;
+
+        // 启动自动保存定时器
+        if (this.config.enableAutoSave) {
+            this._autoSaveTimer = setInterval(() => {
+                this._performAutoSave();
+            }, this.config.autoSaveInterval);
+        }
+
+        // 启动云端同步定时器
+        if (this.config.enableCloudSync && this.supabase) {
+            this._syncTimer = setInterval(() => {
+                this._performCloudSync();
+            }, this.config.syncInterval);
+        }
+
+        // 监听页面关闭事件，确保保存
+        this._setupBeforeUnloadHandler();
+
+        console.log('✅ 进度自动保存服务已启动', {
+            userId: this._userId,
+            workstationId: this._currentWorkstationId,
+            autoSaveInterval: this.config.autoSaveInterval,
+            syncInterval: this.config.syncInterval
+        });
+    }
+
+    /**
+     * 停止自动保存服务
+     */
+    stop() {
+        if (!this._isRunning) return;
+
+        // 停止前执行最后一次保存
+        this._performAutoSave();
+        this._performCloudSync();
+
+        // 清除定时器
+        if (this._autoSaveTimer) {
+            clearInterval(this._autoSaveTimer);
+            this._autoSaveTimer = null;
+        }
+        if (this._syncTimer) {
+            clearInterval(this._syncTimer);
+            this._syncTimer = null;
+        }
+
+        this._isRunning = false;
+        console.log('🛑 进度自动保存服务已停止');
+    }
+
+    /**
+     * 设置当前工位
+     * @param {string} workstationId - 工位ID
+     */
+    setCurrentWorkstation(workstationId) {
+        this._currentWorkstationId = workstationId;
+    }
+
+    /**
+     * 标记有待保存的更改
+     */
+    markPendingChanges() {
+        this._pendingChanges = true;
+    }
+
+    /**
+     * 立即保存当前进度
+     * @returns {Promise<Object>} 保存结果
+     */
+    async saveNow() {
+        return this._performAutoSave();
+    }
+
+    /**
+     * 立即同步到云端
+     * @returns {Promise<Object>} 同步结果
+     */
+    async syncNow() {
+        return this._performCloudSync();
+    }
+
+    /**
+     * 获取当前进度数据
+     * @returns {Object} 进度数据
+     */
+    getCurrentProgress() {
+        const execution = this._getLocalExecution();
+        const session = this._getLocalSession();
+        
+        return {
+            userId: this._userId,
+            workstationId: this._currentWorkstationId,
+            execution: execution,
+            session: session,
+            timestamp: Date.now(),
+            lastSaveTime: this._lastSaveTime
+        };
+    }
+
+    /**
+     * 恢复进度
+     * @param {string} userId - 用户ID
+     * @param {string} [workstationId] - 工位ID（可选）
+     * @returns {Promise<Object|null>} 恢复的进度数据
+     */
+    async restoreProgress(userId, workstationId = null) {
+        // 1. 先尝试从本地缓存恢复
+        const localProgress = this._getLocalProgress(userId, workstationId);
+        
+        // 2. 如果有云端连接，尝试从云端获取最新进度
+        if (this.supabase && workstationId) {
+            try {
+                const cloudProgress = await this._getCloudProgress(userId, workstationId);
+                
+                // 比较本地和云端进度，使用更新的那个
+                if (cloudProgress && cloudProgress.updated_at) {
+                    const cloudTime = new Date(cloudProgress.updated_at).getTime();
+                    const localTime = localProgress?.lastAccessedAt || 0;
+                    
+                    if (cloudTime > localTime) {
+                        console.log('📥 使用云端进度（更新）');
+                        // 同步云端数据到本地
+                        this._saveLocalProgress(userId, workstationId, cloudProgress);
+                        return this._normalizeProgress(cloudProgress);
+                    }
+                }
+            } catch (error) {
+                console.warn('获取云端进度失败，使用本地缓存:', error);
+            }
+        }
+
+        if (localProgress) {
+            console.log('📂 使用本地缓存进度');
+            return localProgress;
+        }
+
+        return null;
+    }
+
+    /**
+     * 创建进度备份
+     * @param {string} userId - 用户ID
+     * @param {string} workstationId - 工位ID
+     * @returns {Object} 备份信息
+     */
+    createBackup(userId, workstationId) {
+        const progress = this.getCurrentProgress();
+        const backupKey = `${ProgressAutoSaveService.STORAGE_KEYS.BACKUP_PREFIX}${userId}_${workstationId}`;
+        
+        // 获取现有备份列表
+        const backupsJson = localStorage.getItem(backupKey);
+        let backups = [];
+        try {
+            backups = backupsJson ? JSON.parse(backupsJson) : [];
+        } catch (e) {
+            backups = [];
+        }
+
+        // 添加新备份
+        const backup = {
+            id: `backup_${Date.now()}`,
+            timestamp: Date.now(),
+            data: progress
+        };
+        backups.unshift(backup);
+
+        // 限制备份数量
+        if (backups.length > this.config.maxBackupCount) {
+            backups = backups.slice(0, this.config.maxBackupCount);
+        }
+
+        localStorage.setItem(backupKey, JSON.stringify(backups));
+
+        return {
+            success: true,
+            backupId: backup.id,
+            timestamp: backup.timestamp,
+            totalBackups: backups.length
+        };
+    }
+
+    /**
+     * 获取备份列表
+     * @param {string} userId - 用户ID
+     * @param {string} workstationId - 工位ID
+     * @returns {Array} 备份列表
+     */
+    getBackups(userId, workstationId) {
+        const backupKey = `${ProgressAutoSaveService.STORAGE_KEYS.BACKUP_PREFIX}${userId}_${workstationId}`;
+        const backupsJson = localStorage.getItem(backupKey);
+        
+        try {
+            return backupsJson ? JSON.parse(backupsJson) : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    /**
+     * 从备份恢复
+     * @param {string} userId - 用户ID
+     * @param {string} workstationId - 工位ID
+     * @param {string} backupId - 备份ID
+     * @returns {Object|null} 恢复的进度数据
+     */
+    restoreFromBackup(userId, workstationId, backupId) {
+        const backups = this.getBackups(userId, workstationId);
+        const backup = backups.find(b => b.id === backupId);
+        
+        if (!backup) {
+            return null;
+        }
+
+        // 恢复进度数据
+        const progressData = backup.data;
+        
+        if (progressData.execution) {
+            localStorage.setItem(
+                ProgressAutoSaveService.STORAGE_KEYS.EXECUTION_KEY,
+                JSON.stringify(progressData.execution)
+            );
+        }
+        
+        if (progressData.session) {
+            localStorage.setItem(
+                ProgressAutoSaveService.STORAGE_KEYS.SESSION_KEY,
+                JSON.stringify(progressData.session)
+            );
+        }
+
+        return progressData;
+    }
+
+    /**
+     * 获取上次同步时间
+     * @returns {number|null} 时间戳
+     */
+    getLastSyncTime() {
+        const timeStr = localStorage.getItem(ProgressAutoSaveService.STORAGE_KEYS.LAST_SYNC);
+        return timeStr ? parseInt(timeStr, 10) : null;
+    }
+
+    // ================= 私有方法 =================
+
+    /**
+     * 执行自动保存
+     * @private
+     */
+    _performAutoSave() {
+        if (!this._userId) return { success: false, reason: 'no_user' };
+
+        try {
+            const progress = this.getCurrentProgress();
+            
+            // 保存到本地存储
+            if (this._currentWorkstationId) {
+                this._saveLocalProgress(this._userId, this._currentWorkstationId, {
+                    workstationId: this._currentWorkstationId,
+                    userId: this._userId,
+                    execution: progress.execution,
+                    session: progress.session,
+                    lastAccessedAt: Date.now()
+                });
+            }
+
+            // 保存执行记录
+            if (progress.execution) {
+                localStorage.setItem(
+                    ProgressAutoSaveService.STORAGE_KEYS.EXECUTION_KEY,
+                    JSON.stringify(progress.execution)
+                );
+            }
+
+            this._lastSaveTime = Date.now();
+            this._pendingChanges = false;
+
+            return { success: true, timestamp: this._lastSaveTime };
+        } catch (error) {
+            console.error('自动保存失败:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * 执行云端同步
+     * @private
+     */
+    async _performCloudSync() {
+        if (!this.supabase || !this._userId || !this._currentWorkstationId) {
+            return { success: false, reason: 'not_ready' };
+        }
+
+        try {
+            const progress = this.getCurrentProgress();
+            
+            // 准备同步数据
+            const syncData = {
+                user_id: this._userId,
+                workstation_id: this._currentWorkstationId,
+                progress: this._calculateProgressPercentage(progress.execution),
+                completed_tasks: this._countCompletedTasks(progress.execution),
+                total_tasks: this._getTotalTasks(this._currentWorkstationId),
+                last_task_id: progress.execution?.taskId || null,
+                last_stage_id: this._getCurrentStageId(progress.execution),
+                saved_data: {
+                    execution: progress.execution,
+                    session: progress.session,
+                    timestamp: Date.now()
+                },
+                updated_at: new Date().toISOString()
+            };
+
+            // 使用upsert保存到云端
+            const { error } = await this.supabase
+                .from('vs_progress')
+                .upsert(syncData, { 
+                    onConflict: 'user_id,workstation_id'
+                });
+
+            if (error) throw error;
+
+            // 更新最后同步时间
+            localStorage.setItem(
+                ProgressAutoSaveService.STORAGE_KEYS.LAST_SYNC,
+                Date.now().toString()
+            );
+
+            console.log('☁️ 进度已同步到云端');
+            return { success: true, timestamp: Date.now() };
+        } catch (error) {
+            console.error('云端同步失败:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * 设置页面关闭前保存处理
+     * @private
+     */
+    _setupBeforeUnloadHandler() {
+        window.addEventListener('beforeunload', () => {
+            // 同步保存（不使用async）
+            this._performAutoSave();
+            
+            // 创建备份
+            if (this._userId && this._currentWorkstationId) {
+                this.createBackup(this._userId, this._currentWorkstationId);
+            }
+        });
+
+        // 监听页面可见性变化
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                this._performAutoSave();
+            }
+        });
+    }
+
+    /**
+     * 获取本地执行记录
+     * @private
+     */
+    _getLocalExecution() {
+        const saved = localStorage.getItem(ProgressAutoSaveService.STORAGE_KEYS.EXECUTION_KEY);
+        if (saved) {
+            try {
+                return JSON.parse(saved);
+            } catch (e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 获取本地会话
+     * @private
+     */
+    _getLocalSession() {
+        const saved = localStorage.getItem(ProgressAutoSaveService.STORAGE_KEYS.SESSION_KEY);
+        if (saved) {
+            try {
+                return JSON.parse(saved);
+            } catch (e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 获取本地进度
+     * @private
+     */
+    _getLocalProgress(userId, workstationId) {
+        if (!workstationId) {
+            // 返回通用进度
+            const saved = localStorage.getItem('vs_progress');
+            if (saved) {
+                try {
+                    return JSON.parse(saved);
+                } catch (e) {
+                    return null;
+                }
+            }
+            return null;
+        }
+
+        const key = `${ProgressAutoSaveService.STORAGE_KEYS.PROGRESS_PREFIX}${userId}_${workstationId}`;
+        const saved = localStorage.getItem(key);
+        if (saved) {
+            try {
+                return JSON.parse(saved);
+            } catch (e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 保存本地进度
+     * @private
+     */
+    _saveLocalProgress(userId, workstationId, data) {
+        const key = `${ProgressAutoSaveService.STORAGE_KEYS.PROGRESS_PREFIX}${userId}_${workstationId}`;
+        localStorage.setItem(key, JSON.stringify(data));
+    }
+
+    /**
+     * 获取云端进度
+     * @private
+     */
+    async _getCloudProgress(userId, workstationId) {
+        if (!this.supabase) return null;
+
+        const { data, error } = await this.supabase
+            .from('vs_progress')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('workstation_id', workstationId)
+            .single();
+
+        if (error && error.code !== 'PGRST116') {
+            throw error;
+        }
+
+        return data;
+    }
+
+    /**
+     * 标准化进度数据格式
+     * @private
+     */
+    _normalizeProgress(cloudData) {
+        return {
+            workstationId: cloudData.workstation_id,
+            userId: cloudData.user_id,
+            progress: cloudData.progress,
+            completedTasks: cloudData.completed_tasks,
+            totalTasks: cloudData.total_tasks,
+            lastTaskId: cloudData.last_task_id,
+            lastStageId: cloudData.last_stage_id,
+            execution: cloudData.saved_data?.execution || null,
+            session: cloudData.saved_data?.session || null,
+            lastAccessedAt: new Date(cloudData.updated_at).getTime()
+        };
+    }
+
+    /**
+     * 计算进度百分比
+     * @private
+     */
+    _calculateProgressPercentage(execution) {
+        if (!execution) return 0;
+        
+        const task = PRESET_TASKS.find(t => t.id === execution.taskId);
+        if (!task || !task.stages || task.stages.length === 0) return 0;
+
+        const completedStages = execution.currentStageIndex || 0;
+        return Math.round((completedStages / task.stages.length) * 100);
+    }
+
+    /**
+     * 统计已完成任务数
+     * @private
+     */
+    _countCompletedTasks(execution) {
+        if (!execution) return 0;
+        
+        // 从历史记录中统计
+        const historyKey = `vs_task_history_${this._userId}`;
+        const historyJson = localStorage.getItem(historyKey);
+        
+        if (historyJson) {
+            try {
+                const history = JSON.parse(historyJson);
+                return history.filter(h => 
+                    h.status === 'completed' && 
+                    h.workstationId === this._currentWorkstationId
+                ).length;
+            } catch (e) {
+                return 0;
+            }
+        }
+        
+        return 0;
+    }
+
+    /**
+     * 获取工位总任务数
+     * @private
+     */
+    _getTotalTasks(workstationId) {
+        const workstation = PRESET_WORKSTATIONS.find(w => w.id === workstationId);
+        return workstation ? workstation.totalTasks : 0;
+    }
+
+    /**
+     * 获取当前阶段ID
+     * @private
+     */
+    _getCurrentStageId(execution) {
+        if (!execution) return null;
+        
+        const task = PRESET_TASKS.find(t => t.id === execution.taskId);
+        if (!task || !task.stages) return null;
+
+        const currentStage = task.stages[execution.currentStageIndex];
+        return currentStage ? currentStage.id : null;
+    }
+}
+
+// ================= 进度恢复服务 =================
+
+/**
+ * 进度恢复服务
+ * Requirements: 11.2 - 检测未完成进度，提供继续/重新开始选项
+ */
+class ProgressRecoveryService {
+    /**
+     * 本地存储键名
+     */
+    static STORAGE_KEYS = {
+        PROGRESS_PREFIX: 'vs_progress_',
+        EXECUTION_KEY: 'vs_current_execution',
+        SESSION_KEY: 'vs_current_session'
+    };
+
+    constructor(supabase = null) {
+        this.supabase = supabase;
+        this._pendingProgress = null;
+        this._pendingWorkstation = null;
+        this._onContinueCallback = null;
+        this._onRestartCallback = null;
+    }
+
+    /**
+     * 检测指定工位是否有未完成的进度
+     * Requirements: 11.2 - 检测未完成进度
+     * @param {string} userId - 用户ID
+     * @param {string} workstationId - 工位ID
+     * @returns {Promise<Object|null>} 未完成的进度数据，如果没有则返回null
+     */
+    async detectUnfinishedProgress(userId, workstationId) {
+        if (!userId || !workstationId) return null;
+
+        // 1. 检查本地存储
+        const localProgress = this._getLocalProgress(userId, workstationId);
+        
+        // 2. 检查云端存储（如果有Supabase连接）
+        let cloudProgress = null;
+        if (this.supabase) {
+            try {
+                cloudProgress = await this._getCloudProgress(userId, workstationId);
+            } catch (error) {
+                console.warn('获取云端进度失败:', error);
+            }
+        }
+
+        // 3. 选择最新的进度
+        let progress = null;
+        if (localProgress && cloudProgress) {
+            const localTime = localProgress.lastAccessedAt || 0;
+            const cloudTime = cloudProgress.updated_at ? new Date(cloudProgress.updated_at).getTime() : 0;
+            progress = localTime > cloudTime ? localProgress : this._normalizeCloudProgress(cloudProgress);
+        } else {
+            progress = localProgress || (cloudProgress ? this._normalizeCloudProgress(cloudProgress) : null);
+        }
+
+        // 4. 检查进度是否为未完成状态
+        if (progress && this._isProgressUnfinished(progress)) {
+            return progress;
+        }
+
+        return null;
+    }
+
+    /**
+     * 检查进度是否为未完成状态
+     * @private
+     */
+    _isProgressUnfinished(progress) {
+        // 检查是否有执行记录
+        if (!progress.execution) return false;
+        
+        // 检查执行状态是否为进行中
+        const execution = progress.execution;
+        if (execution.status === TaskExecutionStatus.COMPLETED || 
+            execution.status === TaskExecutionStatus.FAILED) {
+            return false;
+        }
+
+        // 检查是否有实际进度（至少完成了第一个阶段）
+        if (execution.currentStageIndex > 0 || 
+            (execution.stageData && Object.keys(execution.stageData).length > 0)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * 显示进度恢复对话框
+     * Requirements: 11.2 - 提供继续/重新开始选项
+     * @param {Object} progress - 未完成的进度数据
+     * @param {Object} workstation - 工位数据
+     * @param {Function} onContinue - 继续回调
+     * @param {Function} onRestart - 重新开始回调
+     */
+    showRecoveryDialog(progress, workstation, onContinue, onRestart) {
+        this._pendingProgress = progress;
+        this._pendingWorkstation = workstation;
+        this._onContinueCallback = onContinue;
+        this._onRestartCallback = onRestart;
+
+        // 获取任务信息
+        const task = PRESET_TASKS.find(t => t.id === progress.execution?.taskId);
+        const taskName = task ? task.name : '未知任务';
+        const totalStages = task ? task.stages.length : 0;
+        const currentStage = progress.execution?.currentStageIndex || 0;
+        
+        // 计算进度百分比
+        const progressPercent = totalStages > 0 ? Math.round((currentStage / totalStages) * 100) : 0;
+        
+        // 格式化最后访问时间
+        const lastAccessTime = progress.lastAccessedAt 
+            ? this._formatTimeAgo(progress.lastAccessedAt)
+            : '未知';
+
+        // 创建模态框HTML
+        const modalHtml = `
+            <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1001] flex items-center justify-center" id="progress-recovery-modal">
+                <div class="glass-card rounded-2xl w-full max-w-md mx-4 overflow-hidden" style="background: rgba(30, 30, 60, 0.95); border: 1px solid rgba(139, 92, 246, 0.3);">
+                    <!-- 头部 -->
+                    <div class="p-6 border-b border-gray-700/50">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center">
+                                <i class="ri-folder-open-line text-2xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">发现未完成的进度</h3>
+                                <p class="text-sm text-gray-400">是否继续上次的学习？</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 内容 -->
+                    <div class="p-6">
+                        <!-- 工位信息 -->
+                        <div class="bg-white/5 rounded-xl p-4 mb-4">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                                    <i class="${workstation.icon || 'ri-building-4-line'} text-lg"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium text-white">${workstation.name}</h4>
+                                    <p class="text-xs text-gray-400">${taskName}</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 进度统计 -->
+                        <div class="grid grid-cols-3 gap-3 mb-6">
+                            <div class="bg-white/5 rounded-xl p-3 text-center">
+                                <div class="text-xl font-bold text-purple-400">${progressPercent}%</div>
+                                <div class="text-xs text-gray-400">任务进度</div>
+                            </div>
+                            <div class="bg-white/5 rounded-xl p-3 text-center">
+                                <div class="text-xl font-bold text-cyan-400">${currentStage}/${totalStages}</div>
+                                <div class="text-xs text-gray-400">已完成阶段</div>
+                            </div>
+                            <div class="bg-white/5 rounded-xl p-3 text-center">
+                                <div class="text-sm font-bold text-amber-400">${lastAccessTime}</div>
+                                <div class="text-xs text-gray-400">上次学习</div>
+                            </div>
+                        </div>
+                        
+                        <!-- 进度条 -->
+                        <div class="mb-6">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm text-gray-400">任务进度</span>
+                                <span class="text-sm text-purple-400">${progressPercent}%</span>
+                            </div>
+                            <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                                <div class="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full transition-all duration-500" style="width: ${progressPercent}%"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- 操作按钮 -->
+                        <div class="flex gap-3">
+                            <button onclick="ProgressRecovery.handleRestart()" class="flex-1 px-4 py-3 bg-white/10 rounded-xl font-medium hover:bg-white/20 transition flex items-center justify-center gap-2 text-gray-300">
+                                <i class="ri-refresh-line"></i>
+                                重新开始
+                            </button>
+                            <button onclick="ProgressRecovery.handleContinue()" class="flex-1 px-4 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl font-medium hover:from-purple-600 hover:to-indigo-700 transition flex items-center justify-center gap-2 text-white">
+                                <i class="ri-play-circle-line"></i>
+                                继续学习
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // 移除已存在的模态框
+        const existingModal = document.getElementById('progress-recovery-modal');
+        if (existingModal) existingModal.remove();
+
+        // 添加模态框到页面
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    /**
+     * 处理继续学习
+     * Requirements: 11.2 - 继续上次进度
+     */
+    handleContinue() {
+        const progress = this._pendingProgress;
+        const workstation = this._pendingWorkstation;
+        const callback = this._onContinueCallback;
+
+        // 关闭模态框
+        this.closeRecoveryDialog();
+
+        // 执行回调
+        if (callback && typeof callback === 'function') {
+            callback(progress, workstation);
+        }
+
+        console.log('📂 继续上次进度:', progress);
+    }
+
+    /**
+     * 处理重新开始
+     * Requirements: 11.2 - 重新开始选项
+     */
+    handleRestart() {
+        const workstation = this._pendingWorkstation;
+        const callback = this._onRestartCallback;
+
+        // 清除保存的进度
+        if (this._pendingProgress && this._pendingProgress.userId && workstation) {
+            this.clearProgress(this._pendingProgress.userId, workstation.id);
+        }
+
+        // 关闭模态框
+        this.closeRecoveryDialog();
+
+        // 执行回调
+        if (callback && typeof callback === 'function') {
+            callback(workstation);
+        }
+
+        console.log('🔄 重新开始任务');
+    }
+
+    /**
+     * 关闭进度恢复对话框
+     */
+    closeRecoveryDialog() {
+        const modal = document.getElementById('progress-recovery-modal');
+        if (modal) {
+            modal.remove();
+        }
+
+        // 清理临时状态
+        this._pendingProgress = null;
+        this._pendingWorkstation = null;
+        this._onContinueCallback = null;
+        this._onRestartCallback = null;
+    }
+
+    /**
+     * 清除指定工位的进度
+     * @param {string} userId - 用户ID
+     * @param {string} workstationId - 工位ID
+     */
+    clearProgress(userId, workstationId) {
+        // 清除本地存储
+        const progressKey = `${ProgressRecoveryService.STORAGE_KEYS.PROGRESS_PREFIX}${userId}_${workstationId}`;
+        localStorage.removeItem(progressKey);
+
+        // 清除当前执行记录（如果是同一工位）
+        const executionJson = localStorage.getItem(ProgressRecoveryService.STORAGE_KEYS.EXECUTION_KEY);
+        if (executionJson) {
+            try {
+                const execution = JSON.parse(executionJson);
+                const task = PRESET_TASKS.find(t => t.id === execution.taskId);
+                if (task && task.workstationId === workstationId) {
+                    localStorage.removeItem(ProgressRecoveryService.STORAGE_KEYS.EXECUTION_KEY);
+                }
+            } catch (e) {
+                // 忽略解析错误
+            }
+        }
+
+        console.log('🗑️ 已清除工位进度:', workstationId);
+    }
+
+    /**
+     * 获取本地进度
+     * @private
+     */
+    _getLocalProgress(userId, workstationId) {
+        const key = `${ProgressRecoveryService.STORAGE_KEYS.PROGRESS_PREFIX}${userId}_${workstationId}`;
+        const saved = localStorage.getItem(key);
+        
+        if (saved) {
+            try {
+                return JSON.parse(saved);
+            } catch (e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 获取云端进度
+     * @private
+     */
+    async _getCloudProgress(userId, workstationId) {
+        if (!this.supabase) return null;
+
+        const { data, error } = await this.supabase
+            .from('vs_progress')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('workstation_id', workstationId)
+            .single();
+
+        if (error && error.code !== 'PGRST116') {
+            throw error;
+        }
+
+        return data;
+    }
+
+    /**
+     * 标准化云端进度数据格式
+     * @private
+     */
+    _normalizeCloudProgress(cloudData) {
+        return {
+            workstationId: cloudData.workstation_id,
+            userId: cloudData.user_id,
+            progress: cloudData.progress,
+            completedTasks: cloudData.completed_tasks,
+            totalTasks: cloudData.total_tasks,
+            lastTaskId: cloudData.last_task_id,
+            lastStageId: cloudData.last_stage_id,
+            execution: cloudData.saved_data?.execution || null,
+            session: cloudData.saved_data?.session || null,
+            lastAccessedAt: new Date(cloudData.updated_at).getTime()
+        };
+    }
+
+    /**
+     * 格式化时间为相对时间
+     * @private
+     */
+    _formatTimeAgo(timestamp) {
+        const now = Date.now();
+        const diff = now - timestamp;
+        
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / 86400000);
+
+        if (minutes < 1) return '刚刚';
+        if (minutes < 60) return `${minutes}分钟前`;
+        if (hours < 24) return `${hours}小时前`;
+        if (days < 7) return `${days}天前`;
+        
+        return new Date(timestamp).toLocaleDateString('zh-CN');
+    }
+}
+
 // ================= 导出到全局 =================
 
 // 创建全局实例
 const VirtualStation = new VirtualStationPlatform();
+const ProgressRecovery = new ProgressRecoveryService();
 const AITutor = new AITutorService();
 const KnowledgeBase = new KnowledgeBaseService();
+// 创建全局竞赛服务实例（用于竞赛结果导出等功能）
+const CompetitionServiceInstance = new CompetitionService(null);
+// 创建全局进度自动保存服务实例
+const ProgressAutoSave = new ProgressAutoSaveService(null);
 
 // 导出所有模块
 if (typeof window !== 'undefined') {
@@ -8245,10 +10826,17 @@ if (typeof window !== 'undefined') {
     window.ProcessTrackerService = ProcessTrackerService;
     window.CareerService = CareerService;
     window.AchievementService = AchievementService;
+    window.CompetitionService = CompetitionServiceInstance; // 导出实例而非类
+    window.CompetitionServiceClass = CompetitionService; // 同时导出类以便创建新实例
+    window.CompetitionStatus = CompetitionStatus;
     window.AITutorService = AITutorService;
     window.AITutor = AITutor;
     window.KnowledgeBaseService = KnowledgeBaseService;
     window.KnowledgeBase = KnowledgeBase;
+    window.ProgressAutoSaveService = ProgressAutoSaveService;
+    window.ProgressAutoSave = ProgressAutoSave;
+    window.ProgressRecoveryService = ProgressRecoveryService;
+    window.ProgressRecovery = ProgressRecovery;
     
     // 导出标准引用相关
     window.NATIONAL_STANDARDS_DATABASE = NATIONAL_STANDARDS_DATABASE;
@@ -8291,6 +10879,570 @@ if (typeof window !== 'undefined') {
     window.ErrorClassificationKeywords = ProcessTrackerService.ErrorClassificationKeywords;
 }
 
+// ================= 教师管理后台服务 =================
+
+/**
+ * 虚拟工位管理后台服务
+ * 提供教师端管理功能
+ */
+const VirtualStationAdmin = {
+    /**
+     * 获取所有工位
+     */
+    async getWorkstations() {
+        // 优先从数据库获取，否则使用预设数据
+        try {
+            if (typeof supabaseClient !== 'undefined') {
+                const { data, error } = await supabaseClient
+                    .from('virtual_workstations')
+                    .select('*')
+                    .order('created_at', { ascending: true });
+                if (!error && data && data.length > 0) {
+                    return data.map(ws => ({
+                        id: ws.id,
+                        name: ws.name,
+                        description: ws.description,
+                        icon: ws.icon || 'ri-building-4-line',
+                        color: ws.color || 'purple',
+                        category: ws.category,
+                        difficulty: ws.difficulty,
+                        estimatedTime: ws.estimated_time,
+                        requiredLevel: ws.required_level,
+                        totalTasks: ws.total_tasks || 0,
+                        xpReward: ws.xp_reward,
+                        certificateId: ws.certificate_id,
+                        isActive: ws.is_active,
+                        mode: ws.mode,
+                        linkUrl: ws.link_url,
+                        createdAt: new Date(ws.created_at).getTime(),
+                        updatedAt: new Date(ws.updated_at).getTime()
+                    }));
+                }
+            }
+        } catch (e) {
+            console.warn('从数据库加载工位失败，使用预设数据:', e);
+        }
+        return PRESET_WORKSTATIONS;
+    },
+
+    /**
+     * 创建工位
+     */
+    async createWorkstation(data) {
+        const id = `ws-${Date.now()}`;
+        const workstation = {
+            id,
+            name: data.name,
+            description: data.description,
+            icon: data.icon || 'ri-building-4-line',
+            color: data.color || 'purple',
+            category: data.category,
+            difficulty: data.difficulty,
+            estimated_time: data.estimatedTime || 60,
+            required_level: data.requiredLevel || 1,
+            total_tasks: 0,
+            xp_reward: data.xpReward || 100,
+            is_active: data.isActive !== false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+        
+        if (typeof supabaseClient !== 'undefined') {
+            const { error } = await supabaseClient
+                .from('virtual_workstations')
+                .insert(workstation);
+            if (error) throw error;
+        }
+        
+        return workstation;
+    },
+
+    /**
+     * 更新工位
+     */
+    async updateWorkstation(id, data) {
+        const updates = {
+            name: data.name,
+            description: data.description,
+            icon: data.icon,
+            category: data.category,
+            difficulty: data.difficulty,
+            estimated_time: data.estimatedTime,
+            required_level: data.requiredLevel,
+            xp_reward: data.xpReward,
+            is_active: data.isActive,
+            updated_at: new Date().toISOString()
+        };
+        
+        if (typeof supabaseClient !== 'undefined') {
+            const { error } = await supabaseClient
+                .from('virtual_workstations')
+                .update(updates)
+                .eq('id', id);
+            if (error) throw error;
+        }
+        
+        return { id, ...updates };
+    },
+
+    /**
+     * 删除工位
+     */
+    async deleteWorkstation(id) {
+        if (typeof supabaseClient !== 'undefined') {
+            // 先删除关联的任务
+            await supabaseClient
+                .from('virtual_tasks')
+                .delete()
+                .eq('workstation_id', id);
+            
+            const { error } = await supabaseClient
+                .from('virtual_workstations')
+                .delete()
+                .eq('id', id);
+            if (error) throw error;
+        }
+        return true;
+    },
+
+    /**
+     * 获取所有任务
+     */
+    async getTasks() {
+        try {
+            if (typeof supabaseClient !== 'undefined') {
+                const { data, error } = await supabaseClient
+                    .from('virtual_tasks')
+                    .select('*')
+                    .order('order_num', { ascending: true });
+                if (!error && data && data.length > 0) {
+                    return data.map(task => ({
+                        id: task.id,
+                        workstationId: task.workstation_id,
+                        name: task.name,
+                        description: task.description,
+                        order: task.order_num,
+                        taskBrief: task.task_brief || {},
+                        stages: task.stages || [],
+                        scoringRules: task.scoring_rules || [],
+                        maxScore: task.max_score || 100,
+                        passingScore: task.passing_score || 60,
+                        xpReward: task.xp_reward || 50
+                    }));
+                }
+            }
+        } catch (e) {
+            console.warn('从数据库加载任务失败，使用预设数据:', e);
+        }
+        return PRESET_TASKS;
+    },
+
+    /**
+     * 创建任务
+     */
+    async createTask(data) {
+        const id = `task-${Date.now()}`;
+        const task = {
+            id,
+            workstation_id: data.workstationId,
+            name: data.name,
+            description: data.description,
+            order_num: data.order || 1,
+            task_brief: data.taskBrief || {},
+            stages: data.stages || [],
+            scoring_rules: data.scoringRules || [],
+            max_score: data.maxScore || 100,
+            passing_score: data.passingScore || 60,
+            xp_reward: data.xpReward || 50,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+        
+        if (typeof supabaseClient !== 'undefined') {
+            const { error } = await supabaseClient
+                .from('virtual_tasks')
+                .insert(task);
+            if (error) throw error;
+            
+            // 更新工位的任务数
+            await supabaseClient.rpc('increment_workstation_tasks', { ws_id: data.workstationId });
+        }
+        
+        return task;
+    },
+
+    /**
+     * 更新任务
+     */
+    async updateTask(id, data) {
+        const updates = {
+            name: data.name,
+            workstation_id: data.workstationId,
+            description: data.description,
+            task_brief: data.taskBrief,
+            xp_reward: data.xpReward,
+            max_score: data.maxScore,
+            passing_score: data.passingScore,
+            updated_at: new Date().toISOString()
+        };
+        
+        if (typeof supabaseClient !== 'undefined') {
+            const { error } = await supabaseClient
+                .from('virtual_tasks')
+                .update(updates)
+                .eq('id', id);
+            if (error) throw error;
+        }
+        
+        return { id, ...updates };
+    },
+
+    /**
+     * 删除任务
+     */
+    async deleteTask(id) {
+        if (typeof supabaseClient !== 'undefined') {
+            const { data: task } = await supabaseClient
+                .from('virtual_tasks')
+                .select('workstation_id')
+                .eq('id', id)
+                .single();
+            
+            const { error } = await supabaseClient
+                .from('virtual_tasks')
+                .delete()
+                .eq('id', id);
+            if (error) throw error;
+            
+            // 更新工位的任务数
+            if (task) {
+                await supabaseClient.rpc('decrement_workstation_tasks', { ws_id: task.workstation_id });
+            }
+        }
+        return true;
+    },
+
+    /**
+     * 获取学生列表
+     */
+    async getStudents() {
+        try {
+            if (typeof supabaseClient !== 'undefined') {
+                const { data, error } = await supabaseClient
+                    .from('virtual_career_profiles')
+                    .select('*')
+                    .order('total_xp', { ascending: false });
+                if (!error && data) {
+                    return data.map(profile => ({
+                        userId: profile.user_id,
+                        studentId: profile.student_id,
+                        name: profile.name,
+                        level: profile.level,
+                        levelTitle: profile.level_title,
+                        currentXP: profile.current_xp,
+                        totalXP: profile.total_xp,
+                        completedTasks: profile.completed_tasks,
+                        completedWorkstations: profile.completed_workstations,
+                        totalStudyTime: profile.total_study_time,
+                        avgScore: profile.avg_score,
+                        progress: profile.progress || 0
+                    }));
+                }
+            }
+        } catch (e) {
+            console.warn('加载学生列表失败:', e);
+        }
+        return [];
+    },
+
+    /**
+     * 获取学生详情
+     */
+    async getStudentDetail(userId) {
+        const students = await this.getStudents();
+        const student = students.find(s => s.userId === userId) || {};
+        
+        let taskHistory = [];
+        try {
+            if (typeof supabaseClient !== 'undefined') {
+                const { data } = await supabaseClient
+                    .from('virtual_task_history')
+                    .select('*')
+                    .eq('user_id', userId)
+                    .order('completed_at', { ascending: false });
+                if (data) {
+                    taskHistory = data.map(h => ({
+                        taskId: h.task_id,
+                        taskName: h.task_name,
+                        score: h.score,
+                        duration: h.duration,
+                        completedAt: new Date(h.completed_at).getTime()
+                    }));
+                }
+            }
+        } catch (e) {
+            console.warn('加载任务历史失败:', e);
+        }
+        
+        return { ...student, taskHistory };
+    },
+
+    /**
+     * 获取完成任务数
+     */
+    async getCompletedTasksCount() {
+        try {
+            if (typeof supabaseClient !== 'undefined') {
+                const { count } = await supabaseClient
+                    .from('virtual_task_history')
+                    .select('*', { count: 'exact', head: true });
+                return count || 0;
+            }
+        } catch (e) {
+            console.warn('获取完成任务数失败:', e);
+        }
+        return 0;
+    },
+
+    /**
+     * 获取总学习时长
+     */
+    async getTotalStudyHours() {
+        try {
+            if (typeof supabaseClient !== 'undefined') {
+                const { data } = await supabaseClient
+                    .from('virtual_career_profiles')
+                    .select('total_study_time');
+                if (data) {
+                    const totalMinutes = data.reduce((sum, p) => sum + (p.total_study_time || 0), 0);
+                    return totalMinutes / 60;
+                }
+            }
+        } catch (e) {
+            console.warn('获取总学习时长失败:', e);
+        }
+        return 0;
+    },
+
+    /**
+     * 获取分析数据
+     */
+    async getAnalytics() {
+        const analytics = {
+            difficultSteps: [],
+            errorPatterns: [],
+            avgPauseTime: 0,
+            hintViewRate: 0,
+            errorRate: 0,
+            retryRate: 0
+        };
+        
+        try {
+            if (typeof supabaseClient !== 'undefined') {
+                // 获取难点步骤
+                const { data: difficultData } = await supabaseClient
+                    .from('virtual_difficult_steps')
+                    .select('*')
+                    .order('error_rate', { ascending: false })
+                    .limit(10);
+                if (difficultData) {
+                    analytics.difficultSteps = difficultData.map(d => ({
+                        stepId: d.step_id,
+                        stepName: d.step_name,
+                        workstationId: d.workstation_id,
+                        averageDuration: d.average_duration,
+                        hintViewRate: d.hint_view_rate,
+                        errorRate: d.error_rate,
+                        retryRate: d.retry_rate
+                    }));
+                }
+                
+                // 获取错误模式
+                const { data: errorData } = await supabaseClient
+                    .from('virtual_error_patterns')
+                    .select('*')
+                    .order('affected_percentage', { ascending: false })
+                    .limit(10);
+                if (errorData) {
+                    analytics.errorPatterns = errorData.map(e => ({
+                        patternId: e.pattern_id,
+                        errorType: e.error_type,
+                        description: e.description,
+                        occurrenceCount: e.occurrence_count,
+                        affectedStudents: e.affected_students,
+                        affectedPercentage: e.affected_percentage
+                    }));
+                }
+                
+                // 获取行为统计
+                const { data: behaviorData } = await supabaseClient
+                    .from('virtual_behavior_stats')
+                    .select('*')
+                    .single();
+                if (behaviorData) {
+                    analytics.avgPauseTime = behaviorData.avg_pause_time || 0;
+                    analytics.hintViewRate = behaviorData.hint_view_rate || 0;
+                    analytics.errorRate = behaviorData.error_rate || 0;
+                    analytics.retryRate = behaviorData.retry_rate || 0;
+                }
+            }
+        } catch (e) {
+            console.warn('加载分析数据失败:', e);
+        }
+        
+        return analytics;
+    },
+
+    /**
+     * 获取提醒列表
+     */
+    async getReminders() {
+        try {
+            if (typeof supabaseClient !== 'undefined') {
+                const { data, error } = await supabaseClient
+                    .from('virtual_task_reminders')
+                    .select('*')
+                    .order('deadline', { ascending: true });
+                if (!error && data) {
+                    return data.map(r => ({
+                        id: r.id,
+                        taskId: r.task_id,
+                        taskName: r.task_name,
+                        deadline: r.deadline,
+                        reminderTime: r.reminder_time,
+                        incompleteCount: r.incomplete_count || 0,
+                        isSent: r.is_sent
+                    }));
+                }
+            }
+        } catch (e) {
+            console.warn('加载提醒列表失败:', e);
+        }
+        return [];
+    },
+
+    /**
+     * 创建提醒
+     */
+    async createReminder(data) {
+        const reminder = {
+            id: `reminder-${Date.now()}`,
+            task_id: data.taskId,
+            task_name: data.taskName,
+            deadline: new Date(data.deadline).toISOString(),
+            reminder_time: new Date(data.reminderTime).toISOString(),
+            incomplete_count: 0,
+            is_sent: false,
+            created_at: new Date().toISOString()
+        };
+        
+        if (typeof supabaseClient !== 'undefined') {
+            const { error } = await supabaseClient
+                .from('virtual_task_reminders')
+                .insert(reminder);
+            if (error) throw error;
+        }
+        
+        return reminder;
+    },
+
+    /**
+     * 发送提醒
+     */
+    async sendReminder(reminderId) {
+        // 这里可以集成消息推送服务
+        console.log('发送提醒:', reminderId);
+        
+        if (typeof supabaseClient !== 'undefined') {
+            await supabaseClient
+                .from('virtual_task_reminders')
+                .update({ is_sent: true })
+                .eq('id', reminderId);
+        }
+        
+        return true;
+    },
+
+    /**
+     * 删除提醒
+     */
+    async deleteReminder(reminderId) {
+        if (typeof supabaseClient !== 'undefined') {
+            const { error } = await supabaseClient
+                .from('virtual_task_reminders')
+                .delete()
+                .eq('id', reminderId);
+            if (error) throw error;
+        }
+        return true;
+    },
+
+    /**
+     * 导出学生成绩
+     */
+    async exportStudentScores() {
+        const students = await this.getStudents();
+        return students.map(s => ({
+            '学号': s.studentId || '-',
+            '姓名': s.name || '未知',
+            '职业等级': s.levelTitle || '实习生',
+            '等级': s.level || 1,
+            '总经验值': s.totalXP || 0,
+            '完成任务数': s.completedTasks || 0,
+            '学习时长(分钟)': s.totalStudyTime || 0,
+            '平均分': s.avgScore?.toFixed(1) || '-'
+        }));
+    },
+
+    /**
+     * 导出行为日志
+     */
+    async exportBehaviorLogs() {
+        try {
+            if (typeof supabaseClient !== 'undefined') {
+                const { data } = await supabaseClient
+                    .from('virtual_behavior_logs')
+                    .select('*')
+                    .order('timestamp', { ascending: false })
+                    .limit(1000);
+                if (data) {
+                    return data.map(log => ({
+                        '用户ID': log.user_id,
+                        '会话ID': log.session_id,
+                        '操作类型': log.action_type,
+                        '页面ID': log.details?.pageId || '-',
+                        '字段ID': log.details?.fieldId || '-',
+                        '停留时长(秒)': log.details?.duration || '-',
+                        '时间': new Date(log.timestamp).toLocaleString('zh-CN')
+                    }));
+                }
+            }
+        } catch (e) {
+            console.warn('导出行为日志失败:', e);
+        }
+        return [];
+    },
+
+    /**
+     * 导出错误分析
+     */
+    async exportErrorAnalysis() {
+        const analytics = await this.getAnalytics();
+        return analytics.errorPatterns.map(p => ({
+            '错误类型': p.errorType,
+            '描述': p.description,
+            '出现次数': p.occurrenceCount,
+            '影响学生数': p.affectedStudents,
+            '影响比例(%)': p.affectedPercentage
+        }));
+    }
+};
+
+// 导出到全局
+if (typeof window !== 'undefined') {
+    window.VirtualStationAdmin = VirtualStationAdmin;
+}
+
 // 支持ES模块导出
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
@@ -8301,10 +11453,15 @@ if (typeof module !== 'undefined' && module.exports) {
         ProcessTrackerService,
         CareerService,
         AchievementService,
+        CompetitionService,
+        CompetitionStatus,
         AITutorService,
         AITutor,
         KnowledgeBaseService,
         KnowledgeBase,
+        ProgressAutoSaveService,
+        ProgressAutoSave,
+        VirtualStationAdmin,
         WorkstationCategory,
         WorkstationCategoryNames,
         StageType,

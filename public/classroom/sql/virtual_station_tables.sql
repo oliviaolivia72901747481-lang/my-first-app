@@ -600,3 +600,247 @@ CREATE POLICY "Teachers can manage document_versions" ON vs_document_versions FO
 CREATE POLICY "Teachers can manage document_index" ON vs_document_index FOR ALL USING (true);
 CREATE POLICY "Teachers can manage national_standards" ON vs_national_standards FOR ALL USING (true);
 CREATE POLICY "Teachers can manage standard_clauses" ON vs_standard_clauses FOR ALL USING (true);
+
+
+-- ===============================================
+-- 教师管理后台相关表结构
+-- Teacher Admin Backend Tables
+-- Requirements: 12.1, 12.2, 12.3, 12.4, 12.5
+-- ===============================================
+
+-- 22. 虚拟工位表（管理后台用）
+-- 用于管理后台的工位管理
+CREATE TABLE IF NOT EXISTS virtual_workstations (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    icon TEXT DEFAULT 'ri-building-4-line',
+    color TEXT DEFAULT 'purple',
+    category TEXT NOT NULL CHECK (category IN ('env_monitoring', 'hazwaste', 'sampling', 'data_analysis', 'instrument', 'emergency')),
+    difficulty TEXT NOT NULL DEFAULT 'intermediate' CHECK (difficulty IN ('beginner', 'intermediate', 'advanced')),
+    estimated_time INTEGER DEFAULT 60,
+    required_level INTEGER DEFAULT 1,
+    total_tasks INTEGER DEFAULT 0,
+    xp_reward INTEGER DEFAULT 100,
+    certificate_id TEXT,
+    is_active BOOLEAN DEFAULT true,
+    mode TEXT,
+    link_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 23. 虚拟任务表（管理后台用）
+CREATE TABLE IF NOT EXISTS virtual_tasks (
+    id TEXT PRIMARY KEY,
+    workstation_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    order_num INTEGER DEFAULT 0,
+    task_brief JSONB DEFAULT '{}',
+    stages JSONB DEFAULT '[]',
+    scoring_rules JSONB DEFAULT '[]',
+    max_score INTEGER DEFAULT 100,
+    passing_score INTEGER DEFAULT 60,
+    xp_reward INTEGER DEFAULT 50,
+    achievements JSONB DEFAULT '[]',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 24. 职业档案表（管理后台用）
+CREATE TABLE IF NOT EXISTS virtual_career_profiles (
+    user_id TEXT PRIMARY KEY,
+    student_id TEXT,
+    name TEXT,
+    level INTEGER DEFAULT 1,
+    level_title TEXT DEFAULT 'intern',
+    current_xp INTEGER DEFAULT 0,
+    total_xp INTEGER DEFAULT 0,
+    completed_workstations INTEGER DEFAULT 0,
+    completed_tasks INTEGER DEFAULT 0,
+    total_study_time INTEGER DEFAULT 0,
+    avg_score DECIMAL(5,2),
+    progress DECIMAL(5,2) DEFAULT 0,
+    achievement_count INTEGER DEFAULT 0,
+    certificate_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 25. 任务历史表（管理后台用）
+CREATE TABLE IF NOT EXISTS virtual_task_history (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    user_id TEXT NOT NULL,
+    task_id TEXT NOT NULL,
+    task_name TEXT,
+    workstation_id TEXT,
+    score INTEGER,
+    duration INTEGER,
+    completed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    operation_path JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 26. 行为日志表（管理后台用）
+CREATE TABLE IF NOT EXISTS virtual_behavior_logs (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    user_id TEXT NOT NULL,
+    session_id TEXT,
+    action_type TEXT NOT NULL,
+    details JSONB DEFAULT '{}',
+    timestamp BIGINT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 27. 难点步骤分析表
+-- Requirements: 3.4, 3.5 - 难点识别和统计分析
+CREATE TABLE IF NOT EXISTS virtual_difficult_steps (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    step_id TEXT NOT NULL,
+    step_name TEXT NOT NULL,
+    workstation_id TEXT,
+    task_id TEXT,
+    average_duration INTEGER DEFAULT 0,
+    hint_view_rate DECIMAL(5,2) DEFAULT 0,
+    error_rate DECIMAL(5,2) DEFAULT 0,
+    retry_rate DECIMAL(5,2) DEFAULT 0,
+    sample_count INTEGER DEFAULT 0,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 28. 错误模式分析表
+-- Requirements: 4.1, 4.2 - 错误分类和共性问题识别
+CREATE TABLE IF NOT EXISTS virtual_error_patterns (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    pattern_id TEXT NOT NULL,
+    error_type TEXT NOT NULL CHECK (error_type IN ('concept', 'calculation', 'process', 'format')),
+    description TEXT,
+    occurrence_count INTEGER DEFAULT 0,
+    affected_students INTEGER DEFAULT 0,
+    affected_percentage DECIMAL(5,2) DEFAULT 0,
+    related_steps JSONB DEFAULT '[]',
+    related_knowledge JSONB DEFAULT '[]',
+    is_common_error BOOLEAN DEFAULT false,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 29. 行为统计汇总表
+CREATE TABLE IF NOT EXISTS virtual_behavior_stats (
+    id TEXT PRIMARY KEY DEFAULT 'global',
+    avg_pause_time INTEGER DEFAULT 0,
+    hint_view_rate DECIMAL(5,2) DEFAULT 0,
+    error_rate DECIMAL(5,2) DEFAULT 0,
+    retry_rate DECIMAL(5,2) DEFAULT 0,
+    total_sessions INTEGER DEFAULT 0,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 30. 任务截止提醒表
+-- Requirements: 12.5 - 任务截止提醒
+CREATE TABLE IF NOT EXISTS virtual_task_reminders (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL,
+    task_name TEXT NOT NULL,
+    deadline TIMESTAMP WITH TIME ZONE NOT NULL,
+    reminder_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    advance INTEGER,
+    incomplete_count INTEGER DEFAULT 0,
+    is_sent BOOLEAN DEFAULT false,
+    created_by TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ===============================================
+-- 管理后台索引
+-- ===============================================
+
+CREATE INDEX IF NOT EXISTS idx_virtual_workstations_category ON virtual_workstations(category);
+CREATE INDEX IF NOT EXISTS idx_virtual_workstations_active ON virtual_workstations(is_active);
+CREATE INDEX IF NOT EXISTS idx_virtual_tasks_workstation ON virtual_tasks(workstation_id);
+CREATE INDEX IF NOT EXISTS idx_virtual_career_profiles_level ON virtual_career_profiles(level);
+CREATE INDEX IF NOT EXISTS idx_virtual_career_profiles_xp ON virtual_career_profiles(total_xp);
+CREATE INDEX IF NOT EXISTS idx_virtual_task_history_user ON virtual_task_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_virtual_task_history_task ON virtual_task_history(task_id);
+CREATE INDEX IF NOT EXISTS idx_virtual_behavior_logs_user ON virtual_behavior_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_virtual_behavior_logs_timestamp ON virtual_behavior_logs(timestamp);
+CREATE INDEX IF NOT EXISTS idx_virtual_difficult_steps_workstation ON virtual_difficult_steps(workstation_id);
+CREATE INDEX IF NOT EXISTS idx_virtual_error_patterns_type ON virtual_error_patterns(error_type);
+CREATE INDEX IF NOT EXISTS idx_virtual_task_reminders_deadline ON virtual_task_reminders(deadline);
+
+-- ===============================================
+-- 管理后台触发器
+-- ===============================================
+
+DROP TRIGGER IF EXISTS update_virtual_workstations_updated_at ON virtual_workstations;
+CREATE TRIGGER update_virtual_workstations_updated_at
+    BEFORE UPDATE ON virtual_workstations
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_virtual_tasks_updated_at ON virtual_tasks;
+CREATE TRIGGER update_virtual_tasks_updated_at
+    BEFORE UPDATE ON virtual_tasks
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_virtual_career_profiles_updated_at ON virtual_career_profiles;
+CREATE TRIGGER update_virtual_career_profiles_updated_at
+    BEFORE UPDATE ON virtual_career_profiles
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ===============================================
+-- 管理后台RLS策略
+-- ===============================================
+
+ALTER TABLE virtual_workstations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE virtual_tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE virtual_career_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE virtual_task_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE virtual_behavior_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE virtual_difficult_steps ENABLE ROW LEVEL SECURITY;
+ALTER TABLE virtual_error_patterns ENABLE ROW LEVEL SECURITY;
+ALTER TABLE virtual_behavior_stats ENABLE ROW LEVEL SECURITY;
+ALTER TABLE virtual_task_reminders ENABLE ROW LEVEL SECURITY;
+
+-- 公开读取策略
+CREATE POLICY "Allow public read on virtual_workstations" ON virtual_workstations FOR SELECT USING (true);
+CREATE POLICY "Allow public read on virtual_tasks" ON virtual_tasks FOR SELECT USING (true);
+
+-- 管理策略
+CREATE POLICY "Allow all on virtual_workstations" ON virtual_workstations FOR ALL USING (true);
+CREATE POLICY "Allow all on virtual_tasks" ON virtual_tasks FOR ALL USING (true);
+CREATE POLICY "Allow all on virtual_career_profiles" ON virtual_career_profiles FOR ALL USING (true);
+CREATE POLICY "Allow all on virtual_task_history" ON virtual_task_history FOR ALL USING (true);
+CREATE POLICY "Allow all on virtual_behavior_logs" ON virtual_behavior_logs FOR ALL USING (true);
+CREATE POLICY "Allow all on virtual_difficult_steps" ON virtual_difficult_steps FOR ALL USING (true);
+CREATE POLICY "Allow all on virtual_error_patterns" ON virtual_error_patterns FOR ALL USING (true);
+CREATE POLICY "Allow all on virtual_behavior_stats" ON virtual_behavior_stats FOR ALL USING (true);
+CREATE POLICY "Allow all on virtual_task_reminders" ON virtual_task_reminders FOR ALL USING (true);
+
+-- ===============================================
+-- 辅助函数
+-- ===============================================
+
+-- 增加工位任务数
+CREATE OR REPLACE FUNCTION increment_workstation_tasks(ws_id TEXT)
+RETURNS void AS $$
+BEGIN
+    UPDATE virtual_workstations 
+    SET total_tasks = total_tasks + 1, updated_at = NOW()
+    WHERE id = ws_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 减少工位任务数
+CREATE OR REPLACE FUNCTION decrement_workstation_tasks(ws_id TEXT)
+RETURNS void AS $$
+BEGIN
+    UPDATE virtual_workstations 
+    SET total_tasks = GREATEST(total_tasks - 1, 0), updated_at = NOW()
+    WHERE id = ws_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 初始化行为统计
+INSERT INTO virtual_behavior_stats (id, avg_pause_time, hint_view_rate, error_rate, retry_rate, total_sessions)
+VALUES ('global', 0, 0, 0, 0, 0)
+ON CONFLICT (id) DO NOTHING;

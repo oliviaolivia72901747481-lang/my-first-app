@@ -49,6 +49,48 @@
         .glow-text {
             text-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
         }
+        
+        /* 响应式适配 */
+        @media (max-width: 768px) {
+            nav .flex.items-center.gap-6 {
+                display: none;
+            }
+            
+            .glass-card.rounded-2xl.p-8 {
+                padding: 1rem;
+            }
+            
+            h2.text-3xl {
+                font-size: 1.5rem;
+            }
+            
+            .station-card {
+                padding: 1rem;
+            }
+            
+            .station-card h4 {
+                font-size: 1rem;
+            }
+            
+            .station-card p {
+                font-size: 0.75rem;
+            }
+        }
+        
+        @media (max-width: 640px) {
+            main {
+                padding: 0.5rem;
+            }
+            
+            nav {
+                padding: 0.75rem 1rem;
+            }
+            
+            .max-w-7xl {
+                padding-left: 0.5rem;
+                padding-right: 0.5rem;
+            }
+        }
     </style>
 </head>
 <body class="text-white">
@@ -538,7 +580,201 @@
                 </div>
             </div>
         </section>
+
+        <!-- 学习历史记录 -->
+        <!-- Requirements: 11.3, 11.4 - 保存完成任务的完整记录，显示历史列表和详情 -->
+        <section class="mb-12">
+            <h3 class="text-xl font-bold mb-6 flex items-center gap-2">
+                <i class="ri-history-line text-cyan-400"></i>
+                学习历史记录
+            </h3>
+            
+            <div id="history-section" class="glass-card rounded-2xl p-6">
+                <!-- 历史统计 -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white/5 rounded-xl p-3 text-center">
+                        <div id="history-stat-total" class="text-xl font-bold text-cyan-400">0</div>
+                        <div class="text-xs text-gray-400">完成任务</div>
+                    </div>
+                    <div class="bg-white/5 rounded-xl p-3 text-center">
+                        <div id="history-stat-avg-score" class="text-xl font-bold text-emerald-400">0</div>
+                        <div class="text-xs text-gray-400">平均得分</div>
+                    </div>
+                    <div class="bg-white/5 rounded-xl p-3 text-center">
+                        <div id="history-stat-best-score" class="text-xl font-bold text-amber-400">0</div>
+                        <div class="text-xs text-gray-400">最高得分</div>
+                    </div>
+                    <div class="bg-white/5 rounded-xl p-3 text-center">
+                        <div id="history-stat-total-time" class="text-xl font-bold text-purple-400">0h</div>
+                        <div class="text-xs text-gray-400">总用时</div>
+                    </div>
+                </div>
+                
+                <!-- 历史列表 -->
+                <div class="border-t border-gray-700 pt-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-sm font-medium text-gray-400">最近完成的任务</h4>
+                        <button onclick="openHistoryModal()" class="text-xs text-cyan-400 hover:text-cyan-300 transition flex items-center gap-1">
+                            查看全部
+                            <i class="ri-arrow-right-line"></i>
+                        </button>
+                    </div>
+                    <div id="history-recent-list" class="space-y-3">
+                        <!-- 最近历史记录将动态渲染 -->
+                        <div class="text-center py-4 text-gray-500 text-sm">
+                            <i class="ri-inbox-line text-2xl mb-2 block"></i>
+                            暂无完成记录
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
     </main>
+
+    <!-- 历史记录模态框 -->
+    <!-- Requirements: 11.3, 11.4 - 显示已完成任务列表和各项得分 -->
+    <div id="history-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
+        <div class="glass-card rounded-2xl w-full max-w-4xl mx-4 max-h-[85vh] flex flex-col">
+            <!-- 标题栏 -->
+            <div class="p-6 border-b border-gray-700 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center">
+                        <i class="ri-history-line text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold">学习历史记录</h3>
+                        <p class="text-xs text-gray-400" id="history-modal-count">共 0 条记录</p>
+                    </div>
+                </div>
+                <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-white">
+                    <i class="ri-close-line text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- 筛选栏 -->
+            <div class="p-4 border-b border-gray-700 bg-white/5">
+                <div class="flex gap-4 flex-wrap">
+                    <!-- 工位筛选 -->
+                    <select id="history-workstation-filter" class="bg-gray-800 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" onchange="filterHistory()">
+                        <option value="">全部工位</option>
+                        <option value="env-monitoring">环境监测站</option>
+                        <option value="hazwaste-lab">危废鉴别实验室</option>
+                        <option value="sampling-center">采样规划中心</option>
+                        <option value="data-center">数据处理中心</option>
+                        <option value="instrument-room">仪器操作室</option>
+                        <option value="emergency-center">应急响应中心</option>
+                    </select>
+                    <!-- 排序方式 -->
+                    <select id="history-sort" class="bg-gray-800 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" onchange="filterHistory()">
+                        <option value="time-desc">最近完成</option>
+                        <option value="time-asc">最早完成</option>
+                        <option value="score-desc">得分最高</option>
+                        <option value="score-asc">得分最低</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- 历史列表 -->
+            <div class="flex-1 overflow-y-auto p-6" id="history-modal-list">
+                <!-- 历史列表将动态渲染 -->
+                <div class="text-center py-8 text-gray-400">
+                    <i class="ri-loader-4-line text-4xl animate-spin"></i>
+                    <p class="mt-4">正在加载历史记录...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 历史详情模态框 -->
+    <!-- Requirements: 11.4 - 显示任务详情和各项得分 -->
+    <div id="history-detail-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] hidden items-center justify-center">
+        <div class="glass-card rounded-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col">
+            <!-- 标题栏 -->
+            <div class="p-6 border-b border-gray-700 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <button onclick="closeHistoryDetail()" class="text-gray-400 hover:text-white">
+                        <i class="ri-arrow-left-line text-xl"></i>
+                    </button>
+                    <div>
+                        <h3 id="history-detail-task-name" class="font-bold">任务名称</h3>
+                        <p id="history-detail-workstation" class="text-xs text-gray-400">工位名称</p>
+                    </div>
+                </div>
+                <button onclick="closeHistoryDetail()" class="text-gray-400 hover:text-white">
+                    <i class="ri-close-line text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- 详情内容 -->
+            <div class="flex-1 overflow-y-auto p-6" id="history-detail-content">
+                <!-- 得分概览 -->
+                <div class="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-xl p-6 mb-6 text-center">
+                    <div id="history-detail-score" class="text-5xl font-bold text-cyan-400 mb-2">0</div>
+                    <div class="text-sm text-gray-400">最终得分</div>
+                    <div id="history-detail-pass-status" class="mt-2 inline-block px-3 py-1 rounded-full text-xs"></div>
+                </div>
+                
+                <!-- 最高分和挑战次数 - Requirements: 11.5 保留最高分记录 -->
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-xl p-4 text-center">
+                        <div class="flex items-center justify-center gap-2 mb-1">
+                            <i class="ri-trophy-line text-amber-400"></i>
+                            <span class="text-xs text-amber-400">最高分记录</span>
+                        </div>
+                        <div id="history-detail-high-score" class="text-2xl font-bold text-amber-400">0</div>
+                    </div>
+                    <div class="bg-white/5 rounded-xl p-4 text-center">
+                        <div class="flex items-center justify-center gap-2 mb-1">
+                            <i class="ri-restart-line text-purple-400"></i>
+                            <span class="text-xs text-gray-400">挑战次数</span>
+                        </div>
+                        <div id="history-detail-attempt-count" class="text-2xl font-bold text-purple-400">1</div>
+                    </div>
+                </div>
+                
+                <!-- 详细信息 -->
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="bg-white/5 rounded-xl p-4">
+                        <div class="text-xs text-gray-400 mb-1">完成时间</div>
+                        <div id="history-detail-completed-at" class="text-sm font-medium">-</div>
+                    </div>
+                    <div class="bg-white/5 rounded-xl p-4">
+                        <div class="text-xs text-gray-400 mb-1">用时</div>
+                        <div id="history-detail-time-spent" class="text-sm font-medium">-</div>
+                    </div>
+                    <div class="bg-white/5 rounded-xl p-4">
+                        <div class="text-xs text-gray-400 mb-1">任务ID</div>
+                        <div id="history-detail-task-id" class="text-sm font-medium text-gray-500">-</div>
+                    </div>
+                    <div class="bg-white/5 rounded-xl p-4">
+                        <div class="text-xs text-gray-400 mb-1">获得经验</div>
+                        <div id="history-detail-xp" class="text-sm font-medium text-amber-400">+0 XP</div>
+                    </div>
+                </div>
+                
+                <!-- 阶段得分详情 -->
+                <div class="border-t border-gray-700 pt-6">
+                    <h4 class="text-sm font-medium text-gray-400 mb-4">阶段得分详情</h4>
+                    <div id="history-detail-stages" class="space-y-3">
+                        <!-- 阶段得分将动态渲染 -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 底部操作栏 -->
+            <div class="p-6 border-t border-gray-700">
+                <div class="flex gap-4">
+                    <button onclick="closeHistoryDetail()" class="flex-1 px-6 py-3 bg-white/10 rounded-xl font-medium hover:bg-white/20 transition">
+                        返回
+                    </button>
+                    <button id="history-detail-retry-btn" onclick="retryHistoryTask()" class="flex-1 px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl font-medium hover:from-purple-600 hover:to-indigo-700 transition flex items-center justify-center gap-2">
+                        <i class="ri-refresh-line"></i>
+                        重新挑战
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- AI助教悬浮按钮 -->
     <div class="fixed bottom-8 right-8 z-50">
@@ -811,6 +1047,100 @@
         </div>
     </div>
 
+    <!-- 竞赛结果模态框 -->
+    <!-- Requirements: 10.4, 10.5 - 显示最终排名和路径对比，导出Excel报告 -->
+    <div id="competition-results-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
+        <div class="glass-card rounded-2xl w-full max-w-4xl mx-4 max-h-[90vh] flex flex-col">
+            <!-- 标题栏 -->
+            <div class="p-6 border-b border-gray-700 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                        <i class="ri-trophy-line text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 id="competition-results-title" class="font-bold">竞赛结果</h3>
+                        <p id="competition-results-subtitle" class="text-xs text-gray-400">查看最终排名和详细数据</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="exportCompetitionResultsExcel()" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm transition flex items-center gap-2">
+                        <i class="ri-file-excel-2-line"></i>
+                        导出Excel
+                    </button>
+                    <button onclick="exportCompetitionResultsJSON()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm transition flex items-center gap-2">
+                        <i class="ri-file-code-line"></i>
+                        导出JSON
+                    </button>
+                    <button onclick="closeCompetitionResults()" class="text-gray-400 hover:text-white ml-2">
+                        <i class="ri-close-line text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 内容区域 -->
+            <div class="flex-1 overflow-y-auto p-6" id="competition-results-content">
+                <!-- 竞赛结果将通过JavaScript动态渲染 -->
+                <div class="text-center text-gray-400 py-8">
+                    <i class="ri-loader-4-line text-4xl animate-spin"></i>
+                    <p class="mt-4">正在加载竞赛结果...</p>
+                </div>
+            </div>
+            
+            <!-- 底部操作栏 -->
+            <div class="p-4 border-t border-gray-700">
+                <div class="flex items-center justify-between">
+                    <button onclick="showOperationPathComparison()" class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition flex items-center gap-2">
+                        <i class="ri-route-line"></i>
+                        查看路径对比
+                    </button>
+                    <button onclick="closeCompetitionResults()" class="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition">
+                        关闭
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 操作路径对比模态框 -->
+    <!-- Requirements: 10.4 - 显示各学生的完成路径对比 -->
+    <div id="operation-path-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] hidden items-center justify-center">
+        <div class="glass-card rounded-2xl w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col">
+            <!-- 标题栏 -->
+            <div class="p-6 border-b border-gray-700 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center">
+                        <i class="ri-route-line text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold">操作路径对比</h3>
+                        <p class="text-xs text-gray-400">查看各学生的完成路径</p>
+                    </div>
+                </div>
+                <button onclick="closeOperationPathModal()" class="text-gray-400 hover:text-white">
+                    <i class="ri-close-line text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- 内容区域 -->
+            <div class="flex-1 overflow-y-auto p-6" id="operation-path-content">
+                <!-- 路径对比将通过JavaScript动态渲染 -->
+                <div class="text-center text-gray-400 py-8">
+                    <i class="ri-loader-4-line text-4xl animate-spin"></i>
+                    <p class="mt-4">正在加载路径数据...</p>
+                </div>
+            </div>
+            
+            <!-- 底部操作栏 -->
+            <div class="p-4 border-t border-gray-700">
+                <button onclick="closeOperationPathModal()" class="w-full px-6 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition">
+                    关闭
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 引入SheetJS库用于Excel导出 -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="js/virtual-station.js"></script>
     <script>
         // ================= 工位界面控制器 =================
@@ -1264,10 +1594,11 @@
         }
         
         /**
-         * 显示工位详情
+         * 显示工位详情（简化版，用于早期初始化）
+         * 注意：增强版的showWorkstationDetail函数在后面定义，会覆盖此函数
          * @param {Workstation} workstation - 工位数据
          */
-        async function showWorkstationDetail(workstation) {
+        async function showWorkstationDetailSimple(workstation) {
             // 创建会话
             if (currentUser && currentUser.id !== 'guest') {
                 await workstationService.enterWorkstation(currentUser.id, workstation.id);
@@ -1968,8 +2299,80 @@
         
         /**
          * 显示工位详情（增强版，包含任务列表）
+         * Requirements: 11.2 - 检测未完成进度，提供继续/重新开始选项
          */
         async function showWorkstationDetail(workstation) {
+            currentWorkstationId = workstation.id;
+            
+            // Requirements: 11.2 - 检测未完成进度
+            if (currentUser && currentUser.id !== 'guest' && ProgressRecovery) {
+                const unfinishedProgress = await ProgressRecovery.detectUnfinishedProgress(
+                    currentUser.id, 
+                    workstation.id
+                );
+                
+                if (unfinishedProgress) {
+                    // 显示进度恢复对话框
+                    ProgressRecovery.showRecoveryDialog(
+                        unfinishedProgress,
+                        workstation,
+                        // 继续学习回调
+                        async (progress, ws) => {
+                            await handleContinueProgress(progress, ws);
+                        },
+                        // 重新开始回调
+                        async (ws) => {
+                            await handleRestartProgress(ws);
+                        }
+                    );
+                    return;
+                }
+            }
+            
+            // 没有未完成进度，正常显示工位详情
+            await showWorkstationDetailInternal(workstation);
+        }
+        
+        /**
+         * 处理继续学习
+         * Requirements: 11.2 - 继续上次进度
+         */
+        async function handleContinueProgress(progress, workstation) {
+            currentWorkstationId = workstation.id;
+            
+            // 创建会话
+            if (currentUser && currentUser.id !== 'guest') {
+                await workstationService.enterWorkstation(currentUser.id, workstation.id);
+            }
+            
+            // 恢复执行状态
+            if (progress.execution) {
+                currentExecution = progress.execution;
+                currentTaskId = progress.execution.taskId;
+                
+                // 直接打开任务执行界面
+                await openTaskExecution();
+                
+                console.log('📂 已恢复任务进度:', currentExecution);
+            } else {
+                // 如果没有执行记录，显示工位详情
+                await showWorkstationDetailInternal(workstation);
+            }
+        }
+        
+        /**
+         * 处理重新开始
+         * Requirements: 11.2 - 重新开始选项
+         */
+        async function handleRestartProgress(workstation) {
+            // 显示工位详情
+            await showWorkstationDetailInternal(workstation);
+        }
+        
+        /**
+         * 显示工位详情（内部实现）
+         */
+        async function showWorkstationDetailInternal(workstation) {
             currentWorkstationId = workstation.id;
             
             // 创建会话
@@ -2503,12 +2906,64 @@
         
         /**
          * 渲染任务完成界面
+         * Requirements: 11.5 - 支持重玩历史任务，保留最高分记录
          */
         function renderTaskComplete(task, result) {
             const container = document.getElementById('exec-stage-content');
             const duration = result ? formatDuration(result.duration) : '00:00';
             const score = result ? result.score : 0;
             const passed = result ? result.passed : false;
+            
+            // Requirements: 11.5 - 检查是否是重新挑战，显示与最高分的对比
+            let retryInfo = null;
+            let highScoreComparisonHTML = '';
+            try {
+                const retryInfoStr = localStorage.getItem('vs_retry_info');
+                if (retryInfoStr) {
+                    retryInfo = JSON.parse(retryInfoStr);
+                    // 只有当任务ID匹配时才显示对比
+                    if (retryInfo && retryInfo.taskId === task.id) {
+                        const previousHighScore = retryInfo.previousHighScore || 0;
+                        const attemptCount = (retryInfo.attemptCount || 0) + 1;
+                        const isNewHighScore = score > previousHighScore;
+                        const scoreDiff = score - previousHighScore;
+                        
+                        highScoreComparisonHTML = `
+                            <div class="bg-gradient-to-r ${isNewHighScore ? 'from-amber-500/20 to-orange-500/20 border-amber-500/30' : 'from-gray-500/10 to-gray-600/10 border-gray-500/30'} border rounded-xl p-4 mb-6">
+                                <div class="flex items-center justify-center gap-2 mb-2">
+                                    <i class="${isNewHighScore ? 'ri-trophy-fill text-amber-400' : 'ri-trophy-line text-gray-400'}"></i>
+                                    <span class="${isNewHighScore ? 'text-amber-400 font-bold' : 'text-gray-400'}">${isNewHighScore ? '🎉 新纪录！' : '最高分记录'}</span>
+                                </div>
+                                <div class="flex items-center justify-center gap-4 text-sm">
+                                    <div class="text-center">
+                                        <div class="text-gray-400">之前最高</div>
+                                        <div class="text-lg font-bold text-gray-300">${previousHighScore}</div>
+                                    </div>
+                                    <div class="text-2xl ${isNewHighScore ? 'text-emerald-400' : 'text-gray-500'}">
+                                        ${isNewHighScore ? '→' : '←'}
+                                    </div>
+                                    <div class="text-center">
+                                        <div class="${isNewHighScore ? 'text-amber-400' : 'text-gray-400'}">本次得分</div>
+                                        <div class="text-lg font-bold ${isNewHighScore ? 'text-amber-400' : 'text-gray-300'}">${score}</div>
+                                    </div>
+                                    ${scoreDiff !== 0 ? `
+                                        <div class="text-center">
+                                            <div class="text-gray-400">差距</div>
+                                            <div class="text-lg font-bold ${scoreDiff > 0 ? 'text-emerald-400' : 'text-red-400'}">${scoreDiff > 0 ? '+' : ''}${scoreDiff}</div>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                                <div class="text-center text-xs text-gray-500 mt-2">第 ${attemptCount} 次挑战</div>
+                            </div>
+                        `;
+                        
+                        // 清除重新挑战信息
+                        localStorage.removeItem('vs_retry_info');
+                    }
+                }
+            } catch (e) {
+                console.error('解析重新挑战信息失败:', e);
+            }
             
             container.innerHTML = `
                 <div class="text-center py-8">
@@ -2517,6 +2972,8 @@
                     </div>
                     <h3 class="text-2xl font-bold mb-2">${passed ? '任务完成！' : '任务未通过'}</h3>
                     <p class="text-gray-400 mb-8">${passed ? '恭喜你完成了本次实训任务' : '请继续努力，再接再厉'}</p>
+                    
+                    ${highScoreComparisonHTML}
                     
                     <div class="grid grid-cols-3 gap-4 mb-8">
                         <div class="bg-white/5 rounded-xl p-4">
@@ -2533,9 +2990,15 @@
                         </div>
                     </div>
                     
-                    <button onclick="exitTaskExecution()" class="px-8 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl font-medium hover:from-purple-600 hover:to-indigo-700 transition">
-                        返回工位
-                    </button>
+                    <div class="flex gap-4 justify-center">
+                        <button onclick="retryCurrentTask()" class="px-6 py-3 bg-white/10 rounded-xl font-medium hover:bg-white/20 transition flex items-center gap-2">
+                            <i class="ri-refresh-line"></i>
+                            再次挑战
+                        </button>
+                        <button onclick="exitTaskExecution()" class="px-8 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl font-medium hover:from-purple-600 hover:to-indigo-700 transition">
+                            返回工位
+                        </button>
+                    </div>
                 </div>
             `;
             
@@ -2543,6 +3006,41 @@
             document.getElementById('exec-prev-btn').classList.add('hidden');
             document.getElementById('exec-next-btn').classList.add('hidden');
             document.getElementById('exec-hint-btn').classList.add('hidden');
+        }
+        
+        /**
+         * 从任务完成界面直接重新挑战当前任务
+         * Requirements: 11.5 - 支持重玩历史任务
+         */
+        async function retryCurrentTask() {
+            if (!currentExecution) return;
+            
+            const taskId = currentExecution.taskId;
+            const task = await VirtualStation.taskFlowService.getTask(taskId);
+            if (!task) {
+                showToast('任务不存在', 'error');
+                return;
+            }
+            
+            // 获取当前任务的最高分和挑战次数
+            const highScore = getTaskHighScore(taskId);
+            const attemptCount = getTaskAttemptCount(taskId);
+            
+            // 存储重新挑战的信息
+            localStorage.setItem('vs_retry_info', JSON.stringify({
+                taskId: taskId,
+                previousHighScore: highScore,
+                attemptCount: attemptCount
+            }));
+            
+            // 退出当前任务执行
+            stopTaskTimer();
+            currentExecution = null;
+            
+            // 重新开始任务
+            showTaskBrief(taskId);
+            
+            showToast(`开始第 ${attemptCount + 1} 次挑战！`, 'info');
         }
         
         /**
@@ -2630,6 +3128,680 @@
                 alert('该工位暂无可用任务');
             }
         }
+        
+        // ================= 竞赛结果展示和导出 =================
+        // Requirements: 10.4, 10.5 - 显示最终排名和路径对比，导出Excel报告
+        
+        // 当前竞赛ID
+        let currentCompetitionId = null;
+        
+        /**
+         * 打开竞赛结果模态框
+         * Requirements: 10.4 - 竞赛结束后显示最终排名
+         * @param {string} competitionId - 竞赛ID
+         */
+        async function openCompetitionResults(competitionId) {
+            currentCompetitionId = competitionId;
+            
+            const modal = document.getElementById('competition-results-modal');
+            const content = document.getElementById('competition-results-content');
+            
+            // 显示模态框
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            // 显示加载状态
+            content.innerHTML = `
+                <div class="text-center text-gray-400 py-8">
+                    <i class="ri-loader-4-line text-4xl animate-spin"></i>
+                    <p class="mt-4">正在加载竞赛结果...</p>
+                </div>
+            `;
+            
+            try {
+                // 获取竞赛结果
+                const results = await CompetitionService.getCompetitionResults(competitionId);
+                
+                if (!results) {
+                    content.innerHTML = `
+                        <div class="text-center text-gray-400 py-8">
+                            <i class="ri-error-warning-line text-4xl mb-2"></i>
+                            <p>无法获取竞赛结果</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // 更新标题
+                document.getElementById('competition-results-title').textContent = results.competition.name || '竞赛结果';
+                document.getElementById('competition-results-subtitle').textContent = 
+                    results.competition.status === 'ended' ? '竞赛已结束' : '竞赛进行中';
+                
+                // 渲染结果
+                const userId = currentUser ? currentUser.id : null;
+                content.innerHTML = CompetitionService.renderCompetitionResultsHTML(results, userId);
+                
+            } catch (error) {
+                console.error('加载竞赛结果失败:', error);
+                content.innerHTML = `
+                    <div class="text-center text-gray-400 py-8">
+                        <i class="ri-error-warning-line text-4xl mb-2"></i>
+                        <p>加载失败: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        /**
+         * 关闭竞赛结果模态框
+         */
+        function closeCompetitionResults() {
+            const modal = document.getElementById('competition-results-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            currentCompetitionId = null;
+        }
+        
+        /**
+         * 导出竞赛结果为Excel
+         * Requirements: 10.5 - 教师导出竞赛结果，生成包含详细数据的Excel报告
+         */
+        async function exportCompetitionResultsExcel() {
+            if (!currentCompetitionId) {
+                alert('请先选择一个竞赛');
+                return;
+            }
+            
+            try {
+                await CompetitionService.exportCompetitionResults(currentCompetitionId);
+            } catch (error) {
+                console.error('导出Excel失败:', error);
+                alert('导出失败: ' + error.message);
+            }
+        }
+        
+        /**
+         * 导出竞赛结果为JSON
+         */
+        async function exportCompetitionResultsJSON() {
+            if (!currentCompetitionId) {
+                alert('请先选择一个竞赛');
+                return;
+            }
+            
+            try {
+                await CompetitionService.downloadCompetitionResultsJSON(currentCompetitionId);
+            } catch (error) {
+                console.error('导出JSON失败:', error);
+                alert('导出失败: ' + error.message);
+            }
+        }
+        
+        /**
+         * 显示操作路径对比
+         * Requirements: 10.4 - 显示各学生的完成路径对比
+         */
+        async function showOperationPathComparison() {
+            if (!currentCompetitionId) {
+                alert('请先选择一个竞赛');
+                return;
+            }
+            
+            const modal = document.getElementById('operation-path-modal');
+            const content = document.getElementById('operation-path-content');
+            
+            // 显示模态框
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            // 显示加载状态
+            content.innerHTML = `
+                <div class="text-center text-gray-400 py-8">
+                    <i class="ri-loader-4-line text-4xl animate-spin"></i>
+                    <p class="mt-4">正在加载路径数据...</p>
+                </div>
+            `;
+            
+            try {
+                // 获取路径对比数据
+                const comparisonData = await CompetitionService.getOperationPathComparison(currentCompetitionId);
+                
+                if (!comparisonData || !comparisonData.comparisons || comparisonData.comparisons.length === 0) {
+                    content.innerHTML = `
+                        <div class="text-center text-gray-400 py-8">
+                            <i class="ri-route-line text-4xl mb-2"></i>
+                            <p>暂无路径对比数据</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // 渲染路径对比
+                content.innerHTML = CompetitionService.renderOperationPathComparisonHTML(comparisonData);
+                
+            } catch (error) {
+                console.error('加载路径对比失败:', error);
+                content.innerHTML = `
+                    <div class="text-center text-gray-400 py-8">
+                        <i class="ri-error-warning-line text-4xl mb-2"></i>
+                        <p>加载失败: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        /**
+         * 关闭操作路径对比模态框
+         */
+        function closeOperationPathModal() {
+            const modal = document.getElementById('operation-path-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+        
+        /**
+         * 演示：打开竞赛结果（用于测试）
+         * 可以通过控制台调用: openDemoCompetitionResults()
+         */
+        async function openDemoCompetitionResults() {
+            // 创建一个演示竞赛数据
+            const demoCompetitionId = 'demo-competition-' + Date.now();
+            
+            // 添加演示数据到CompetitionService
+            const demoCompetition = {
+                id: demoCompetitionId,
+                name: '环境监测技能竞赛',
+                description: '测试水质采样方案设计能力',
+                workstationId: 'env-monitoring',
+                taskId: 'task-env-water-sampling',
+                status: 'ended',
+                startedAt: Date.now() - 3600000,
+                endedAt: Date.now(),
+                leaderboard: [
+                    { id: '1', competitionId: demoCompetitionId, userId: 'user1', userName: '张三', score: 95, timeSpent: 1200, rank: 1, completedAt: Date.now() - 1800000, operationPath: [{action: '接受任务'}, {action: '制定方案'}, {action: '执行采样'}, {action: '填写记录'}, {action: '生成报告'}] },
+                    { id: '2', competitionId: demoCompetitionId, userId: 'user2', userName: '李四', score: 88, timeSpent: 1500, rank: 2, completedAt: Date.now() - 1500000, operationPath: [{action: '接受任务'}, {action: '制定方案'}, {action: '执行采样'}, {action: '填写记录'}, {action: '生成报告'}] },
+                    { id: '3', competitionId: demoCompetitionId, userId: 'user3', userName: '王五', score: 85, timeSpent: 1350, rank: 3, completedAt: Date.now() - 1200000, operationPath: [{action: '接受任务'}, {action: '制定方案'}, {action: '执行采样'}, {action: '填写记录'}, {action: '生成报告'}] },
+                    { id: '4', competitionId: demoCompetitionId, userId: 'user4', userName: '赵六', score: 78, timeSpent: 1800, rank: 4, completedAt: Date.now() - 900000, operationPath: [{action: '接受任务'}, {action: '制定方案'}, {action: '执行采样'}, {action: '填写记录'}, {action: '生成报告'}] },
+                    { id: '5', competitionId: demoCompetitionId, userId: 'user5', userName: '钱七', score: 72, timeSpent: 2100, rank: 5, completedAt: Date.now() - 600000, operationPath: [{action: '接受任务'}, {action: '制定方案'}, {action: '执行采样'}, {action: '填写记录'}, {action: '生成报告'}] }
+                ]
+            };
+            
+            // 将演示数据添加到服务
+            CompetitionService.competitions.set(demoCompetitionId, demoCompetition);
+            
+            // 打开结果模态框
+            await openCompetitionResults(demoCompetitionId);
+        }
+        
+        // 将演示函数暴露到全局
+        window.openDemoCompetitionResults = openDemoCompetitionResults;
+        window.openCompetitionResults = openCompetitionResults;
+        window.closeCompetitionResults = closeCompetitionResults;
+        window.exportCompetitionResultsExcel = exportCompetitionResultsExcel;
+        window.exportCompetitionResultsJSON = exportCompetitionResultsJSON;
+        window.showOperationPathComparison = showOperationPathComparison;
+        window.closeOperationPathModal = closeOperationPathModal;
+        
+        // ================= 学习历史记录功能 =================
+        // Requirements: 11.3, 11.4 - 保存完成任务的完整记录，显示历史列表和详情
+        
+        // 当前历史记录数据
+        let allHistoryRecords = [];
+        let currentHistoryDetailId = null;
+        
+        /**
+         * 加载并渲染历史记录
+         * Requirements: 11.3, 11.4 - 显示已完成任务列表和各项得分
+         */
+        async function loadHistoryRecords() {
+            if (!currentUser || !VirtualStation.taskFlowService) return;
+            
+            try {
+                // 获取历史记录
+                allHistoryRecords = await VirtualStation.taskFlowService.getTaskHistory(currentUser.id);
+                
+                // 更新统计数据
+                updateHistoryStats();
+                
+                // 渲染最近记录
+                renderRecentHistory();
+                
+            } catch (error) {
+                console.error('加载历史记录失败:', error);
+            }
+        }
+        
+        /**
+         * 更新历史统计数据
+         */
+        function updateHistoryStats() {
+            const completedRecords = allHistoryRecords.filter(r => r.status === 'completed');
+            
+            // 总完成数
+            document.getElementById('history-stat-total').textContent = completedRecords.length;
+            
+            // 平均得分
+            if (completedRecords.length > 0) {
+                const avgScore = Math.round(completedRecords.reduce((sum, r) => sum + (r.score || 0), 0) / completedRecords.length);
+                document.getElementById('history-stat-avg-score').textContent = avgScore;
+                
+                // 最高得分
+                const bestScore = Math.max(...completedRecords.map(r => r.score || 0));
+                document.getElementById('history-stat-best-score').textContent = bestScore;
+                
+                // 总用时
+                const totalTimeMs = completedRecords.reduce((sum, r) => {
+                    if (r.completedAt && r.startedAt) {
+                        return sum + (r.completedAt - r.startedAt);
+                    }
+                    return sum;
+                }, 0);
+                const totalHours = Math.round(totalTimeMs / 3600000 * 10) / 10;
+                document.getElementById('history-stat-total-time').textContent = totalHours > 0 ? `${totalHours}h` : '0h';
+            } else {
+                document.getElementById('history-stat-avg-score').textContent = '0';
+                document.getElementById('history-stat-best-score').textContent = '0';
+                document.getElementById('history-stat-total-time').textContent = '0h';
+            }
+        }
+        
+        /**
+         * 渲染最近历史记录（首页显示）
+         */
+        function renderRecentHistory() {
+            const container = document.getElementById('history-recent-list');
+            if (!container) return;
+            
+            const completedRecords = allHistoryRecords
+                .filter(r => r.status === 'completed')
+                .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
+                .slice(0, 5);
+            
+            if (completedRecords.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-4 text-gray-500 text-sm">
+                        <i class="ri-inbox-line text-2xl mb-2 block"></i>
+                        暂无完成记录
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = completedRecords.map(record => createHistoryItemHTML(record)).join('');
+        }
+        
+        /**
+         * 创建历史记录项HTML
+         * Requirements: 11.5 - 保留最高分记录，显示最高分标识
+         * @param {Object} record - 历史记录
+         * @returns {string} HTML字符串
+         */
+        function createHistoryItemHTML(record) {
+            const task = PRESET_TASKS.find(t => t.id === record.taskId);
+            const workstation = PRESET_WORKSTATIONS.find(w => w.id === (task ? task.workstationId : null));
+            
+            const taskName = task ? task.name : '未知任务';
+            const workstationName = workstation ? workstation.name : '未知工位';
+            const workstationIcon = workstation ? workstation.icon : 'ri-question-line';
+            const workstationColor = workstation ? workstation.color : 'gray';
+            
+            const score = record.score || 0;
+            const scoreColor = score >= 90 ? 'text-emerald-400' : score >= 60 ? 'text-cyan-400' : 'text-red-400';
+            
+            // Requirements: 11.5 - 检查是否是该任务的最高分
+            const taskAttempts = allHistoryRecords.filter(r => 
+                r.taskId === record.taskId && 
+                r.status === 'completed'
+            );
+            const highScore = taskAttempts.length > 0 
+                ? Math.max(...taskAttempts.map(r => r.score || 0)) 
+                : score;
+            const isHighScore = score === highScore && taskAttempts.length > 1;
+            const attemptCount = taskAttempts.length;
+            
+            const completedAt = record.completedAt ? new Date(record.completedAt).toLocaleDateString('zh-CN', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            }) : '-';
+            
+            const duration = record.completedAt && record.startedAt 
+                ? formatDuration(record.completedAt - record.startedAt)
+                : '-';
+            
+            // 显示最高分标识和挑战次数
+            const highScoreBadge = isHighScore ? '<i class="ri-trophy-fill text-amber-400 ml-1" title="最高分"></i>' : '';
+            const attemptBadge = attemptCount > 1 ? `<span class="text-xs text-gray-500 ml-2">(第${taskAttempts.findIndex(r => r.id === record.id) + 1}/${attemptCount}次)</span>` : '';
+            
+            return `
+                <div class="bg-white/5 rounded-xl p-4 hover:bg-white/10 transition cursor-pointer" onclick="showHistoryDetail('${record.id}')">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 bg-gradient-to-br from-${workstationColor}-500 to-${workstationColor}-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="${workstationIcon} text-lg"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="font-medium truncate">${taskName}${attemptBadge}</div>
+                            <div class="text-xs text-gray-400">${workstationName} · ${completedAt}</div>
+                        </div>
+                        <div class="text-right flex-shrink-0">
+                            <div class="${scoreColor} font-bold">${score}分${highScoreBadge}</div>
+                            <div class="text-xs text-gray-500">${duration}</div>
+                        </div>
+                        <i class="ri-arrow-right-s-line text-gray-500"></i>
+                    </div>
+                </div>
+            `;
+        }
+        
+        /**
+         * 打开历史记录模态框
+         */
+        function openHistoryModal() {
+            const modal = document.getElementById('history-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            // 渲染完整历史列表
+            filterHistory();
+        }
+        
+        /**
+         * 关闭历史记录模态框
+         */
+        function closeHistoryModal() {
+            const modal = document.getElementById('history-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+        
+        /**
+         * 筛选和排序历史记录
+         */
+        function filterHistory() {
+            const workstationFilter = document.getElementById('history-workstation-filter').value;
+            const sortBy = document.getElementById('history-sort').value;
+            
+            let filteredRecords = allHistoryRecords.filter(r => r.status === 'completed');
+            
+            // 按工位筛选
+            if (workstationFilter) {
+                filteredRecords = filteredRecords.filter(r => {
+                    const task = PRESET_TASKS.find(t => t.id === r.taskId);
+                    return task && task.workstationId === workstationFilter;
+                });
+            }
+            
+            // 排序
+            switch (sortBy) {
+                case 'time-desc':
+                    filteredRecords.sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+                    break;
+                case 'time-asc':
+                    filteredRecords.sort((a, b) => (a.completedAt || 0) - (b.completedAt || 0));
+                    break;
+                case 'score-desc':
+                    filteredRecords.sort((a, b) => (b.score || 0) - (a.score || 0));
+                    break;
+                case 'score-asc':
+                    filteredRecords.sort((a, b) => (a.score || 0) - (b.score || 0));
+                    break;
+            }
+            
+            // 更新计数
+            document.getElementById('history-modal-count').textContent = `共 ${filteredRecords.length} 条记录`;
+            
+            // 渲染列表
+            const container = document.getElementById('history-modal-list');
+            if (filteredRecords.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-400">
+                        <i class="ri-inbox-line text-4xl mb-2"></i>
+                        <p>暂无符合条件的记录</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = filteredRecords.map(record => createHistoryItemHTML(record)).join('');
+        }
+        
+        /**
+         * 显示历史记录详情
+         * Requirements: 11.4, 11.5 - 显示任务详情、各项得分、最高分和挑战次数
+         * @param {string} recordId - 记录ID
+         */
+        async function showHistoryDetail(recordId) {
+            const record = allHistoryRecords.find(r => r.id === recordId);
+            if (!record) return;
+            
+            currentHistoryDetailId = recordId;
+            
+            const task = PRESET_TASKS.find(t => t.id === record.taskId);
+            const workstation = PRESET_WORKSTATIONS.find(w => w.id === (task ? task.workstationId : null));
+            
+            // 更新标题
+            document.getElementById('history-detail-task-name').textContent = task ? task.name : '未知任务';
+            document.getElementById('history-detail-workstation').textContent = workstation ? workstation.name : '未知工位';
+            
+            // 更新得分
+            const score = record.score || 0;
+            document.getElementById('history-detail-score').textContent = score;
+            
+            // 更新通过状态
+            const passStatus = document.getElementById('history-detail-pass-status');
+            const passingScore = task ? task.passingScore : 60;
+            if (score >= passingScore) {
+                passStatus.textContent = '✓ 通过';
+                passStatus.className = 'mt-2 inline-block px-3 py-1 rounded-full text-xs bg-emerald-500/20 text-emerald-400';
+            } else {
+                passStatus.textContent = '✗ 未通过';
+                passStatus.className = 'mt-2 inline-block px-3 py-1 rounded-full text-xs bg-red-500/20 text-red-400';
+            }
+            
+            // Requirements: 11.5 - 显示最高分和挑战次数
+            // 计算该任务的最高分和挑战次数
+            const taskAttempts = allHistoryRecords.filter(r => 
+                r.taskId === record.taskId && 
+                r.status === 'completed'
+            );
+            const attemptCount = taskAttempts.length;
+            const highScore = attemptCount > 0 
+                ? Math.max(...taskAttempts.map(r => r.score || 0)) 
+                : score;
+            
+            // 更新最高分显示
+            const highScoreEl = document.getElementById('history-detail-high-score');
+            if (highScoreEl) {
+                highScoreEl.textContent = highScore;
+                // 如果当前记录是最高分，添加特殊标识
+                if (score === highScore && attemptCount > 1) {
+                    highScoreEl.innerHTML = `${highScore} <span class="text-xs">🏆</span>`;
+                }
+            }
+            
+            // 更新挑战次数显示
+            const attemptCountEl = document.getElementById('history-detail-attempt-count');
+            if (attemptCountEl) {
+                attemptCountEl.textContent = attemptCount;
+            }
+            
+            // 更新完成时间
+            document.getElementById('history-detail-completed-at').textContent = record.completedAt 
+                ? new Date(record.completedAt).toLocaleString('zh-CN')
+                : '-';
+            
+            // 更新用时
+            document.getElementById('history-detail-time-spent').textContent = record.completedAt && record.startedAt
+                ? formatDuration(record.completedAt - record.startedAt)
+                : '-';
+            
+            // 更新任务ID
+            document.getElementById('history-detail-task-id').textContent = record.taskId || '-';
+            
+            // 更新获得经验
+            document.getElementById('history-detail-xp').textContent = task ? `+${task.xpReward} XP` : '+0 XP';
+            
+            // 渲染阶段得分详情
+            renderStageScores(record, task);
+            
+            // 显示模态框
+            const modal = document.getElementById('history-detail-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+        
+        /**
+         * 渲染阶段得分详情
+         * @param {Object} record - 历史记录
+         * @param {Object} task - 任务定义
+         */
+        function renderStageScores(record, task) {
+            const container = document.getElementById('history-detail-stages');
+            
+            if (!task || !task.stages || !record.stageData) {
+                container.innerHTML = '<div class="text-gray-500 text-sm">暂无阶段详情</div>';
+                return;
+            }
+            
+            const stagesHTML = task.stages.map((stage, index) => {
+                const stageData = record.stageData[stage.id];
+                const stageScore = stageData ? (stageData.score || 0) : 0;
+                const maxScore = Math.round(100 / task.stages.length);
+                const scorePercent = Math.min(100, Math.round(stageScore / maxScore * 100));
+                
+                const statusIcon = stageData 
+                    ? (stageScore >= maxScore * 0.6 ? 'ri-checkbox-circle-fill text-emerald-400' : 'ri-close-circle-fill text-red-400')
+                    : 'ri-checkbox-blank-circle-line text-gray-500';
+                
+                return `
+                    <div class="bg-white/5 rounded-xl p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                                <i class="${statusIcon}"></i>
+                                <span class="text-sm font-medium">${stage.name}</span>
+                            </div>
+                            <span class="text-sm ${stageScore >= maxScore * 0.6 ? 'text-emerald-400' : 'text-gray-400'}">${stageScore}/${maxScore}</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                            <div class="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all duration-500" style="width: ${scorePercent}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            container.innerHTML = stagesHTML;
+        }
+        
+        /**
+         * 关闭历史详情模态框
+         */
+        function closeHistoryDetail() {
+            const modal = document.getElementById('history-detail-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            currentHistoryDetailId = null;
+        }
+        
+        /**
+         * 重新挑战历史任务
+         * Requirements: 11.5 - 支持重玩历史任务，保留最高分记录
+         */
+        async function retryHistoryTask() {
+            if (!currentHistoryDetailId) return;
+            
+            const record = allHistoryRecords.find(r => r.id === currentHistoryDetailId);
+            if (!record) return;
+            
+            const task = PRESET_TASKS.find(t => t.id === record.taskId);
+            if (!task) {
+                showToast('任务不存在', 'error');
+                return;
+            }
+            
+            // 计算该任务的最高分和挑战次数
+            const taskAttempts = allHistoryRecords.filter(r => 
+                r.taskId === record.taskId && 
+                r.status === 'completed'
+            );
+            const attemptCount = taskAttempts.length;
+            const highScore = attemptCount > 0 
+                ? Math.max(...taskAttempts.map(r => r.score || 0)) 
+                : 0;
+            
+            // 显示确认对话框，包含最高分信息
+            const confirmMessage = highScore > 0 
+                ? `确定要重新挑战「${task.name}」吗？\n\n当前最高分：${highScore}分\n已挑战次数：${attemptCount}次\n\n新的成绩将与最高分记录进行比较。`
+                : `确定要重新挑战「${task.name}」吗？`;
+            
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            
+            // 关闭详情模态框
+            closeHistoryDetail();
+            closeHistoryModal();
+            
+            // 存储重新挑战的信息，用于任务完成时显示对比
+            localStorage.setItem('vs_retry_info', JSON.stringify({
+                taskId: record.taskId,
+                previousHighScore: highScore,
+                attemptCount: attemptCount
+            }));
+            
+            // 打开任务
+            showTaskBrief(record.taskId);
+            
+            // 显示提示
+            showToast(`开始第 ${attemptCount + 1} 次挑战，目标：超越 ${highScore} 分！`, 'info');
+        }
+        
+        /**
+         * 获取任务的最高分记录
+         * Requirements: 11.5 - 保留最高分记录
+         * @param {string} taskId - 任务ID
+         * @returns {number} 最高分
+         */
+        function getTaskHighScore(taskId) {
+            const taskAttempts = allHistoryRecords.filter(r => 
+                r.taskId === taskId && 
+                r.status === 'completed'
+            );
+            if (taskAttempts.length === 0) return 0;
+            return Math.max(...taskAttempts.map(r => r.score || 0));
+        }
+        
+        /**
+         * 获取任务的挑战次数
+         * Requirements: 11.5 - 支持重玩历史任务
+         * @param {string} taskId - 任务ID
+         * @returns {number} 挑战次数
+         */
+        function getTaskAttemptCount(taskId) {
+            return allHistoryRecords.filter(r => 
+                r.taskId === taskId && 
+                r.status === 'completed'
+            ).length;
+        }
+        
+        // 在页面初始化时加载历史记录
+        const originalInitializePage = initializePage;
+        initializePage = async function() {
+            await originalInitializePage();
+            await loadHistoryRecords();
+        };
+        
+        // 暴露历史相关函数到全局
+        window.openHistoryModal = openHistoryModal;
+        window.closeHistoryModal = closeHistoryModal;
+        window.filterHistory = filterHistory;
+        window.showHistoryDetail = showHistoryDetail;
+        window.closeHistoryDetail = closeHistoryDetail;
+        window.retryHistoryTask = retryHistoryTask;
+        window.loadHistoryRecords = loadHistoryRecords;
+        window.getTaskHighScore = getTaskHighScore;
+        window.getTaskAttemptCount = getTaskAttemptCount;
+        window.retryCurrentTask = retryCurrentTask;
     </script>
 </body>
 </html>

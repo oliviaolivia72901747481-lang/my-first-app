@@ -539,6 +539,7 @@
                 <button class="ctrl-btn" style="background:#8b5cf6; color:white;" onclick="openHistoryPanel()">📚 历史</button>
                 <button class="ctrl-btn" style="background:#06b6d4; color:white;" onclick="openSamplingSandbox()">🎯 采样沙盘</button>
                 <button class="ctrl-btn" style="background:#f97316; color:white;" onclick="openHazwasteDetective()">🔍 危废鉴别</button>
+                <button class="ctrl-btn" style="background:linear-gradient(135deg, #7c3aed, #8b5cf6); color:white;" onclick="openVirtualStationCompetition()">🏭 工位竞赛</button>
                 <button class="ctrl-btn" style="background:#f59e0b; color:white;" onclick="toggleFullscreen()">⛶ 全屏</button>
             </div>
         </div>
@@ -2199,6 +2200,11 @@
         // ================== 危废鉴别剧本杀 ==================
         function openHazwasteDetective() {
             window.open('/classroom/hazwaste-detective.html', '_blank');
+        }
+        
+        // ================== 虚拟工位竞赛 ==================
+        function openVirtualStationCompetition() {
+            window.open('/classroom/virtual-station-admin.html?mode=competition', '_blank');
         }
         
         // ================== 模态框 ==================
