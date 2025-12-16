@@ -1313,8 +1313,9 @@ class WorkstationService {
             .eq('workstation_id', workstationId)
             .single();
 
-        if (error && error.code !== 'PGRST116') {
-            console.error('获取进度失败:', error);
+        // 忽略表不存在(406)和无数据(PGRST116)的错误
+        if (error && error.code !== 'PGRST116' && error.message?.indexOf('406') === -1) {
+            console.warn('获取进度失败（表可能不存在）:', error.message);
         }
 
         const result = data || { progress: 0, completed_tasks: 0, total_tasks: 0 };
@@ -1444,11 +1445,15 @@ class WorkstationService {
 
         localStorage.setItem(key, JSON.stringify(updatedProgress));
 
-        // 同步到数据库
+        // 同步到数据库（静默失败，表可能不存在）
         if (this.supabase) {
-            await this.supabase
-                .from('vs_progress')
-                .upsert(updatedProgress, { onConflict: 'user_id,workstation_id' });
+            try {
+                await this.supabase
+                    .from('vs_progress')
+                    .upsert(updatedProgress, { onConflict: 'user_id,workstation_id' });
+            } catch (e) {
+                // 忽略数据库错误，本地存储已保存
+            }
         }
 
         return updatedProgress;
@@ -5073,14 +5078,19 @@ class CareerService {
     async getCareerProfile(userId) {
         // 先尝试从数据库获取
         if (this.supabase) {
-            const { data, error } = await this.supabase
-                .from('vs_career_profiles')
-                .select('*')
-                .eq('user_id', userId)
-                .single();
+            try {
+                const { data, error } = await this.supabase
+                    .from('vs_career_profiles')
+                    .select('*')
+                    .eq('user_id', userId)
+                    .single();
 
-            if (!error && data) {
-                return this._enrichProfile(data);
+                if (!error && data) {
+                    return this._enrichProfile(data);
+                }
+                // 忽略表不存在(406)和无数据的错误，静默回退到本地存储
+            } catch (e) {
+                console.warn('获取职业档案失败（表可能不存在），使用本地存储');
             }
         }
 
@@ -5464,10 +5474,15 @@ class CareerService {
         const key = `vs_career_${userId}`;
         localStorage.setItem(key, JSON.stringify(profile));
 
+        // 同步到数据库（静默失败，表可能不存在）
         if (this.supabase) {
-            await this.supabase
-                .from('vs_career_profiles')
-                .upsert(profile, { onConflict: 'user_id' });
+            try {
+                await this.supabase
+                    .from('vs_career_profiles')
+                    .upsert(profile, { onConflict: 'user_id' });
+            } catch (e) {
+                // 忽略数据库错误，本地存储已保存
+            }
         }
     }
 
