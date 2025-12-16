@@ -514,7 +514,7 @@ const PRESET_WORKSTATIONS = [
         category: WorkstationCategory.HAZWASTE,
         difficulty: WorkstationDifficulty.ADVANCED,
         estimatedTime: 90,
-        requiredLevel: 3,
+        requiredLevel: 1,
         totalTasks: 5,
         xpReward: 600,
         certificateId: 'cert-hazwaste',
