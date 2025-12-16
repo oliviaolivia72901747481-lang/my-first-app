@@ -1697,11 +1697,24 @@
         </div>
     </div>
 
+    <!-- 引入公共模块和虚拟工位服务 -->
+    <script src="js/common.js"></script>
+    <script src="js/virtual-station.js"></script>
     <!-- 引入主控制器 -->
     <script src="js/hazwaste-detective.js"></script>
     <script>
         // 页面加载完成后初始化游戏
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
+            // 初始化虚拟工位平台（用于经验值系统）
+            if (typeof VirtualStation !== 'undefined') {
+                try {
+                    await VirtualStation.init();
+                    console.log('✅ VirtualStation 初始化完成');
+                } catch (e) {
+                    console.warn('VirtualStation 初始化失败:', e);
+                }
+            }
+            
             if (typeof HazwasteDetective !== 'undefined') {
                 window.game = new HazwasteDetective();
                 window.game.init();

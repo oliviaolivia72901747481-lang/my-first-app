@@ -3282,6 +3282,9 @@ class HazwasteDetective {
         // 保存记录
         this.saveGameRecord(scoreResult);
         
+        // 增加经验值
+        this.addExperienceReward(scoreResult, validationResult.isCorrect);
+        
         // 如果在竞赛模式中，提交成绩到排行榜
         // Requirements: 8.3 - 学生提交后实时更新排行榜
         if (typeof competitionManager !== 'undefined' && competitionManager.getCurrentCompetition()) {
@@ -3607,6 +3610,122 @@ class HazwasteDetective {
             { name: 'GB 5085.1 腐蚀性鉴别', category: 'corrosivity' },
             { name: 'GB 5085.3 浸出毒性鉴别', category: 'leaching_toxicity' }
         ];
+    }
+
+    /**
+     * 增加经验值奖励
+     * @param {ScoreResult} scoreResult - 评分结果
+     * @param {boolean} isCorrect - 判定是否正确
+     */
+    async addExperienceReward(scoreResult, isCorrect) {
+        try {
+            // 获取用户ID
+            const userId = localStorage.getItem('my_id') || localStorage.getItem('hazwaste_student_id');
+            if (!userId) {
+                console.warn('未找到用户ID，无法增加经验值');
+                return;
+            }
+            
+            // 计算经验值奖励
+            // 基础奖励：完成任务 50 XP
+            // 正确判定额外奖励：50 XP
+            // 评级奖励：金牌 100 XP，银牌 50 XP，铜牌 25 XP
+            let xpReward = 50; // 基础完成奖励
+            
+            if (isCorrect) {
+                xpReward += 50; // 正确判定奖励
+                
+                // 评级奖励
+                switch (scoreResult.grade) {
+                    case 'gold_detective':
+                        xpReward += 100;
+                        break;
+                    case 'silver_detective':
+                        xpReward += 50;
+                        break;
+                    case 'bronze_detective':
+                        xpReward += 25;
+                        break;
+                }
+            }
+            
+            // 尝试使用 VirtualStation 的 careerService
+            if (window.VirtualStation && window.VirtualStation.careerService) {
+                const result = await window.VirtualStation.careerService.addExperience(
+                    userId,
+                    xpReward,
+                    `完成危废鉴别: ${this.currentCase?.name || '未知案件'}`
+                );
+                
+                console.log('经验值增加:', result);
+                
+                // 如果升级了，显示升级通知
+                if (result.levelUp && typeof showLevelUpNotification === 'function') {
+                    showLevelUpNotification(result.levelUp);
+                }
+                
+                // 显示经验值获得提示
+                this.showXPNotification(xpReward);
+            } else {
+                // 备用方案：直接保存到本地存储
+                const profileKey = `vs_career_profile_${userId}`;
+                const profile = JSON.parse(localStorage.getItem(profileKey) || '{}');
+                
+                profile.totalXP = (profile.totalXP || 0) + xpReward;
+                profile.currentXP = (profile.currentXP || 0) + xpReward;
+                
+                localStorage.setItem(profileKey, JSON.stringify(profile));
+                
+                console.log('经验值已保存到本地:', xpReward);
+                this.showXPNotification(xpReward);
+            }
+        } catch (e) {
+            console.error('增加经验值失败:', e);
+        }
+    }
+    
+    /**
+     * 显示经验值获得提示
+     * @param {number} xp - 获得的经验值
+     */
+    showXPNotification(xp) {
+        // 创建提示元素
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            z-index: 10000;
+            animation: xpPopup 2s ease-out forwards;
+            box-shadow: 0 4px 20px rgba(245, 158, 11, 0.4);
+        `;
+        notification.innerHTML = `✨ +${xp} XP`;
+        
+        // 添加动画样式
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes xpPopup {
+                0% { opacity: 0; transform: translateX(-50%) translateY(20px); }
+                20% { opacity: 1; transform: translateX(-50%) translateY(0); }
+                80% { opacity: 1; transform: translateX(-50%) translateY(0); }
+                100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        document.body.appendChild(notification);
+        
+        // 2秒后移除
+        setTimeout(() => {
+            notification.remove();
+        }, 2000);
     }
 
     /**
