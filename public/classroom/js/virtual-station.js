@@ -989,6 +989,9 @@ class VirtualStationPlatform {
      * 初始化Supabase连接
      */
     _initSupabase() {
+        // 标记数据库表是否可用（默认禁用，避免406错误）
+        this.dbTablesAvailable = false;
+        
         if (window.ClassroomCommon && window.ClassroomCommon.createSupabaseClient) {
             return window.ClassroomCommon.createSupabaseClient();
         }
@@ -1223,7 +1226,8 @@ class WorkstationService {
             return this._cache.workstations;
         }
 
-        if (!this.supabase) {
+        // 如果数据库表不可用，使用预设数据
+        if (!this.supabase || !this.dbTablesAvailable) {
             this._cache.workstations = this._getPresetWorkstations();
             this._cache.lastFetch = Date.now();
             return this._cache.workstations;
@@ -1257,7 +1261,8 @@ class WorkstationService {
             return this._cache.workstationDetails.get(workstationId);
         }
 
-        if (!this.supabase) {
+        // 如果数据库表不可用，使用预设数据
+        if (!this.supabase || !this.dbTablesAvailable) {
             const preset = this._getPresetWorkstations().find(w => w.id === workstationId);
             if (preset) {
                 this._cache.workstationDetails.set(workstationId, preset);
@@ -1300,7 +1305,8 @@ class WorkstationService {
             }
         }
 
-        if (!this.supabase) {
+        // 如果数据库表不可用或没有Supabase，使用本地存储
+        if (!this.supabase || !this.dbTablesAvailable) {
             const localProgress = this._getLocalProgress(userId, workstationId);
             this._cache.progress.set(cacheKey, { data: localProgress, timestamp: Date.now() });
             return localProgress;
@@ -1445,8 +1451,8 @@ class WorkstationService {
 
         localStorage.setItem(key, JSON.stringify(updatedProgress));
 
-        // 同步到数据库（静默失败，表可能不存在）
-        if (this.supabase) {
+        // 同步到数据库（仅当表可用时）
+        if (this.supabase && this.dbTablesAvailable) {
             try {
                 await this.supabase
                     .from('vs_progress')
@@ -5076,22 +5082,24 @@ class CareerService {
      * @returns {Promise<CareerProfile>} 职业档案
      */
     async getCareerProfile(userId) {
-        // 先尝试从数据库获取
-        if (this.supabase) {
-            try {
-                const { data, error } = await this.supabase
-                    .from('vs_career_profiles')
-                    .select('*')
-                    .eq('user_id', userId)
-                    .single();
+        // 如果数据库表不可用，直接使用本地存储
+        if (!this.supabase || !this.dbTablesAvailable) {
+            return this._getOrCreateLocalProfile(userId);
+        }
+        
+        // 尝试从数据库获取
+        try {
+            const { data, error } = await this.supabase
+                .from('vs_career_profiles')
+                .select('*')
+                .eq('user_id', userId)
+                .single();
 
-                if (!error && data) {
-                    return this._enrichProfile(data);
-                }
-                // 忽略表不存在(406)和无数据的错误，静默回退到本地存储
-            } catch (e) {
-                console.warn('获取职业档案失败（表可能不存在），使用本地存储');
+            if (!error && data) {
+                return this._enrichProfile(data);
             }
+        } catch (e) {
+            // 静默回退到本地存储
         }
 
         // 从本地存储获取或创建新档案
@@ -5474,8 +5482,8 @@ class CareerService {
         const key = `vs_career_${userId}`;
         localStorage.setItem(key, JSON.stringify(profile));
 
-        // 同步到数据库（静默失败，表可能不存在）
-        if (this.supabase) {
+        // 同步到数据库（仅当表可用时）
+        if (this.supabase && this.dbTablesAvailable) {
             try {
                 await this.supabase
                     .from('vs_career_profiles')
