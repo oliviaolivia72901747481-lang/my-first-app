@@ -316,8 +316,8 @@
         </div>
         
         <!-- 任务单展示模态框 -->
-        <div id="task-brief-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
-            <div class="glass-card rounded-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+        <div id="task-brief-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+            <div class="glass-card rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
                 <div class="p-6 border-b border-gray-700">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-3">
@@ -392,12 +392,12 @@
                     </div>
                 </div>
                 
-                <div class="p-6 border-t border-gray-700">
+                <div class="p-6 border-t border-gray-700 bg-gray-900/90 flex-shrink-0">
                     <div class="flex gap-4">
                         <button onclick="closeTaskBrief()" class="flex-1 px-6 py-3 bg-white/10 rounded-xl font-medium hover:bg-white/20 transition">
                             稍后再说
                         </button>
-                        <button id="accept-task-btn" onclick="acceptCurrentTask()" class="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl font-medium hover:from-emerald-600 hover:to-teal-700 transition flex items-center justify-center gap-2">
+                        <button id="accept-task-btn" onclick="acceptCurrentTask()" class="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl font-medium hover:from-emerald-600 hover:to-teal-700 transition flex items-center justify-center gap-2 text-white">
                             <i class="ri-check-line"></i>
                             接受任务
                         </button>
