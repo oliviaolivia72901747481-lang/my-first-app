@@ -1143,6 +1143,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- 引入SheetJS库用于Excel导出 -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <!-- 引入公共模块 -->
+    <script src="js/common.js"></script>
     <script src="js/virtual-station.js"></script>
     <script>
         // ================= 工位界面控制器 =================
@@ -2432,54 +2434,90 @@
          */
         async function showTaskBrief(taskId) {
             currentTaskId = taskId;
-            const task = await VirtualStation.taskFlowService.getTask(taskId);
             
-            if (!task) {
-                alert('任务不存在');
-                return;
+            try {
+                console.log('showTaskBrief 被调用, taskId:', taskId);
+                
+                // 检查 VirtualStation 是否已初始化
+                if (!VirtualStation || !VirtualStation.taskFlowService) {
+                    console.error('VirtualStation.taskFlowService 未初始化');
+                    // 尝试重新初始化
+                    await VirtualStation.init();
+                }
+                
+                const task = await VirtualStation.taskFlowService.getTask(taskId);
+                console.log('获取到的任务数据:', task);
+                
+                if (!task) {
+                    console.error('任务不存在:', taskId);
+                    alert('任务不存在');
+                    return;
+                }
+                
+                console.log('加载任务:', task);
+                console.log('任务简报:', task.taskBrief);
+                
+                // 获取任务简报，如果不存在则使用默认值
+                const brief = task.taskBrief || {
+                    background: task.description || '暂无任务背景',
+                    objectives: ['完成任务要求'],
+                    requirements: ['按照规范操作'],
+                    deadline: null
+                };
+                
+                // 填充任务简报内容
+                document.getElementById('task-brief-title').textContent = task.name || '任务';
+                document.getElementById('task-brief-subtitle').textContent = task.description || '请仔细阅读任务要求';
+                document.getElementById('task-brief-background').textContent = brief.background || '暂无任务背景';
+                document.getElementById('task-brief-xp').textContent = `+${task.xpReward || 100} XP`;
+                
+                // 渲染目标列表
+                const objectivesContainer = document.getElementById('task-brief-objectives');
+                const objectives = brief.objectives || [];
+                if (objectives.length > 0) {
+                    objectivesContainer.innerHTML = objectives.map(obj => `
+                        <li class="flex items-start gap-2 bg-white/5 rounded-lg p-3">
+                            <i class="ri-checkbox-blank-circle-line text-cyan-400 mt-0.5"></i>
+                            <span class="text-gray-300 text-sm">${obj}</span>
+                        </li>
+                    `).join('');
+                } else {
+                    objectivesContainer.innerHTML = '<li class="text-gray-500 text-sm">暂无具体目标</li>';
+                }
+                
+                // 渲染要求列表
+                const requirementsContainer = document.getElementById('task-brief-requirements');
+                const requirements = brief.requirements || [];
+                if (requirements.length > 0) {
+                    requirementsContainer.innerHTML = requirements.map(req => `
+                        <li class="flex items-start gap-2 bg-white/5 rounded-lg p-3">
+                            <i class="ri-alert-line text-emerald-400 mt-0.5"></i>
+                            <span class="text-gray-300 text-sm">${req}</span>
+                        </li>
+                    `).join('');
+                } else {
+                    requirementsContainer.innerHTML = '<li class="text-gray-500 text-sm">暂无具体要求</li>';
+                }
+                
+                // 处理截止时间
+                const deadlineSection = document.getElementById('task-brief-deadline-section');
+                if (brief.deadline) {
+                    deadlineSection.classList.remove('hidden');
+                    document.getElementById('task-brief-deadline').textContent = new Date(brief.deadline).toLocaleString('zh-CN');
+                } else {
+                    deadlineSection.classList.add('hidden');
+                }
+                
+                // 关闭工位详情，显示任务简报
+                closeWorkstationDetail();
+                
+                const modal = document.getElementById('task-brief-modal');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            } catch (error) {
+                console.error('加载任务简报失败:', error);
+                alert('加载任务简报失败: ' + error.message);
             }
-            
-            const brief = task.taskBrief;
-            
-            // 填充任务简报内容
-            document.getElementById('task-brief-title').textContent = task.name;
-            document.getElementById('task-brief-subtitle').textContent = task.description;
-            document.getElementById('task-brief-background').textContent = brief.background;
-            document.getElementById('task-brief-xp').textContent = `+${task.xpReward} XP`;
-            
-            // 渲染目标列表
-            const objectivesContainer = document.getElementById('task-brief-objectives');
-            objectivesContainer.innerHTML = brief.objectives.map(obj => `
-                <li class="flex items-start gap-2 bg-white/5 rounded-lg p-3">
-                    <i class="ri-checkbox-blank-circle-line text-cyan-400 mt-0.5"></i>
-                    <span class="text-gray-300 text-sm">${obj}</span>
-                </li>
-            `).join('');
-            
-            // 渲染要求列表
-            const requirementsContainer = document.getElementById('task-brief-requirements');
-            requirementsContainer.innerHTML = brief.requirements.map(req => `
-                <li class="flex items-start gap-2 bg-white/5 rounded-lg p-3">
-                    <i class="ri-alert-line text-emerald-400 mt-0.5"></i>
-                    <span class="text-gray-300 text-sm">${req}</span>
-                </li>
-            `).join('');
-            
-            // 处理截止时间
-            const deadlineSection = document.getElementById('task-brief-deadline-section');
-            if (brief.deadline) {
-                deadlineSection.classList.remove('hidden');
-                document.getElementById('task-brief-deadline').textContent = new Date(brief.deadline).toLocaleString('zh-CN');
-            } else {
-                deadlineSection.classList.add('hidden');
-            }
-            
-            // 关闭工位详情，显示任务简报
-            closeWorkstationDetail();
-            
-            const modal = document.getElementById('task-brief-modal');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
         }
         
         /**
