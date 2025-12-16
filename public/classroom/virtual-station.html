@@ -2996,6 +2996,28 @@
         }
         
         /**
+         * 返回上一阶段
+         */
+        async function prevStage() {
+            if (!currentExecution || currentExecution.currentStageIndex <= 0) {
+                return;
+            }
+            
+            const task = await VirtualStation.taskFlowService.getTask(currentExecution.taskId);
+            if (!task) return;
+            
+            // 减少阶段索引
+            currentExecution.currentStageIndex--;
+            
+            // 更新本地存储
+            localStorage.setItem('vs_current_execution', JSON.stringify(currentExecution));
+            
+            // 重新渲染
+            renderStageProgress(task.stages, currentExecution.currentStageIndex);
+            await renderCurrentStage();
+        }
+        
+        /**
          * 显示验证错误和警告
          */
         function showValidationErrors(errors, warnings) {
