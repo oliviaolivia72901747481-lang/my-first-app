@@ -4,10 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>虚拟工位平台 - 专业实训系统</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <!-- 预连接加速外部资源加载 -->
+    <link rel="preconnect" href="https://cdn.tailwindcss.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- 异步加载 Tailwind -->
+    <script src="https://cdn.tailwindcss.com" defer></script>
+    <!-- 异步加载图标字体 -->
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet"></noscript>
+    <!-- 异步加载 Google 字体 -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"></noscript>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        /* 内联关键字体样式，避免 FOUT */
         
         body {
             font-family: 'Inter', system-ui, sans-serif;
@@ -1139,10 +1150,10 @@
         </div>
     </div>
 
-    <!-- 引入Supabase库 -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- 引入SheetJS库用于Excel导出 -->
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <!-- 引入Supabase库 - 延迟加载 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <!-- 引入SheetJS库用于Excel导出 - 延迟加载（非关键资源） -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js" defer></script>
     <!-- 引入公共模块 -->
     <script src="js/common.js"></script>
     <script src="js/virtual-station.js"></script>
@@ -1186,26 +1197,37 @@
         });
         
         /**
-         * 初始化页面
+         * 初始化页面 - 优化版本，使用并行加载
          */
         async function initializePage() {
-            // 初始化虚拟工位平台
-            await VirtualStation.init();
+            const startTime = performance.now();
             
-            currentUser = VirtualStation.currentUser || { id: 'guest', name: '访客' };
-            workstationService = VirtualStation.workstationService;
-            careerService = VirtualStation.careerService;
-            
-            // 渲染工位列表
-            await renderWorkstationList();
-            
-            // 更新用户信息显示
-            await updateUserInfo();
-            
-            // 更新国标知识库统计
-            updateStandardsCount();
-            
-            console.log('✅ 虚拟工位页面初始化完成');
+            try {
+                // 初始化虚拟工位平台
+                await VirtualStation.init();
+                
+                currentUser = VirtualStation.currentUser || { id: 'guest', name: '访客' };
+                workstationService = VirtualStation.workstationService;
+                careerService = VirtualStation.careerService;
+                
+                // 并行执行非依赖任务，加速页面加载
+                await Promise.all([
+                    renderWorkstationList().catch(e => console.warn('渲染工位列表失败:', e)),
+                    updateUserInfo().catch(e => console.warn('更新用户信息失败:', e))
+                ]);
+                
+                // 非关键任务延迟执行
+                setTimeout(() => {
+                    updateStandardsCount();
+                }, 100);
+                
+                const loadTime = Math.round(performance.now() - startTime);
+                console.log(`✅ 虚拟工位页面初始化完成 (${loadTime}ms)`);
+            } catch (error) {
+                console.error('页面初始化失败:', error);
+                // 显示错误提示但不阻塞页面
+                showToast && showToast('页面加载遇到问题，部分功能可能不可用', 'warning');
+            }
         }
         
         /**

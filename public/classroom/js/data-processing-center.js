@@ -5378,6 +5378,707 @@ class DataVisualization {
     }
 }
 
+// ================= AI辅助分析引擎 =================
+
+/**
+ * AI辅助分析引擎
+ * 提供智能异常检测、趋势预测、数据质量评估和洞察生成功能
+ * Requirements: 2.2, 2.3, 3.2 (extended)
+ */
+class AIAnalysisEngine {
+    constructor() {
+        this._cache = new Map();
+        this._cacheExpiry = 5 * 60 * 1000; // 5分钟缓存
+    }
+
+    // ================= 智能异常检测 =================
+
+    /**
+     * 检测数据异常 - 基于多种统计模型
+     * Requirements: 2.2, 2.3 (extended)
+     * @param {MonitoringDataRecord[]} data - 监测数据列表
+     * @param {number} sensitivity - 敏感度 (0-1)，默认0.5
+     * @returns {AnomalyDetectionResult[]} 异常检测结果
+     */
+    detectAnomalies(data, sensitivity = 0.5) {
+        if (!data || data.length === 0) return [];
+
+        const results = [];
+        
+        // 按参数分组数据
+        const groupedData = this._groupByParameter(data);
+
+        data.forEach(record => {
+            const result = {
+                dataId: record.id,
+                isAnomaly: false,
+                confidence: 0,
+                anomalyType: null,
+                explanation: '',
+                suggestedAction: ''
+            };
+
+            // 1. 范围检测
+            const rangeResult = this._detectRangeAnomaly(record);
+            if (rangeResult.isAnomaly) {
+                result.isAnomaly = true;
+                result.confidence = Math.max(result.confidence, rangeResult.confidence);
+                result.anomalyType = rangeResult.anomalyType;
+                result.explanation = rangeResult.explanation;
+                result.suggestedAction = rangeResult.suggestedAction;
+            }
+
+            // 2. 统计异常检测 (Z-score)
+            const sameParamData = groupedData[record.parameter] || [];
+            if (sameParamData.length >= 3 && !result.isAnomaly) {
+                const zscoreResult = this._detectZScoreAnomaly(record, sameParamData, sensitivity);
+                if (zscoreResult.isAnomaly) {
+                    result.isAnomaly = true;
+                    result.confidence = Math.max(result.confidence, zscoreResult.confidence);
+                    result.anomalyType = zscoreResult.anomalyType;
+                    result.explanation = zscoreResult.explanation;
+                    result.suggestedAction = zscoreResult.suggestedAction;
+                }
+            }
+
+            // 3. IQR异常检测
+            if (sameParamData.length >= 4 && !result.isAnomaly) {
+                const iqrResult = this._detectIQRAnomaly(record, sameParamData, sensitivity);
+                if (iqrResult.isAnomaly) {
+                    result.isAnomaly = true;
+                    result.confidence = Math.max(result.confidence, iqrResult.confidence);
+                    result.anomalyType = iqrResult.anomalyType;
+                    result.explanation = iqrResult.explanation;
+                    result.suggestedAction = iqrResult.suggestedAction;
+                }
+            }
+
+            // 4. 趋势突变检测
+            if (sameParamData.length >= 5 && !result.isAnomaly) {
+                const trendResult = this._detectTrendBreak(record, sameParamData, sensitivity);
+                if (trendResult.isAnomaly) {
+                    result.isAnomaly = true;
+                    result.confidence = Math.max(result.confidence, trendResult.confidence);
+                    result.anomalyType = trendResult.anomalyType;
+                    result.explanation = trendResult.explanation;
+                    result.suggestedAction = trendResult.suggestedAction;
+                }
+            }
+
+            results.push(result);
+        });
+
+        return results;
+    }
+
+    /**
+     * 范围异常检测
+     * @private
+     */
+    _detectRangeAnomaly(record) {
+        const range = PARAMETER_REFERENCE_RANGES[record.parameter];
+        if (!range || typeof record.value !== 'number') {
+            return { isAnomaly: false };
+        }
+
+        if (record.value < range.min || record.value > range.max) {
+            const deviation = record.value < range.min 
+                ? (range.min - record.value) / range.min 
+                : (record.value - range.max) / range.max;
+            
+            return {
+                isAnomaly: true,
+                confidence: Math.min(0.95, 0.7 + deviation * 0.5),
+                anomalyType: 'outlier',
+                explanation: `${record.parameter}值(${record.value})超出参考范围(${range.min}-${range.max}${range.unit})`,
+                suggestedAction: deviation > 0.5 
+                    ? '建议重新采样或检查仪器校准' 
+                    : '建议核实数据或标记为异常值'
+            };
+        }
+
+        return { isAnomaly: false };
+    }
+
+    /**
+     * Z-score异常检测
+     * @private
+     */
+    _detectZScoreAnomaly(record, sameParamData, sensitivity) {
+        const values = sameParamData.map(d => d.value).filter(v => typeof v === 'number');
+        if (values.length < 3) return { isAnomaly: false };
+
+        const mean = values.reduce((a, b) => a + b, 0) / values.length;
+        const std = Math.sqrt(values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length);
+        
+        if (std === 0) return { isAnomaly: false };
+
+        const zscore = Math.abs((record.value - mean) / std);
+        const threshold = 3 - sensitivity; // 敏感度越高，阈值越低
+
+        if (zscore > threshold) {
+            return {
+                isAnomaly: true,
+                confidence: Math.min(0.95, 0.6 + (zscore - threshold) * 0.1),
+                anomalyType: 'outlier',
+                explanation: `${record.parameter}值(${record.value})的Z-score为${zscore.toFixed(2)}，超过${threshold.toFixed(1)}倍标准差`,
+                suggestedAction: '建议检查该数据点的采样或分析过程'
+            };
+        }
+
+        return { isAnomaly: false };
+    }
+
+    /**
+     * IQR异常检测
+     * @private
+     */
+    _detectIQRAnomaly(record, sameParamData, sensitivity) {
+        const values = sameParamData.map(d => d.value).filter(v => typeof v === 'number').sort((a, b) => a - b);
+        if (values.length < 4) return { isAnomaly: false };
+
+        const q1 = this._calculatePercentile(values, 25);
+        const q3 = this._calculatePercentile(values, 75);
+        const iqr = q3 - q1;
+        
+        if (iqr === 0) return { isAnomaly: false };
+
+        const multiplier = 1.5 + (1 - sensitivity); // 敏感度越高，multiplier越小
+        const lowerBound = q1 - multiplier * iqr;
+        const upperBound = q3 + multiplier * iqr;
+
+        if (record.value < lowerBound || record.value > upperBound) {
+            return {
+                isAnomaly: true,
+                confidence: 0.85,
+                anomalyType: 'outlier',
+                explanation: `${record.parameter}值(${record.value})超出IQR范围(${lowerBound.toFixed(2)}-${upperBound.toFixed(2)})`,
+                suggestedAction: '建议与相邻数据点进行比较分析'
+            };
+        }
+
+        return { isAnomaly: false };
+    }
+
+    /**
+     * 趋势突变检测
+     * @private
+     */
+    _detectTrendBreak(record, sameParamData, sensitivity) {
+        // 按时间排序
+        const sortedData = [...sameParamData].sort((a, b) => 
+            new Date(a.measurementDate).getTime() - new Date(b.measurementDate).getTime()
+        );
+        
+        const recordIndex = sortedData.findIndex(d => d.id === record.id);
+        if (recordIndex < 2) return { isAnomaly: false };
+
+        // 计算前几个点的移动平均
+        const windowSize = Math.min(3, recordIndex);
+        const prevValues = sortedData.slice(recordIndex - windowSize, recordIndex).map(d => d.value);
+        const movingAvg = prevValues.reduce((a, b) => a + b, 0) / prevValues.length;
+        const movingStd = Math.sqrt(prevValues.reduce((sum, v) => sum + Math.pow(v - movingAvg, 2), 0) / prevValues.length);
+
+        if (movingStd === 0) return { isAnomaly: false };
+
+        const deviation = Math.abs(record.value - movingAvg) / movingStd;
+        const threshold = 2.5 - sensitivity;
+
+        if (deviation > threshold) {
+            return {
+                isAnomaly: true,
+                confidence: Math.min(0.9, 0.5 + deviation * 0.1),
+                anomalyType: 'trend_break',
+                explanation: `${record.parameter}值(${record.value})与近期趋势(均值${movingAvg.toFixed(2)})偏差较大`,
+                suggestedAction: '建议检查是否存在环境变化或采样条件改变'
+            };
+        }
+
+        return { isAnomaly: false };
+    }
+
+    // ================= 趋势预测 =================
+
+    /**
+     * 预测数据趋势
+     * Requirements: 3.2 (extended)
+     * @param {TimeSeriesData[]} historicalData - 历史时间序列数据
+     * @param {number} periods - 预测周期数
+     * @returns {TrendPrediction} 趋势预测结果
+     */
+    predictTrend(historicalData, periods = 3) {
+        if (!historicalData || historicalData.length < 3) {
+            return {
+                parameter: '',
+                historicalData: [],
+                predictedValues: [],
+                confidence: 0,
+                trendDirection: 'stable',
+                seasonalPattern: null
+            };
+        }
+
+        // 按时间排序
+        const sortedData = [...historicalData].sort((a, b) => a.timestamp - b.timestamp);
+        const values = sortedData.map(d => d.value);
+        const timestamps = sortedData.map(d => d.timestamp);
+
+        // 计算线性回归
+        const regression = this._linearRegression(timestamps, values);
+        
+        // 判断趋势方向
+        const trendDirection = this._determineTrendDirection(regression.slope, values);
+        
+        // 计算置信度
+        const confidence = Math.min(0.95, Math.abs(regression.r2));
+
+        // 生成预测值
+        const predictedValues = [];
+        const lastTimestamp = timestamps[timestamps.length - 1];
+        const avgInterval = (lastTimestamp - timestamps[0]) / (timestamps.length - 1);
+        
+        // 计算残差标准差用于置信区间
+        const residuals = values.map((v, i) => v - (regression.slope * timestamps[i] + regression.intercept));
+        const residualStd = Math.sqrt(residuals.reduce((sum, r) => sum + r * r, 0) / residuals.length);
+
+        for (let i = 1; i <= periods; i++) {
+            const futureTimestamp = lastTimestamp + avgInterval * i;
+            const predictedValue = regression.slope * futureTimestamp + regression.intercept;
+            const marginOfError = 1.96 * residualStd * Math.sqrt(1 + 1/values.length);
+            
+            predictedValues.push({
+                timestamp: futureTimestamp,
+                value: predictedValue,
+                lowerBound: predictedValue - marginOfError,
+                upperBound: predictedValue + marginOfError,
+                confidence: Math.max(0.5, confidence - i * 0.1)
+            });
+        }
+
+        return {
+            parameter: sortedData[0].parameter || '',
+            historicalData: sortedData,
+            predictedValues,
+            confidence,
+            trendDirection,
+            seasonalPattern: this._detectSeasonalPattern(values)
+        };
+    }
+
+    /**
+     * 线性回归计算
+     * @private
+     */
+    _linearRegression(x, y) {
+        const n = x.length;
+        const sumX = x.reduce((a, b) => a + b, 0);
+        const sumY = y.reduce((a, b) => a + b, 0);
+        const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
+        const sumX2 = x.reduce((sum, xi) => sum + xi * xi, 0);
+        const sumY2 = y.reduce((sum, yi) => sum + yi * yi, 0);
+
+        const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+        const intercept = (sumY - slope * sumX) / n;
+
+        // 计算R²
+        const yMean = sumY / n;
+        const ssTotal = y.reduce((sum, yi) => sum + Math.pow(yi - yMean, 2), 0);
+        const ssResidual = y.reduce((sum, yi, i) => sum + Math.pow(yi - (slope * x[i] + intercept), 2), 0);
+        const r2 = ssTotal > 0 ? 1 - ssResidual / ssTotal : 0;
+
+        return { slope, intercept, r2 };
+    }
+
+    /**
+     * 判断趋势方向
+     * @private
+     */
+    _determineTrendDirection(slope, values) {
+        const mean = values.reduce((a, b) => a + b, 0) / values.length;
+        const relativeSlope = mean !== 0 ? Math.abs(slope / mean) : Math.abs(slope);
+
+        if (relativeSlope < 0.01) return 'stable';
+        if (slope > 0) return 'increasing';
+        return 'decreasing';
+    }
+
+    /**
+     * 检测季节性模式
+     * @private
+     */
+    _detectSeasonalPattern(values) {
+        if (values.length < 6) return null;
+
+        // 简单的周期性检测
+        const diffs = [];
+        for (let i = 1; i < values.length; i++) {
+            diffs.push(values[i] - values[i - 1]);
+        }
+
+        // 检查是否有交替的正负差值（可能的周期性）
+        let signChanges = 0;
+        for (let i = 1; i < diffs.length; i++) {
+            if (diffs[i] * diffs[i - 1] < 0) signChanges++;
+        }
+
+        const changeRatio = signChanges / (diffs.length - 1);
+        if (changeRatio > 0.6) {
+            return { type: 'oscillating', period: 2 };
+        }
+
+        return null;
+    }
+
+    // ================= 数据质量评估 =================
+
+    /**
+     * 评估数据质量
+     * Requirements: 2.2 (extended)
+     * @param {MonitoringDataRecord[]} data - 监测数据列表
+     * @returns {DataQualityAssessment} 数据质量评估结果
+     */
+    assessDataQuality(data) {
+        if (!data || data.length === 0) {
+            return {
+                overallScore: 0,
+                completeness: 0,
+                consistency: 0,
+                accuracy: 0,
+                timeliness: 0,
+                issues: [],
+                recommendations: ['没有数据可供评估']
+            };
+        }
+
+        const issues = [];
+        const recommendations = [];
+
+        // 1. 完整性评估
+        const completeness = this._assessCompleteness(data, issues);
+
+        // 2. 一致性评估
+        const consistency = this._assessConsistency(data, issues);
+
+        // 3. 准确性评估
+        const accuracy = this._assessAccuracy(data, issues);
+
+        // 4. 时效性评估
+        const timeliness = this._assessTimeliness(data, issues);
+
+        // 计算总分
+        const overallScore = Math.round(
+            completeness * 0.3 + 
+            consistency * 0.25 + 
+            accuracy * 0.3 + 
+            timeliness * 0.15
+        );
+
+        // 生成建议
+        if (completeness < 80) {
+            recommendations.push('建议补充缺失的必填字段数据');
+        }
+        if (consistency < 80) {
+            recommendations.push('建议检查数据格式和单位的一致性');
+        }
+        if (accuracy < 80) {
+            recommendations.push('建议复核超出参考范围的数据');
+        }
+        if (timeliness < 80) {
+            recommendations.push('建议及时录入最新的监测数据');
+        }
+
+        return {
+            overallScore,
+            completeness,
+            consistency,
+            accuracy,
+            timeliness,
+            issues,
+            recommendations
+        };
+    }
+
+    /**
+     * 评估数据完整性
+     * @private
+     */
+    _assessCompleteness(data, issues) {
+        const requiredFields = ['sampleId', 'parameter', 'value', 'measurementDate', 'analyst'];
+        let totalFields = data.length * requiredFields.length;
+        let filledFields = 0;
+
+        data.forEach(record => {
+            requiredFields.forEach(field => {
+                if (record[field] !== undefined && record[field] !== null && record[field] !== '') {
+                    filledFields++;
+                }
+            });
+        });
+
+        const completeness = Math.round((filledFields / totalFields) * 100);
+        
+        if (completeness < 100) {
+            issues.push({
+                type: 'completeness',
+                severity: completeness < 80 ? 'high' : 'medium',
+                description: `数据完整性为${completeness}%，存在缺失字段`
+            });
+        }
+
+        return completeness;
+    }
+
+    /**
+     * 评估数据一致性
+     * @private
+     */
+    _assessConsistency(data, issues) {
+        let consistencyScore = 100;
+        
+        // 检查单位一致性
+        const paramUnits = {};
+        data.forEach(record => {
+            if (!paramUnits[record.parameter]) {
+                paramUnits[record.parameter] = new Set();
+            }
+            if (record.unit) {
+                paramUnits[record.parameter].add(record.unit);
+            }
+        });
+
+        Object.entries(paramUnits).forEach(([param, units]) => {
+            if (units.size > 1) {
+                consistencyScore -= 10;
+                issues.push({
+                    type: 'consistency',
+                    severity: 'medium',
+                    description: `${param}存在多种单位：${[...units].join(', ')}`
+                });
+            }
+        });
+
+        // 检查日期格式一致性
+        const dateFormats = new Set();
+        data.forEach(record => {
+            if (record.measurementDate) {
+                const format = record.measurementDate.includes('/') ? 'slash' : 'dash';
+                dateFormats.add(format);
+            }
+        });
+
+        if (dateFormats.size > 1) {
+            consistencyScore -= 5;
+            issues.push({
+                type: 'consistency',
+                severity: 'low',
+                description: '日期格式不一致'
+            });
+        }
+
+        return Math.max(0, consistencyScore);
+    }
+
+    /**
+     * 评估数据准确性
+     * @private
+     */
+    _assessAccuracy(data, issues) {
+        let inRangeCount = 0;
+        let totalWithRange = 0;
+
+        data.forEach(record => {
+            const range = PARAMETER_REFERENCE_RANGES[record.parameter];
+            if (range && typeof record.value === 'number') {
+                totalWithRange++;
+                if (record.value >= range.min && record.value <= range.max) {
+                    inRangeCount++;
+                }
+            }
+        });
+
+        const accuracy = totalWithRange > 0 
+            ? Math.round((inRangeCount / totalWithRange) * 100) 
+            : 100;
+
+        if (accuracy < 100) {
+            const outOfRange = totalWithRange - inRangeCount;
+            issues.push({
+                type: 'accuracy',
+                severity: accuracy < 80 ? 'high' : 'medium',
+                description: `${outOfRange}条数据超出参考范围`
+            });
+        }
+
+        return accuracy;
+    }
+
+    /**
+     * 评估数据时效性
+     * @private
+     */
+    _assessTimeliness(data, issues) {
+        const now = Date.now();
+        const oneWeek = 7 * 24 * 60 * 60 * 1000;
+        const oneMonth = 30 * 24 * 60 * 60 * 1000;
+
+        let recentCount = 0;
+        data.forEach(record => {
+            const recordDate = new Date(record.measurementDate).getTime();
+            if (now - recordDate < oneWeek) {
+                recentCount++;
+            }
+        });
+
+        const timeliness = Math.round((recentCount / data.length) * 100);
+
+        if (timeliness < 50) {
+            issues.push({
+                type: 'timeliness',
+                severity: 'medium',
+                description: '大部分数据超过一周未更新'
+            });
+        }
+
+        return Math.min(100, timeliness + 30); // 给予基础分
+    }
+
+    // ================= 智能洞察生成 =================
+
+    /**
+     * 生成数据洞察
+     * Requirements: 3.2 (extended)
+     * @param {DataProcessingState} state - 数据处理状态
+     * @returns {Insight[]} 洞察列表
+     */
+    generateInsights(state) {
+        if (!state) return [];
+
+        const insights = [];
+        const data = state.monitoringData || [];
+
+        // 1. 数据量洞察
+        if (data.length > 0) {
+            insights.push({
+                id: `insight-count-${Date.now()}`,
+                type: 'info',
+                title: '数据概览',
+                description: `当前共有${data.length}条监测数据，涉及${[...new Set(data.map(d => d.parameter))].length}个监测项目`,
+                severity: 'info',
+                relatedDataIds: [],
+                suggestedActions: [],
+                confidence: 1
+            });
+        }
+
+        // 2. 异常数据洞察
+        const anomalies = this.detectAnomalies(data);
+        const anomalyCount = anomalies.filter(a => a.isAnomaly).length;
+        if (anomalyCount > 0) {
+            insights.push({
+                id: `insight-anomaly-${Date.now()}`,
+                type: 'anomaly',
+                title: '异常数据提醒',
+                description: `检测到${anomalyCount}条可能的异常数据，建议进行复核`,
+                severity: anomalyCount > data.length * 0.1 ? 'warning' : 'info',
+                relatedDataIds: anomalies.filter(a => a.isAnomaly).map(a => a.dataId),
+                suggestedActions: ['进入数据审核阶段检查异常值', '核实采样和分析过程'],
+                confidence: 0.85
+            });
+        }
+
+        // 3. 质量控制洞察
+        const qcResults = state.qcResults || [];
+        if (qcResults.length > 0) {
+            const failedQC = qcResults.filter(r => !r.passed);
+            if (failedQC.length > 0) {
+                insights.push({
+                    id: `insight-qc-${Date.now()}`,
+                    type: 'quality',
+                    title: '质控问题提醒',
+                    description: `${failedQC.length}项质控检查未通过，可能影响数据可靠性`,
+                    severity: 'warning',
+                    relatedDataIds: [],
+                    suggestedActions: failedQC.flatMap(r => r.suggestions || []),
+                    confidence: 0.9
+                });
+            }
+        }
+
+        // 4. 趋势洞察
+        const groupedData = this._groupByParameter(data);
+        Object.entries(groupedData).forEach(([param, paramData]) => {
+            if (paramData.length >= 5) {
+                const timeSeriesData = paramData.map(d => ({
+                    timestamp: new Date(d.measurementDate).getTime(),
+                    value: d.value,
+                    parameter: d.parameter
+                }));
+                const trend = this.predictTrend(timeSeriesData, 1);
+                
+                if (trend.trendDirection !== 'stable' && trend.confidence > 0.6) {
+                    insights.push({
+                        id: `insight-trend-${param}-${Date.now()}`,
+                        type: 'trend',
+                        title: `${param}趋势变化`,
+                        description: `${param}呈${trend.trendDirection === 'increasing' ? '上升' : '下降'}趋势，置信度${Math.round(trend.confidence * 100)}%`,
+                        severity: 'info',
+                        relatedDataIds: paramData.map(d => d.id),
+                        suggestedActions: ['持续监测该指标变化', '分析可能的影响因素'],
+                        confidence: trend.confidence
+                    });
+                }
+            }
+        });
+
+        // 5. 数据质量洞察
+        const qualityAssessment = this.assessDataQuality(data);
+        if (qualityAssessment.overallScore < 80) {
+            insights.push({
+                id: `insight-quality-${Date.now()}`,
+                type: 'quality',
+                title: '数据质量待提升',
+                description: `数据质量评分${qualityAssessment.overallScore}分，${qualityAssessment.recommendations[0] || '建议改进数据录入流程'}`,
+                severity: qualityAssessment.overallScore < 60 ? 'critical' : 'warning',
+                relatedDataIds: [],
+                suggestedActions: qualityAssessment.recommendations,
+                confidence: 0.9
+            });
+        }
+
+        return insights;
+    }
+
+    // ================= 辅助方法 =================
+
+    /**
+     * 按参数分组数据
+     * @private
+     */
+    _groupByParameter(data) {
+        const grouped = {};
+        data.forEach(record => {
+            if (!grouped[record.parameter]) {
+                grouped[record.parameter] = [];
+            }
+            grouped[record.parameter].push(record);
+        });
+        return grouped;
+    }
+
+    /**
+     * 计算百分位数
+     * @private
+     */
+    _calculatePercentile(sortedValues, percentile) {
+        if (!sortedValues || sortedValues.length === 0) return 0;
+        const index = (percentile / 100) * (sortedValues.length - 1);
+        const lower = Math.floor(index);
+        const upper = Math.ceil(index);
+        if (lower === upper) return sortedValues[lower];
+        return sortedValues[lower] + (sortedValues[upper] - sortedValues[lower]) * (index - lower);
+    }
+}
+
 // ================= 导出 =================
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -5385,6 +6086,7 @@ if (typeof module !== 'undefined' && module.exports) {
         DataProcessingSimulation,
         DataImportExport,
         DataVisualization,
+        AIAnalysisEngine,
         ProcessingPhase,
         PROCESSING_PHASE_ORDER,
         ProcessingPhaseNames,

@@ -954,35 +954,42 @@ class VirtualStationPlatform {
     }
 
     /**
-     * 初始化平台
+     * 初始化平台 - 优化版本，快速启动
      */
     async init() {
         if (this.initialized) return;
 
-        // 初始化Supabase连接
+        const startTime = performance.now();
+
+        // 初始化Supabase连接（同步，快速）
         this.supabase = this._initSupabase();
         
-        // 检查用户身份
+        // 检查用户身份（同步，快速）
         this.currentUser = this._checkUserAuth();
         
-        // 初始化各服务
+        // 初始化各服务（同步，快速）
         this.workstationService = new WorkstationService(this.supabase);
+        this.workstationService.dbTablesAvailable = this.dbTablesAvailable;
         this.taskFlowService = new TaskFlowService(this.supabase);
         this.processTracker = new ProcessTrackerService(this.supabase);
         this.careerService = new CareerService(this.supabase);
+        this.careerService.dbTablesAvailable = this.dbTablesAvailable;
         this.achievementService = new AchievementService(this.supabase);
         this.progressAutoSave = new ProgressAutoSaveService(this.supabase);
 
-        // 从本地存储恢复进度
+        // 从本地存储恢复进度（快速，本地操作）
         await this._restoreProgress();
 
-        // 如果有用户，启动自动保存服务
+        // 如果有用户，延迟启动自动保存服务（非阻塞）
         if (this.currentUser) {
-            this.progressAutoSave.start(this.currentUser.id);
+            setTimeout(() => {
+                this.progressAutoSave.start(this.currentUser.id);
+            }, 1000);
         }
 
         this.initialized = true;
-        console.log('✅ 虚拟工位平台初始化完成');
+        const initTime = Math.round(performance.now() - startTime);
+        console.log(`✅ 虚拟工位平台初始化完成 (${initTime}ms)`);
     }
 
     /**
@@ -1226,24 +1233,68 @@ class WorkstationService {
             return this._cache.workstations;
         }
 
-        // 如果数据库表不可用，使用预设数据
+        // 始终使用预设数据作为基础，确保最新的配置生效
+        const presetWorkstations = this._getPresetWorkstations();
+        
+        // 如果数据库表不可用，直接使用预设数据
         if (!this.supabase || !this.dbTablesAvailable) {
-            this._cache.workstations = this._getPresetWorkstations();
+            this._cache.workstations = presetWorkstations;
             this._cache.lastFetch = Date.now();
             return this._cache.workstations;
         }
 
-        const { data, error } = await this.supabase
-            .from('vs_workstations')
-            .select('*')
-            .eq('is_active', true)
-            .order('created_at', { ascending: true });
+        try {
+            // 设置超时，避免长时间等待数据库响应
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('timeout')), 3000)
+            );
+            
+            // 获取所有工位数据（不过滤is_active），以便合并
+            const fetchPromise = this.supabase
+                .from('vs_workstations')
+                .select('*')
+                .order('created_at', { ascending: true });
 
-        if (error) {
-            console.warn('获取工位列表失败，使用预设数据:', error);
-            this._cache.workstations = this._getPresetWorkstations();
-        } else {
-            this._cache.workstations = data || this._getPresetWorkstations();
+            const { data, error } = await Promise.race([fetchPromise, timeoutPromise])
+                .catch(() => ({ data: null, error: { message: 'timeout' } }));
+
+            if (error || !data || data.length === 0) {
+                console.warn('获取工位列表失败或为空，使用预设数据:', error);
+                this._cache.workstations = presetWorkstations;
+            } else {
+                // 合并数据库数据和预设数据，预设数据的isActive和linkUrl优先
+                const dbWorkstationsMap = new Map(data.map(w => [w.id, w]));
+                this._cache.workstations = presetWorkstations.map(preset => {
+                    const dbData = dbWorkstationsMap.get(preset.id);
+                    if (dbData) {
+                        // 合并：将数据库字段映射为驼峰命名，并使用预设的isActive和linkUrl
+                        return {
+                            id: dbData.id,
+                            name: dbData.name,
+                            description: dbData.description,
+                            icon: dbData.icon || preset.icon,
+                            color: dbData.color || preset.color,
+                            category: dbData.category,
+                            difficulty: dbData.difficulty,
+                            estimatedTime: dbData.estimated_time || preset.estimatedTime,
+                            requiredLevel: dbData.required_level || preset.requiredLevel,
+                            totalTasks: dbData.total_tasks || preset.totalTasks,
+                            xpReward: dbData.xp_reward || preset.xpReward,
+                            certificateId: dbData.certificate_id || preset.certificateId,
+                            // 关键：使用预设数据的isActive和linkUrl
+                            isActive: preset.isActive,
+                            linkUrl: preset.linkUrl,
+                            mode: preset.mode,
+                            createdAt: dbData.created_at ? new Date(dbData.created_at).getTime() : preset.createdAt,
+                            updatedAt: dbData.updated_at ? new Date(dbData.updated_at).getTime() : preset.updatedAt
+                        };
+                    }
+                    return preset;
+                }).filter(w => w.isActive); // 只返回激活的工位
+            }
+        } catch (e) {
+            console.warn('获取工位列表超时，使用预设数据');
+            this._cache.workstations = presetWorkstations;
         }
         
         this._cache.lastFetch = Date.now();
@@ -1481,24 +1532,73 @@ class WorkstationService {
     async getWorkstationListWithProgress(userId) {
         const workstations = await this.getWorkstationList();
         
-        const workstationsWithProgress = await Promise.all(
-            workstations.map(async (workstation) => {
-                const progress = await this.getWorkstationProgress(userId, workstation.id);
-                return {
-                    ...workstation,
-                    progress: {
-                        workstationId: workstation.id,
-                        userId: userId,
-                        progress: progress.progress || 0,
-                        completedTasks: progress.completed_tasks || progress.completedTasks || 0,
-                        totalTasks: progress.total_tasks || progress.totalTasks || workstation.totalTasks,
-                        status: this._calculateStatus(progress),
-                        lastAccessedAt: progress.lastAccessedAt || progress.last_accessed_at || null,
-                        totalStudyTime: progress.totalStudyTime || progress.total_study_time || 0
-                    }
-                };
-            })
-        );
+        // 优化：批量获取所有进度数据，避免多次数据库请求
+        let allProgress = {};
+        
+        // 首先尝试从本地存储批量获取进度
+        const localProgressKey = `vs_all_progress_${userId}`;
+        try {
+            const cached = localStorage.getItem(localProgressKey);
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                // 缓存有效期1分钟
+                if (parsed.timestamp && Date.now() - parsed.timestamp < 60000) {
+                    allProgress = parsed.data || {};
+                }
+            }
+        } catch (e) {
+            // 忽略解析错误
+        }
+        
+        // 如果没有缓存，尝试从数据库批量获取
+        if (Object.keys(allProgress).length === 0 && this.supabase && this.dbTablesAvailable) {
+            try {
+                // 设置超时，避免长时间等待
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('timeout')), 3000)
+                );
+                
+                const fetchPromise = this.supabase
+                    .from('vs_progress')
+                    .select('*')
+                    .eq('user_id', userId);
+                
+                const { data, error } = await Promise.race([fetchPromise, timeoutPromise])
+                    .catch(() => ({ data: null, error: { message: 'timeout' } }));
+                
+                if (!error && data) {
+                    data.forEach(p => {
+                        allProgress[p.workstation_id] = p;
+                    });
+                    // 缓存到本地
+                    localStorage.setItem(localProgressKey, JSON.stringify({
+                        timestamp: Date.now(),
+                        data: allProgress
+                    }));
+                }
+            } catch (e) {
+                // 数据库查询失败，使用本地存储
+                console.warn('批量获取进度失败，使用本地数据');
+            }
+        }
+        
+        // 合并工位和进度数据
+        const workstationsWithProgress = workstations.map(workstation => {
+            const progress = allProgress[workstation.id] || this._getLocalProgress(userId, workstation.id);
+            return {
+                ...workstation,
+                progress: {
+                    workstationId: workstation.id,
+                    userId: userId,
+                    progress: progress.progress || 0,
+                    completedTasks: progress.completed_tasks || progress.completedTasks || 0,
+                    totalTasks: progress.total_tasks || progress.totalTasks || workstation.totalTasks,
+                    status: this._calculateStatus(progress),
+                    lastAccessedAt: progress.lastAccessedAt || progress.last_accessed_at || null,
+                    totalStudyTime: progress.totalStudyTime || progress.total_study_time || 0
+                }
+            };
+        });
 
         return workstationsWithProgress;
     }
@@ -5111,13 +5211,20 @@ class CareerService {
             return this._getOrCreateLocalProfile(userId);
         }
         
-        // 尝试从数据库获取
+        // 尝试从数据库获取，设置超时避免长时间等待
         try {
-            const { data, error } = await this.supabase
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('timeout')), 2000)
+            );
+            
+            const fetchPromise = this.supabase
                 .from('vs_career_profiles')
                 .select('*')
                 .eq('user_id', userId)
                 .single();
+
+            const { data, error } = await Promise.race([fetchPromise, timeoutPromise])
+                .catch(() => ({ data: null, error: { message: 'timeout' } }));
 
             if (!error && data) {
                 return this._enrichProfile(data);
