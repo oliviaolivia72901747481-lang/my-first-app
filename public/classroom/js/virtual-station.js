@@ -5221,7 +5221,7 @@ class CareerService {
                 .from('vs_career_profiles')
                 .select('*')
                 .eq('user_id', userId)
-                .single();
+                .maybeSingle();  // 使用maybeSingle避免在没有记录时返回406错误
 
             const { data, error } = await Promise.race([fetchPromise, timeoutPromise])
                 .catch(() => ({ data: null, error: { message: 'timeout' } }));
@@ -5544,29 +5544,43 @@ class CareerService {
 
     /**
      * 丰富档案数据，添加计算字段
-     * @param {Object} profile 原始档案数据
+     * @param {Object} profile 原始档案数据（可能是snake_case或camelCase）
      * @returns {CareerProfile} 丰富后的档案数据
      */
     _enrichProfile(profile) {
-        const levelConfig = LEVEL_CONFIG.find(c => c.level === profile.level) || LEVEL_CONFIG[0];
-        const nextLevelConfig = LEVEL_CONFIG.find(c => c.level === profile.level + 1);
+        // 统一字段名格式（支持snake_case和camelCase）
+        const normalizedProfile = {
+            user_id: profile.user_id || profile.userId,
+            level: profile.level || 1,
+            currentXP: profile.currentXP ?? profile.current_xp ?? 0,
+            totalXP: profile.totalXP ?? profile.total_xp ?? 0,
+            completedWorkstations: profile.completedWorkstations ?? profile.completed_workstations ?? 0,
+            completedTasks: profile.completedTasks ?? profile.completed_tasks ?? 0,
+            totalStudyTime: profile.totalStudyTime ?? profile.total_study_time ?? 0,
+            achievementCount: profile.achievementCount ?? profile.achievement_count ?? 0,
+            certificateCount: profile.certificateCount ?? profile.certificate_count ?? 0,
+            streakDays: profile.streakDays ?? profile.streak_days ?? 0
+        };
+        
+        const levelConfig = LEVEL_CONFIG.find(c => c.level === normalizedProfile.level) || LEVEL_CONFIG[0];
+        const nextLevelConfig = LEVEL_CONFIG.find(c => c.level === normalizedProfile.level + 1);
         const currentLevelXP = levelConfig ? levelConfig.xpRequired : 0;
         const nextLevelXP = nextLevelConfig ? nextLevelConfig.xpRequired : currentLevelXP;
         
         // 计算当前等级内的经验值
-        const xpInCurrentLevel = profile.totalXP - currentLevelXP;
+        const xpInCurrentLevel = normalizedProfile.totalXP - currentLevelXP;
         const xpNeededForLevel = nextLevelXP - currentLevelXP;
         const progressPercent = xpNeededForLevel > 0 
             ? Math.min(100, Math.round((xpInCurrentLevel / xpNeededForLevel) * 100))
             : 100;
 
         return {
-            ...profile,
+            ...normalizedProfile,
             levelTitle: levelConfig.title,
             levelTitleCN: levelConfig.titleCN,
             levelIcon: levelConfig.icon,
             xpToNextLevel: nextLevelConfig 
-                ? nextLevelXP - profile.totalXP 
+                ? nextLevelXP - normalizedProfile.totalXP 
                 : 0,
             xpInCurrentLevel: xpInCurrentLevel,
             xpNeededForLevel: xpNeededForLevel,
@@ -5616,11 +5630,26 @@ class CareerService {
         // 同步到数据库（仅当表可用时）
         if (this.supabase && this.dbTablesAvailable) {
             try {
+                // 转换为数据库字段格式（snake_case）
+                const dbProfile = {
+                    user_id: userId,
+                    level: profile.level || 1,
+                    current_xp: profile.currentXP || 0,
+                    total_xp: profile.totalXP || 0,
+                    completed_workstations: profile.completedWorkstations || 0,
+                    completed_tasks: profile.completedTasks || 0,
+                    total_study_time: profile.totalStudyTime || 0,
+                    achievement_count: profile.achievementCount || 0,
+                    certificate_count: profile.certificateCount || 0,
+                    streak_days: profile.streakDays || 0
+                };
+                
                 await this.supabase
                     .from('vs_career_profiles')
-                    .upsert(profile, { onConflict: 'user_id' });
+                    .upsert(dbProfile, { onConflict: 'user_id' });
             } catch (e) {
                 // 忽略数据库错误，本地存储已保存
+                console.warn('保存职业档案到数据库失败:', e.message);
             }
         }
     }
